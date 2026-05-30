@@ -34,8 +34,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
+    private static final int REQUEST_EXPORT_BACKUP = 4101;
+    private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final int BG = Color.rgb(245, 246, 241);
     private static final int PANEL = Color.WHITE;
@@ -132,9 +139,24 @@ public final class MainActivity extends Activity {
         root.addView(allocationCard());
         root.addView(trendCard());
         root.addView(insightCard());
+        root.addView(backupCard());
         root.addView(assetManagementSection());
 
         setContentView(scrollView);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+
+        if (requestCode == REQUEST_EXPORT_BACKUP) {
+            writeBackup(data.getData());
+        } else if (requestCode == REQUEST_IMPORT_BACKUP) {
+            readBackup(data.getData());
+        }
     }
 
     private void render() {
@@ -259,6 +281,29 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(10);
         card.addView(insightSummary, params);
+        return card;
+    }
+
+    private View backupCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("数据备份"));
+
+        TextView description = text("导出会保存资产、App 绑定、更新时间和趋势快照；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.topMargin = dp(8);
+        descriptionParams.bottomMargin = dp(12);
+        card.addView(description, descriptionParams);
+
+        LinearLayout actions = row();
+        Button exportButton = secondaryButton("导出备份");
+        exportButton.setOnClickListener(view -> startBackupExport());
+        actions.addView(exportButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        actions.addView(new SpaceView(this, dp(10), 1));
+
+        Button importButton = secondaryButton("导入备份");
+        importButton.setOnClickListener(view -> startBackupImport());
+        actions.addView(importButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        card.addView(actions);
         return card;
     }
 
@@ -723,6 +768,86 @@ public final class MainActivity extends Activity {
         toast("已更新「" + asset.name + "」。");
     }
 
+    private void startBackupExport() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "money-manager-backup-" + backupDate() + ".json");
+        try {
+            startActivityForResult(intent, REQUEST_EXPORT_BACKUP);
+        } catch (ActivityNotFoundException error) {
+            toast("没有找到可保存文件的应用。");
+        }
+    }
+
+    private void startBackupImport() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        try {
+            startActivityForResult(intent, REQUEST_IMPORT_BACKUP);
+        } catch (ActivityNotFoundException error) {
+            toast("没有找到可选择文件的应用。");
+        }
+    }
+
+    private void writeBackup(Uri uri) {
+        try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+            if (output == null) {
+                toast("无法写入备份文件。");
+                return;
+            }
+            String raw = store.exportJson(assets, snapshots);
+            output.write(raw.getBytes(StandardCharsets.UTF_8));
+            toast("备份已导出。");
+        } catch (Exception error) {
+            toast("导出失败，请重试。");
+        }
+    }
+
+    private void readBackup(Uri uri) {
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) {
+                toast("无法读取备份文件。");
+                return;
+            }
+            String raw = readUtf8(input);
+            AssetBackup backup = store.parseBackup(raw);
+            confirmImportBackup(backup);
+        } catch (Exception error) {
+            toast("导入失败，请确认文件是 Money Manager 备份。");
+        }
+    }
+
+    private void confirmImportBackup(AssetBackup backup) {
+        new AlertDialog.Builder(this)
+                .setTitle("导入备份？")
+                .setMessage("将导入 " + backup.assets.size() + " 项资产和 "
+                        + backup.snapshots.size() + " 个趋势快照，并覆盖当前本机数据。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("导入", (dialog, which) -> {
+                    store.replaceAll(backup);
+                    assets = store.load();
+                    snapshots = store.loadSnapshots();
+                    if (snapshots.isEmpty()) {
+                        snapshots = store.recordSnapshot(assets);
+                    }
+                    render();
+                    toast("备份已导入。");
+                })
+                .show();
+    }
+
+    private String readUtf8(InputStream input) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+        return output.toString(StandardCharsets.UTF_8.name());
+    }
+
     private AssetRecord findAsset(String id) {
         for (AssetRecord asset : assets) {
             if (asset.id.equals(id)) {
@@ -803,6 +928,10 @@ public final class MainActivity extends Activity {
             builder.append(lines.get(index));
         }
         return builder.toString();
+    }
+
+    private String backupDate() {
+        return new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
     }
 
     private EditText input(String label, String value, int inputType) {

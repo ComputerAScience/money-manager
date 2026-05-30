@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -100,6 +101,53 @@ final class AssetStore {
         snapshots = pruneAndSort(snapshots);
         saveSnapshots(snapshots);
         return snapshots;
+    }
+
+    String exportJson(List<AssetRecord> assets, List<AssetSnapshot> snapshots) throws JSONException {
+        JSONObject root = new JSONObject();
+        root.put("app", "money-manager-android");
+        root.put("version", 1);
+        root.put("exportedAt", System.currentTimeMillis());
+
+        JSONArray assetArray = new JSONArray();
+        for (AssetRecord asset : assets) {
+            assetArray.put(asset.toJson());
+        }
+        root.put("assets", assetArray);
+
+        JSONArray snapshotArray = new JSONArray();
+        for (AssetSnapshot snapshot : snapshots) {
+            snapshotArray.put(snapshot.toJson());
+        }
+        root.put("snapshots", snapshotArray);
+        return root.toString(2);
+    }
+
+    AssetBackup parseBackup(String raw) throws JSONException {
+        JSONObject root = new JSONObject(raw);
+        JSONArray assetArray = root.optJSONArray("assets");
+        if (assetArray == null) {
+            throw new JSONException("Missing assets");
+        }
+
+        List<AssetRecord> importedAssets = new ArrayList<>();
+        for (int index = 0; index < assetArray.length(); index += 1) {
+            importedAssets.add(AssetRecord.fromJson(assetArray.getJSONObject(index)));
+        }
+
+        List<AssetSnapshot> importedSnapshots = new ArrayList<>();
+        JSONArray snapshotArray = root.optJSONArray("snapshots");
+        if (snapshotArray != null) {
+            for (int index = 0; index < snapshotArray.length(); index += 1) {
+                importedSnapshots.add(AssetSnapshot.fromJson(snapshotArray.getJSONObject(index)));
+            }
+        }
+        return new AssetBackup(importedAssets, pruneAndSort(importedSnapshots));
+    }
+
+    void replaceAll(AssetBackup backup) {
+        save(backup.assets);
+        saveSnapshots(pruneAndSort(backup.snapshots));
     }
 
     private void saveSnapshots(List<AssetSnapshot> snapshots) {
