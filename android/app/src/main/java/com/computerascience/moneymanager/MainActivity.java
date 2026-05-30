@@ -70,11 +70,9 @@ public final class MainActivity extends Activity {
     private static final int DANGER = Color.rgb(183, 73, 85);
     private static final int AMBER = Color.rgb(154, 119, 32);
     private static final String PAGE_OVERVIEW = "overview";
-    private static final String PAGE_DISTRIBUTION = "distribution";
     private static final String PAGE_TREND = "trend";
     private static final String PAGE_ASSETS = "assets";
     private static final String PAGE_UPDATES = "updates";
-    private static final String PAGE_SETTINGS = "settings";
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     private AssetStore store;
@@ -86,19 +84,13 @@ public final class MainActivity extends Activity {
     private TextView pageTitle;
     private TextView pageSubtitle;
     private LinearLayout overviewPage;
-    private LinearLayout distributionPage;
     private LinearLayout trendPage;
     private LinearLayout assetsPage;
     private LinearLayout updatesPage;
-    private LinearLayout settingsPage;
-    private LinearLayout morePage;
     private Button overviewTab;
     private Button trendTab;
     private Button assetsTab;
     private Button updatesTab;
-    private Button settingsTab;
-    private Button moreDistributionTab;
-    private Button moreSettingsTab;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -120,6 +112,8 @@ public final class MainActivity extends Activity {
     private TextView trendSummary;
     private LinearLayout trendMetricsList;
     private LinearLayout trendHistoryList;
+    private TextView distributionTrendSummary;
+    private LinearLayout distributionTrendList;
     private TextView insightSummary;
     private TextView dataHealthSummary;
     private LinearLayout dataHealthList;
@@ -137,7 +131,6 @@ public final class MainActivity extends Activity {
     private String assetSearchQuery = "";
     private String assetFilterMode = "all";
     private String currentPage = PAGE_OVERVIEW;
-    private String currentMoreSection = PAGE_DISTRIBUTION;
     private boolean suppressAssetTrendSelection;
     private String selectedTrendAssetId = "";
     private Spinner assetTrendSpinner;
@@ -195,6 +188,7 @@ public final class MainActivity extends Activity {
         header.setBackgroundColor(BG);
 
         LinearLayout brand = row();
+        brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView mark = text("M", 13, Color.WHITE, Typeface.BOLD);
         mark.setGravity(Gravity.CENTER);
         mark.setIncludeFontPadding(false);
@@ -205,6 +199,15 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
         eyebrowParams.leftMargin = dp(10);
         brand.addView(eyebrow, eyebrowParams);
+
+        View brandSpacer = new View(this);
+        brand.addView(brandSpacer, new LinearLayout.LayoutParams(0, 1, 1));
+
+        Button settingsButton = secondaryButton("⚙");
+        settingsButton.setTextSize(19);
+        settingsButton.setContentDescription("设置");
+        settingsButton.setOnClickListener(view -> showSettingsMenu());
+        brand.addView(settingsButton, new LinearLayout.LayoutParams(dp(42), dp(36)));
         header.addView(brand);
 
         pageTitle = text("", 26, INK, Typeface.BOLD);
@@ -235,6 +238,9 @@ public final class MainActivity extends Activity {
 
         overviewPage = page();
         overviewPage.addView(overviewCard());
+        overviewPage.addView(allocationCard());
+        overviewPage.addView(allocationTargetCard());
+        overviewPage.addView(institutionCard());
         overviewPage.addView(netWorthGoalCard());
         overviewPage.addView(insightCard());
         overviewPage.addView(dataHealthCard());
@@ -242,6 +248,7 @@ public final class MainActivity extends Activity {
 
         trendPage = page();
         trendPage.addView(trendCard());
+        trendPage.addView(distributionTrendCard());
         trendPage.addView(assetTrendCard());
         root.addView(trendPage);
 
@@ -254,34 +261,31 @@ public final class MainActivity extends Activity {
         updatesPage.addView(recentUpdatesCard());
         root.addView(updatesPage);
 
-        morePage = page();
-        morePage.addView(moreSection());
-        root.addView(morePage);
-
         screen.addView(scrollView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1
         ));
 
+        LinearLayout bottomShell = new LinearLayout(this);
+        bottomShell.setOrientation(LinearLayout.VERTICAL);
+        bottomShell.setPadding(dp(12), dp(8), dp(12), navigationBarHeight() + dp(8));
+        bottomShell.setBackgroundColor(BG);
+
         LinearLayout bottomNav = row();
-        bottomNav.setPadding(dp(12), dp(8), dp(12), navigationBarHeight() + dp(8));
-        bottomNav.setBackgroundColor(BG);
+        bottomNav.setPadding(dp(4), dp(4), dp(4), dp(4));
+        bottomNav.setBackground(cardBackground(Color.WHITE, LINE));
+        bottomNav.setElevation(dp(2));
         overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
         trendTab = bottomTabButton("趋势", PAGE_TREND);
         assetsTab = bottomTabButton("资产", PAGE_ASSETS);
         updatesTab = bottomTabButton("更新", PAGE_UPDATES);
-        settingsTab = bottomTabButton("更多", PAGE_SETTINGS);
         bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(new SpaceView(this, dp(8), 1));
         bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(new SpaceView(this, dp(8), 1));
         bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(new SpaceView(this, dp(8), 1));
         bottomNav.addView(updatesTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(new SpaceView(this, dp(8), 1));
-        bottomNav.addView(settingsTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        screen.addView(bottomNav, lp(-1, -2));
+        bottomShell.addView(bottomNav, lp(-1, dp(56)));
+        screen.addView(bottomShell, lp(-1, -2));
         setContentView(screen);
         updatePageVisibility();
     }
@@ -310,50 +314,6 @@ public final class MainActivity extends Activity {
         return button;
     }
 
-    private View moreSection() {
-        LinearLayout shell = new LinearLayout(this);
-        shell.setOrientation(LinearLayout.HORIZONTAL);
-        shell.setGravity(Gravity.TOP);
-
-        LinearLayout side = new LinearLayout(this);
-        side.setOrientation(LinearLayout.VERTICAL);
-        side.setPadding(0, 0, dp(10), 0);
-        moreDistributionTab = tabButton("分布", PAGE_DISTRIBUTION);
-        moreDistributionTab.setOnClickListener(view -> selectMoreSection(PAGE_DISTRIBUTION));
-        moreSettingsTab = tabButton("设置", PAGE_SETTINGS);
-        moreSettingsTab.setOnClickListener(view -> selectMoreSection(PAGE_SETTINGS));
-        side.addView(moreDistributionTab, new LinearLayout.LayoutParams(dp(76), dp(42)));
-        LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(dp(76), dp(42));
-        settingsParams.topMargin = dp(8);
-        side.addView(moreSettingsTab, settingsParams);
-        shell.addView(side, new LinearLayout.LayoutParams(dp(86), -2));
-
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        shell.addView(content, new LinearLayout.LayoutParams(0, -2, 1));
-
-        distributionPage = page();
-        distributionPage.addView(allocationCard());
-        distributionPage.addView(allocationTargetCard());
-        distributionPage.addView(institutionCard());
-        content.addView(distributionPage);
-
-        settingsPage = page();
-        settingsPage.addView(currencyCard());
-        settingsPage.addView(backupCard());
-        content.addView(settingsPage);
-        return shell;
-    }
-
-    private void selectMoreSection(String section) {
-        currentPage = PAGE_SETTINGS;
-        currentMoreSection = section;
-        updatePageVisibility();
-        if (mainScrollView != null) {
-            mainScrollView.post(() -> mainScrollView.smoothScrollTo(0, 0));
-        }
-    }
-
     private void selectPage(String page) {
         if (currentPage.equals(page)) {
             return;
@@ -370,17 +330,11 @@ public final class MainActivity extends Activity {
         setPageVisible(trendPage, PAGE_TREND.equals(currentPage));
         setPageVisible(assetsPage, PAGE_ASSETS.equals(currentPage));
         setPageVisible(updatesPage, PAGE_UPDATES.equals(currentPage));
-        setPageVisible(morePage, PAGE_SETTINGS.equals(currentPage));
-        setPageVisible(distributionPage, PAGE_DISTRIBUTION.equals(currentMoreSection));
-        setPageVisible(settingsPage, PAGE_SETTINGS.equals(currentMoreSection));
 
         styleTab(overviewTab, PAGE_OVERVIEW.equals(currentPage));
         styleTab(trendTab, PAGE_TREND.equals(currentPage));
         styleTab(assetsTab, PAGE_ASSETS.equals(currentPage));
         styleTab(updatesTab, PAGE_UPDATES.equals(currentPage));
-        styleTab(settingsTab, PAGE_SETTINGS.equals(currentPage));
-        styleTab(moreDistributionTab, PAGE_DISTRIBUTION.equals(currentMoreSection));
-        styleTab(moreSettingsTab, PAGE_SETTINGS.equals(currentMoreSection));
 
         if (pageTitle != null) {
             pageTitle.setText(pageTitleText());
@@ -402,9 +356,9 @@ public final class MainActivity extends Activity {
         }
         button.setTextColor(active ? Color.WHITE : INK);
         button.setBackground(buttonBackground(
-                active ? ACCENT : Color.WHITE,
+                active ? ACCENT : Color.TRANSPARENT,
                 active ? ACCENT_DARK : SURFACE_ALT,
-                active ? ACCENT_DARK : LINE
+                active ? ACCENT_DARK : Color.TRANSPARENT
         ));
     }
 
@@ -418,15 +372,12 @@ public final class MainActivity extends Activity {
         if (PAGE_UPDATES.equals(currentPage)) {
             return "更新";
         }
-        if (PAGE_SETTINGS.equals(currentPage)) {
-            return PAGE_DISTRIBUTION.equals(currentMoreSection) ? "更多 · 分布" : "更多 · 设置";
-        }
         return "总览";
     }
 
     private String pageSubtitleText() {
         if (PAGE_TREND.equals(currentPage)) {
-            return "记录总资产快照，也能查看每项资产的变化。";
+            return "记录总资产快照，查看总额、分布和单项资产变化。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
             return "新增、筛选、绑定和核对每一项资产。";
@@ -434,12 +385,7 @@ public final class MainActivity extends Activity {
         if (PAGE_UPDATES.equals(currentPage)) {
             return "按更新周期处理待核对资产，回看最近变化。";
         }
-        if (PAGE_SETTINGS.equals(currentPage)) {
-            return PAGE_DISTRIBUTION.equals(currentMoreSection)
-                    ? "查看类型比例、目标比例和资金所在机构。"
-                    : "维护基准币种、手动汇率和本地备份。";
-        }
-        return "先看净资产、年度目标和需要处理的提醒。";
+        return "净资产、资产分布、年度目标和需要处理的提醒。";
     }
 
     @Override
@@ -466,7 +412,9 @@ public final class MainActivity extends Activity {
         privacyToggle.setText(settings.hideAmounts ? "显示金额" : "隐藏金额");
         currencyNote.setText(currencyNoteText(portfolio));
         netWorthGoalSummary.setText(netWorthGoalText(portfolio));
-        currencySettingsSummary.setText(currencySettingsText());
+        if (currencySettingsSummary != null) {
+            currencySettingsSummary.setText(currencySettingsText());
+        }
 
         allocationChart.setCategories(portfolio.categories);
         renderAllocationLegend(portfolio);
@@ -478,6 +426,7 @@ public final class MainActivity extends Activity {
         trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
         renderTrendMetrics(portfolio, trendSnapshots);
         renderTrendHistory(trendSnapshots);
+        renderDistributionTrend(trendSnapshots);
         renderAssetTrend();
 
         insightSummary.setText(buildInsightText(portfolio));
@@ -808,6 +757,22 @@ public final class MainActivity extends Activity {
         return card;
     }
 
+    private View distributionTrendCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("分布变化"));
+
+        distributionTrendSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(distributionTrendSummary, summaryParams);
+
+        distributionTrendList = new LinearLayout(this);
+        distributionTrendList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(distributionTrendList, lp(-1, -2));
+        return card;
+    }
+
     private View assetTrendCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("单项资产趋势"));
@@ -932,6 +897,56 @@ public final class MainActivity extends Activity {
         actions.addView(importButton, new LinearLayout.LayoutParams(0, dp(44), 1));
         card.addView(actions);
         return card;
+    }
+
+    private void showSettingsMenu() {
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        body.setPadding(pad, dp(8), pad, 0);
+
+        TextView currencySummary = text(currencySettingsText(), 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.bottomMargin = dp(12);
+        body.addView(currencySummary, summaryParams);
+
+        Button currencyButton = secondaryButton("基准币种与汇率");
+        body.addView(currencyButton, lp(-1, dp(44)));
+
+        TextView backupDescription = text("备份会包含资产、App 绑定、更新时间、趋势快照、更新记录、汇率、年度目标和目标比例。", 13, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.topMargin = dp(14);
+        descriptionParams.bottomMargin = dp(10);
+        body.addView(backupDescription, descriptionParams);
+
+        LinearLayout actions = row();
+        Button exportButton = secondaryButton("导出备份");
+        actions.addView(exportButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        actions.addView(new SpaceView(this, dp(10), 1));
+
+        Button importButton = secondaryButton("导入备份");
+        actions.addView(importButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        body.addView(actions);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("设置")
+                .setView(body)
+                .setNegativeButton("关闭", null)
+                .create();
+
+        currencyButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            showCurrencySettingsDialog();
+        });
+        exportButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            startBackupExport();
+        });
+        importButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            startBackupImport();
+        });
+        dialog.show();
     }
 
     private View assetManagementSection() {
@@ -1902,6 +1917,141 @@ public final class MainActivity extends Activity {
             AssetSnapshot snapshot = trendSnapshots.get(index);
             trendHistoryList.addView(snapshotRow(snapshot));
         }
+    }
+
+    private void renderDistributionTrend(List<AssetSnapshot> trendSnapshots) {
+        distributionTrendList.removeAllViews();
+        List<AssetSnapshot> available = snapshotsWithCategoryValues(trendSnapshots);
+        if (available.size() < 2) {
+            int count = available.size();
+            distributionTrendSummary.setText("已记录 " + count + " 个带分布的快照；从这版开始，每次更新或记录快照都会保存类型分布。");
+            TextView empty = text("再记录一次快照后，这里会显示各资产类型金额和占比的变化。", 14, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
+            emptyParams.topMargin = dp(8);
+            distributionTrendList.addView(empty, emptyParams);
+            return;
+        }
+
+        AssetSnapshot first = available.get(0);
+        AssetSnapshot last = available.get(available.size() - 1);
+        List<CategoryShift> shifts = categoryShifts(first, last);
+        if (shifts.isEmpty()) {
+            distributionTrendSummary.setText("已记录 " + available.size() + " 个带分布的快照，但暂时没有可对比的类型金额。");
+            distributionTrendList.addView(text("继续更新资产金额后再查看分布变化。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        distributionTrendSummary.setText(distributionTrendSummaryText(first, last, shifts, available.size()));
+        int limit = Math.min(6, shifts.size());
+        for (int index = 0; index < limit; index += 1) {
+            distributionTrendList.addView(categoryShiftRow(shifts.get(index), last.baseCurrency));
+        }
+    }
+
+    private List<AssetSnapshot> snapshotsWithCategoryValues(List<AssetSnapshot> trendSnapshots) {
+        List<AssetSnapshot> available = new ArrayList<>();
+        for (AssetSnapshot snapshot : trendSnapshots) {
+            if (!snapshot.categoryValues.isEmpty()) {
+                available.add(snapshot);
+            }
+        }
+        return available;
+    }
+
+    private List<CategoryShift> categoryShifts(AssetSnapshot first, AssetSnapshot last) {
+        Set<String> categories = new HashSet<>();
+        categories.addAll(first.categoryValues.keySet());
+        categories.addAll(last.categoryValues.keySet());
+
+        double firstTotal = categoryTotal(first);
+        double lastTotal = categoryTotal(last);
+        List<CategoryShift> shifts = new ArrayList<>();
+        for (String category : categories) {
+            double firstValue = categoryValue(first, category);
+            double lastValue = categoryValue(last, category);
+            double firstPercent = firstTotal <= 0 ? 0 : firstValue / firstTotal * 100;
+            double lastPercent = lastTotal <= 0 ? 0 : lastValue / lastTotal * 100;
+            shifts.add(new CategoryShift(
+                    category,
+                    firstValue,
+                    lastValue,
+                    lastValue - firstValue,
+                    firstPercent,
+                    lastPercent,
+                    lastPercent - firstPercent
+            ));
+        }
+        Collections.sort(shifts, (left, right) -> Double.compare(
+                Math.abs(right.delta) + Math.abs(right.percentDelta),
+                Math.abs(left.delta) + Math.abs(left.percentDelta)
+        ));
+        return shifts;
+    }
+
+    private String distributionTrendSummaryText(
+            AssetSnapshot first,
+            AssetSnapshot last,
+            List<CategoryShift> shifts,
+            int count
+    ) {
+        CategoryShift biggest = shifts.get(0);
+        if (settings.hideAmounts) {
+            return "已记录 " + count + " 个带分布快照，范围 "
+                    + first.dayKey + " 到 " + last.dayKey + "；金额已隐藏。";
+        }
+        return "从 " + first.dayKey + " 到 " + last.dayKey
+                + "，变化最大的是 " + biggest.category + "："
+                + formatSignedMoney(biggest.delta, last.baseCurrency)
+                + "，占比 " + formatPoint(biggest.percentDelta) + "。";
+    }
+
+    private View categoryShiftRow(CategoryShift shift, String currency) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        header.addView(text(shift.category, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView change = text(formatPoint(shift.percentDelta), 12,
+                shift.percentDelta >= 0 ? ACCENT : DANGER,
+                Typeface.BOLD);
+        change.setGravity(Gravity.END);
+        header.addView(change);
+        row.addView(header);
+
+        String detail;
+        if (settings.hideAmounts) {
+            detail = "占比 " + formatPercentValue(shift.firstPercent)
+                    + " -> " + formatPercentValue(shift.lastPercent)
+                    + "，金额已隐藏。";
+        } else {
+            detail = formatMoney(shift.firstValue, currency)
+                    + " -> " + formatMoney(shift.lastValue, currency)
+                    + "，变化 " + formatSignedMoney(shift.delta, currency)
+                    + "；占比 " + formatPercentValue(shift.firstPercent)
+                    + " -> " + formatPercentValue(shift.lastPercent) + "。";
+        }
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(6);
+        row.addView(text(detail, 13, MUTED, Typeface.NORMAL), detailParams);
+        return row;
+    }
+
+    private double categoryTotal(AssetSnapshot snapshot) {
+        double total = 0;
+        for (double value : snapshot.categoryValues.values()) {
+            total += value;
+        }
+        return total;
+    }
+
+    private double categoryValue(AssetSnapshot snapshot, String category) {
+        Double value = snapshot.categoryValues.get(category);
+        return value == null ? 0 : value;
     }
 
     private void renderAssetTrend() {
@@ -3691,6 +3841,34 @@ public final class MainActivity extends Activity {
             this.high = high;
             this.low = low;
             this.change = change;
+        }
+    }
+
+    private static final class CategoryShift {
+        final String category;
+        final double firstValue;
+        final double lastValue;
+        final double delta;
+        final double firstPercent;
+        final double lastPercent;
+        final double percentDelta;
+
+        CategoryShift(
+                String category,
+                double firstValue,
+                double lastValue,
+                double delta,
+                double firstPercent,
+                double lastPercent,
+                double percentDelta
+        ) {
+            this.category = category;
+            this.firstValue = firstValue;
+            this.lastValue = lastValue;
+            this.delta = delta;
+            this.firstPercent = firstPercent;
+            this.lastPercent = lastPercent;
+            this.percentDelta = percentDelta;
         }
     }
 

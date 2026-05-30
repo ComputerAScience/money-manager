@@ -11,8 +11,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 final class AssetStore {
     private static final String PREFS = "money_manager_assets";
@@ -126,7 +128,8 @@ final class AssetStore {
                 summary.baseCurrency,
                 summary.netWorth,
                 summary.grossAssets,
-                summary.liabilities
+                summary.liabilities,
+                categoryValues(summary)
         );
 
         boolean replaced = false;
@@ -302,6 +305,16 @@ final class AssetStore {
             }
         }
         preferences.edit().putString(KEY_UPDATE_EVENTS, array.toString()).apply();
+    }
+
+    private Map<String, Double> categoryValues(PortfolioSummary summary) {
+        Map<String, Double> values = new HashMap<>();
+        for (CategoryBreakdown category : summary.categories) {
+            if (category.value > 0) {
+                values.put(category.category, category.value);
+            }
+        }
+        return values;
     }
 
     private List<AssetSnapshot> pruneAndSort(List<AssetSnapshot> snapshots) {
