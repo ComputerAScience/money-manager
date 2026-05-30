@@ -63,6 +63,7 @@ public final class MainActivity extends Activity {
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout institutionList;
+    private LinearLayout updatePlanList;
     private LinearLayout managementBody;
     private AllocationChartView allocationChart;
     private TrendChartView trendChart;
@@ -76,6 +77,7 @@ public final class MainActivity extends Activity {
     private TextView trendSummary;
     private LinearLayout trendHistoryList;
     private TextView insightSummary;
+    private TextView updatePlanSummary;
     private TextView managementSummary;
     private TextView assetResultSummary;
     private EditText assetSearchInput;
@@ -154,6 +156,7 @@ public final class MainActivity extends Activity {
         root.addView(institutionCard());
         root.addView(trendCard());
         root.addView(insightCard());
+        root.addView(updatePlanCard());
         root.addView(backupCard());
         root.addView(assetManagementSection());
 
@@ -195,6 +198,7 @@ public final class MainActivity extends Activity {
         renderTrendHistory(trendSnapshots);
 
         insightSummary.setText(buildInsightText(portfolio));
+        renderUpdatePlan();
 
         managementSummary.setText("共 " + portfolio.assetCount + " 项资产，"
                 + portfolio.staleCount + " 项需要更新，"
@@ -354,6 +358,22 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(10);
         card.addView(insightSummary, params);
+        return card;
+    }
+
+    private View updatePlanCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("更新计划"));
+
+        updatePlanSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(updatePlanSummary, summaryParams);
+
+        updatePlanList = new LinearLayout(this);
+        updatePlanList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(updatePlanList, lp(-1, -2));
         return card;
     }
 
@@ -811,6 +831,124 @@ public final class MainActivity extends Activity {
             lines.add("当前存在多币种资产，总额按本地汇率换算。");
         }
         return joinLines(lines);
+    }
+
+    private void renderUpdatePlan() {
+        updatePlanList.removeAllViews();
+        if (assets.isEmpty()) {
+            updatePlanSummary.setText("还没有资产。新增资产后，这里会按更新周期自动排计划。");
+            return;
+        }
+
+        List<AssetRecord> planned = plannedAssets();
+        int urgentCount = 0;
+        int soonCount = 0;
+        for (AssetRecord asset : assets) {
+            int days = daysUntilDue(asset);
+            if (days <= 0) {
+                urgentCount += 1;
+            } else if (days <= 3) {
+                soonCount += 1;
+            }
+        }
+
+        updatePlanSummary.setText(urgentCount + " 项需要现在核对，"
+                + soonCount + " 项将在 3 天内到期。");
+
+        int limit = Math.min(5, planned.size());
+        for (int index = 0; index < limit; index += 1) {
+            updatePlanList.addView(updatePlanRow(planned.get(index)));
+        }
+    }
+
+    private List<AssetRecord> plannedAssets() {
+        List<AssetRecord> planned = new ArrayList<>(assets);
+        Collections.sort(planned, (left, right) -> {
+            int daysCompare = Integer.compare(daysUntilDue(left), daysUntilDue(right));
+            if (daysCompare != 0) {
+                return daysCompare;
+            }
+            int amountCompare = Double.compare(
+                    Math.abs(AssetMath.parseAmount(right.amount)),
+                    Math.abs(AssetMath.parseAmount(left.amount))
+            );
+            if (amountCompare != 0) {
+                return amountCompare;
+            }
+            return left.name.compareToIgnoreCase(right.name);
+        });
+        return planned;
+    }
+
+    private View updatePlanRow(AssetRecord asset) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(12));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        titleGroup.addView(text(asset.name, 14, INK, Typeface.BOLD));
+        LinearLayout.LayoutParams metaParams = lp(-1, -2);
+        metaParams.topMargin = dp(4);
+        String institution = asset.institution.isEmpty() ? "未填写机构" : asset.institution;
+        titleGroup.addView(text(asset.category + " · " + institution, 12, MUTED, Typeface.NORMAL), metaParams);
+        header.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView due = updateDueChip(asset);
+        header.addView(due);
+        row.addView(header);
+
+        LinearLayout actions = row();
+        LinearLayout.LayoutParams actionsParams = lp(-1, -2);
+        actionsParams.topMargin = dp(10);
+        actions.setLayoutParams(actionsParams);
+
+        Button launch = secondaryButton("打开 App");
+        launch.setOnClickListener(view -> openLinkedApp(asset));
+        actions.addView(launch, new LinearLayout.LayoutParams(0, dp(40), 1));
+        actions.addView(new SpaceView(this, dp(8), 1));
+
+        Button mark = secondaryButton("已更新");
+        mark.setOnClickListener(view -> markUpdated(asset));
+        actions.addView(mark, new LinearLayout.LayoutParams(0, dp(40), 1));
+        row.addView(actions);
+        return row;
+    }
+
+    private TextView updateDueChip(AssetRecord asset) {
+        int days = daysUntilDue(asset);
+        String label;
+        int color;
+        if (asset.lastUpdatedAt <= 0) {
+            label = "从未更新";
+            color = AMBER;
+        } else if (days < 0) {
+            label = "逾期 " + Math.abs(days) + " 天";
+            color = DANGER;
+        } else if (days == 0) {
+            label = "今天到期";
+            color = DANGER;
+        } else if (days <= 3) {
+            label = days + " 天后到期";
+            color = AMBER;
+        } else {
+            label = days + " 天后";
+            color = ACCENT;
+        }
+
+        TextView chip = text(label, 12, Color.WHITE, Typeface.BOLD);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(color);
+        bg.setCornerRadius(dp(999));
+        chip.setBackground(bg);
+        return chip;
     }
 
     private LinearLayout card() {
@@ -1272,6 +1410,18 @@ public final class MainActivity extends Activity {
 
     private boolean isStale(AssetRecord asset) {
         return AssetMath.isStale(asset);
+    }
+
+    private int daysUntilDue(AssetRecord asset) {
+        if (asset.lastUpdatedAt <= 0) {
+            return -10_000;
+        }
+        long dueAt = asset.lastUpdatedAt + asset.updateEveryDays * AssetMath.DAY_MS;
+        long remaining = dueAt - System.currentTimeMillis();
+        if (remaining <= 0) {
+            return (int) (remaining / AssetMath.DAY_MS);
+        }
+        return (int) Math.ceil(remaining / (double) AssetMath.DAY_MS);
     }
 
     private int statusColor(AssetRecord asset) {
