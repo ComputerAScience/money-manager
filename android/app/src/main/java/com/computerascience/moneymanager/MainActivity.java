@@ -914,7 +914,7 @@ public final class MainActivity extends Activity {
         actions.addView(new SpaceView(this, dp(8), 1));
 
         Button mark = secondaryButton("已更新");
-        mark.setOnClickListener(view -> markUpdated(asset));
+        mark.setOnClickListener(view -> showAssetUpdateDialog(asset));
         actions.addView(mark, new LinearLayout.LayoutParams(0, dp(40), 1));
         row.addView(actions);
         return row;
@@ -1049,7 +1049,7 @@ public final class MainActivity extends Activity {
         actions.addView(gap1);
 
         Button mark = secondaryButton("已更新");
-        mark.setOnClickListener(view -> markUpdated(asset));
+        mark.setOnClickListener(view -> showAssetUpdateDialog(asset));
         actions.addView(mark, new LinearLayout.LayoutParams(0, dp(44), 1));
 
         SpaceView gap2 = new SpaceView(this, dp(8), 1);
@@ -1289,15 +1289,57 @@ public final class MainActivity extends Activity {
     }
 
     private void showMarkUpdatedDialog(AssetRecord asset) {
-        new AlertDialog.Builder(this)
-                .setTitle("标记已更新？")
-                .setMessage("刚才打开了「" + asset.name + "」。如果你已经核对余额，可以把更新时间记为现在。")
-                .setNegativeButton("暂不", null)
-                .setPositiveButton("标记已更新", (dialog, which) -> markUpdated(asset))
-                .show();
+        showAssetUpdateDialog(asset);
     }
 
-    private void markUpdated(AssetRecord asset) {
+    private void showAssetUpdateDialog(AssetRecord asset) {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("核对「" + asset.name + "」后，可直接录入最新金额。保存后会更新时间并记录今日总资产快照。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        EditText amount = input("最新金额", asset.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        form.addView(amount);
+
+        EditText note = input("备注（可选）", asset.note, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        note.setMinLines(2);
+        form.addView(note);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("更新资产")
+                .setView(form)
+                .setNegativeButton("取消", null)
+                .setNeutralButton("仅更新时间", null)
+                .setPositiveButton("保存更新", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                applyAssetUpdate(asset, clean(amount.getText().toString()), clean(note.getText().toString()));
+                dialog.dismiss();
+            });
+
+            Button onlyTime = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+            onlyTime.setTextColor(MUTED);
+            onlyTime.setOnClickListener(button -> {
+                applyAssetUpdate(asset, asset.amount, asset.note);
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
+    }
+
+    private void applyAssetUpdate(AssetRecord asset, String amount, String note) {
+        asset.amount = amount;
+        asset.note = note;
         asset.lastUpdatedAt = System.currentTimeMillis();
         store.save(assets);
         snapshots = store.recordSnapshot(assets, settings);
