@@ -540,20 +540,8 @@ public final class MainActivity extends Activity {
         snapshotActions.addView(backfillButton, new LinearLayout.LayoutParams(0, dp(44), 1));
         LinearLayout.LayoutParams actionParams = lp(-1, -2);
         actionParams.topMargin = dp(8);
-        actionParams.bottomMargin = dp(8);
+        actionParams.bottomMargin = dp(12);
         card.addView(snapshotActions, actionParams);
-
-        Button importButton = secondaryButton("批量导入快照");
-        importButton.setOnClickListener(view -> showSnapshotBulkImportDialog());
-        LinearLayout.LayoutParams importParams = lp(-1, dp(44));
-        importParams.bottomMargin = dp(8);
-        card.addView(importButton, importParams);
-
-        Button copyCsvButton = secondaryButton("复制快照 CSV");
-        copyCsvButton.setOnClickListener(view -> copySnapshotCsv());
-        LinearLayout.LayoutParams copyParams = lp(-1, dp(44));
-        copyParams.bottomMargin = dp(12);
-        card.addView(copyCsvButton, copyParams);
 
         trendHistoryList = new LinearLayout(this);
         trendHistoryList.setOrientation(LinearLayout.VERTICAL);
@@ -706,18 +694,11 @@ public final class MainActivity extends Activity {
         resultParams.bottomMargin = dp(10);
         managementBody.addView(assetResultSummary, resultParams);
 
-        LinearLayout managementActions = row();
         Button addButton = primaryButton("新增资产");
         addButton.setOnClickListener(view -> showEditDialog(null));
-        managementActions.addView(addButton, new LinearLayout.LayoutParams(0, dp(48), 1));
-        managementActions.addView(new SpaceView(this, dp(10), 1));
-
-        Button copyCsvButton = secondaryButton("复制资产 CSV");
-        copyCsvButton.setOnClickListener(view -> copyVisibleAssetCsv());
-        managementActions.addView(copyCsvButton, new LinearLayout.LayoutParams(0, dp(48), 1));
-        LinearLayout.LayoutParams actionParams = lp(-1, -2);
+        LinearLayout.LayoutParams actionParams = lp(-1, dp(48));
         actionParams.bottomMargin = dp(14);
-        managementBody.addView(managementActions, actionParams);
+        managementBody.addView(addButton, actionParams);
 
         assetList = new LinearLayout(this);
         assetList.setOrientation(LinearLayout.VERTICAL);
@@ -1267,78 +1248,6 @@ public final class MainActivity extends Activity {
         return button;
     }
 
-    private void copyVisibleAssetCsv() {
-        if (settings.hideAmounts) {
-            toast("隐私模式已开启，请先显示金额再复制资产 CSV。");
-            return;
-        }
-
-        List<AssetRecord> visible = visibleAssets();
-        if (visible.isEmpty()) {
-            toast("当前筛选下没有可复制的资产。");
-            return;
-        }
-
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard == null) {
-            toast("无法访问剪贴板。");
-            return;
-        }
-
-        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager 资产 CSV", buildAssetCsv(visible)));
-        toast("已复制 " + visible.size() + " 项资产 CSV。");
-    }
-
-    private String buildAssetCsv(List<AssetRecord> visible) {
-        List<String> lines = new ArrayList<>();
-        lines.add("name,category,institution,amount,currency,amountInBase,baseCurrency,lastUpdated,updateEveryDays,status,appBound,note");
-        for (AssetRecord asset : visible) {
-            String currency = AssetMath.cleanCurrency(asset.currency);
-            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-            double amountInBase = Math.abs(AssetMath.parseAmount(asset.amount)) * rate;
-            List<String> columns = new ArrayList<>();
-            columns.add(asset.name);
-            columns.add(asset.category);
-            columns.add(asset.institution);
-            columns.add(asset.amount);
-            columns.add(asset.currency);
-            columns.add(formatCsvNumber(amountInBase));
-            columns.add(settings.baseCurrency);
-            columns.add(asset.lastUpdatedAt <= 0 ? "" : dateFormat.format(new Date(asset.lastUpdatedAt)));
-            columns.add(String.valueOf(asset.updateEveryDays));
-            columns.add(statusText(asset));
-            columns.add(asset.packageName.isEmpty() && asset.launchUri.isEmpty() ? "否" : "是");
-            columns.add(asset.note);
-            lines.add(csvLine(columns));
-        }
-        return joinLines(lines);
-    }
-
-    private String csvLine(List<String> columns) {
-        List<String> escaped = new ArrayList<>();
-        for (String column : columns) {
-            escaped.add(csvCell(column));
-        }
-        StringBuilder builder = new StringBuilder();
-        for (int index = 0; index < escaped.size(); index += 1) {
-            if (index > 0) {
-                builder.append(",");
-            }
-            builder.append(escaped.get(index));
-        }
-        return builder.toString();
-    }
-
-    private String csvCell(String value) {
-        String text = value == null ? "" : value;
-        boolean needsQuote = text.contains(",")
-                || text.contains("\"")
-                || text.contains("\n")
-                || text.contains("\r");
-        String escaped = text.replace("\"", "\"\"");
-        return needsQuote ? "\"" + escaped + "\"" : escaped;
-    }
-
     private List<AssetRecord> visibleAssets() {
         List<AssetRecord> visible = new ArrayList<>();
         for (AssetRecord asset : assets) {
@@ -1806,170 +1715,6 @@ public final class MainActivity extends Activity {
         });
 
         dialog.show();
-    }
-
-    private void showSnapshotBulkImportDialog() {
-        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("每行一条快照，格式：日期,净资产,资产总额,负债。示例：2026-01-31,500000,530000,30000。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        EditText rows = input(
-                "yyyy-MM-dd,净资产,资产总额,负债",
-                "",
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        );
-        rows.setMinLines(8);
-        rows.setGravity(Gravity.TOP);
-        LinearLayout.LayoutParams rowsParams = lp(-1, dp(180));
-        rowsParams.bottomMargin = dp(10);
-        rows.setLayoutParams(rowsParams);
-        form.addView(rows);
-
-        TextView note = text("导入使用当前基准币种 " + portfolio.baseCurrency + "；同一天会覆盖原快照，只保留近一年数据。", 12, MUTED, Typeface.NORMAL);
-        form.addView(note, lp(-1, -2));
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("批量导入历史快照")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("导入", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button importAction = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            importAction.setTextColor(ACCENT);
-            importAction.setOnClickListener(button -> {
-                List<AssetSnapshot> imported = parseSnapshotImportRows(rows.getText().toString(), portfolio.baseCurrency);
-                if (imported.isEmpty()) {
-                    return;
-                }
-
-                snapshots = store.upsertSnapshots(imported);
-                render();
-                toast("已导入 " + imported.size() + " 条历史快照。");
-                dialog.dismiss();
-            });
-        });
-
-        dialog.show();
-    }
-
-    private List<AssetSnapshot> parseSnapshotImportRows(String raw, String baseCurrency) {
-        List<AssetSnapshot> imported = new ArrayList<>();
-        if (raw == null || raw.trim().isEmpty()) {
-            toast("请先粘贴至少一行快照数据。");
-            return imported;
-        }
-
-        long now = System.currentTimeMillis();
-        String[] lines = raw.split("\\r?\\n");
-        for (int index = 0; index < lines.length; index += 1) {
-            String line = clean(lines[index]);
-            if (line.isEmpty()) {
-                continue;
-            }
-            if (index == 0 && line.contains("日期")) {
-                continue;
-            }
-
-            String[] columns = line.split("[,，\\t]");
-            if (columns.length != 4) {
-                toast("第 " + (index + 1) + " 行格式应为：日期,净资产,资产总额,负债。");
-                imported.clear();
-                return imported;
-            }
-
-            Date parsedDay = parseDay(clean(columns[0]));
-            if (parsedDay == null) {
-                toast("第 " + (index + 1) + " 行日期格式应为 yyyy-MM-dd。");
-                imported.clear();
-                return imported;
-            }
-            long timestamp = parsedDay.getTime();
-            if (timestamp > now) {
-                toast("第 " + (index + 1) + " 行不能导入未来日期。");
-                imported.clear();
-                return imported;
-            }
-            if (timestamp < now - 370L * AssetMath.DAY_MS) {
-                toast("第 " + (index + 1) + " 行超出近一年范围。");
-                imported.clear();
-                return imported;
-            }
-
-            Double net = parseNumber(clean(columns[1]));
-            Double gross = parseNumber(clean(columns[2]));
-            Double debt = parseNumber(clean(columns[3]));
-            if (net == null || gross == null || debt == null) {
-                toast("第 " + (index + 1) + " 行金额必须是数字。");
-                imported.clear();
-                return imported;
-            }
-            if (gross < 0 || debt < 0) {
-                toast("第 " + (index + 1) + " 行资产总额和负债不能为负数。");
-                imported.clear();
-                return imported;
-            }
-
-            imported.add(new AssetSnapshot(
-                    dayKey(timestamp),
-                    timestamp,
-                    baseCurrency,
-                    net,
-                    gross,
-                    debt
-            ));
-        }
-
-        if (imported.isEmpty()) {
-            toast("没有可导入的快照。");
-        }
-        return imported;
-    }
-
-    private void copySnapshotCsv() {
-        if (settings.hideAmounts) {
-            toast("隐私模式已开启，请先显示金额再复制快照 CSV。");
-            return;
-        }
-
-        List<AssetSnapshot> trendSnapshots = snapshotsForBase(settings.baseCurrency);
-        if (trendSnapshots.isEmpty()) {
-            toast("还没有可复制的趋势快照。");
-            return;
-        }
-
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard == null) {
-            toast("无法访问剪贴板。");
-            return;
-        }
-
-        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager 快照 CSV", buildSnapshotCsv(trendSnapshots)));
-        toast("已复制 " + trendSnapshots.size() + " 条快照 CSV。");
-    }
-
-    private String buildSnapshotCsv(List<AssetSnapshot> trendSnapshots) {
-        List<String> lines = new ArrayList<>();
-        lines.add("date,baseCurrency,netWorth,grossAssets,liabilities");
-        for (AssetSnapshot snapshot : trendSnapshots) {
-            lines.add(snapshot.dayKey
-                    + "," + snapshot.baseCurrency
-                    + "," + formatCsvNumber(snapshot.netWorth)
-                    + "," + formatCsvNumber(snapshot.grossAssets)
-                    + "," + formatCsvNumber(snapshot.liabilities));
-        }
-        return joinLines(lines);
     }
 
     private String buildInsightText(PortfolioSummary portfolio) {
@@ -3033,11 +2778,6 @@ public final class MainActivity extends Activity {
 
     private String formatInputNumber(double value) {
         DecimalFormat format = new DecimalFormat("0.##");
-        return format.format(value);
-    }
-
-    private String formatCsvNumber(double value) {
-        DecimalFormat format = new DecimalFormat("0.####");
         return format.format(value);
     }
 
