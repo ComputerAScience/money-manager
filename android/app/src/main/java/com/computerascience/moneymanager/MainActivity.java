@@ -10,7 +10,9 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -20,11 +22,14 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -58,6 +63,10 @@ public final class MainActivity extends Activity {
     private static final int MUTED = Color.rgb(102, 112, 104);
     private static final int LINE = Color.rgb(217, 221, 213);
     private static final int ACCENT = Color.rgb(18, 107, 95);
+    private static final int ACCENT_DARK = Color.rgb(15, 81, 72);
+    private static final int SURFACE = Color.rgb(252, 253, 250);
+    private static final int SURFACE_ALT = Color.rgb(238, 245, 241);
+    private static final int BLUE = Color.rgb(55, 95, 150);
     private static final int DANGER = Color.rgb(183, 73, 85);
     private static final int AMBER = Color.rgb(154, 119, 32);
     private static final String PAGE_OVERVIEW = "overview";
@@ -175,8 +184,18 @@ public final class MainActivity extends Activity {
         header.setPadding(dp(18), dp(18), dp(18), dp(10));
         header.setBackgroundColor(BG);
 
+        LinearLayout brand = row();
+        TextView mark = text("M", 13, Color.WHITE, Typeface.BOLD);
+        mark.setGravity(Gravity.CENTER);
+        mark.setIncludeFontPadding(false);
+        mark.setBackground(roundedBackground(ACCENT, ACCENT_DARK, 8));
+        brand.addView(mark, new LinearLayout.LayoutParams(dp(30), dp(30)));
+
         TextView eyebrow = label("Money Manager");
-        header.addView(eyebrow);
+        LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
+        eyebrowParams.leftMargin = dp(10);
+        brand.addView(eyebrow, eyebrowParams);
+        header.addView(brand);
 
         pageTitle = text("", 26, INK, Typeface.BOLD);
         LinearLayout.LayoutParams titleParams = lp(-1, -2);
@@ -335,7 +354,11 @@ public final class MainActivity extends Activity {
             return;
         }
         button.setTextColor(active ? Color.WHITE : INK);
-        button.setBackground(cardBackground(active ? ACCENT : Color.WHITE, active ? ACCENT : LINE));
+        button.setBackground(buttonBackground(
+                active ? ACCENT : Color.WHITE,
+                active ? ACCENT_DARK : SURFACE_ALT,
+                active ? ACCENT_DARK : LINE
+        ));
     }
 
     private String pageTitleText() {
@@ -2269,7 +2292,7 @@ public final class MainActivity extends Activity {
     private View reasonSummaryRow(String line) {
         TextView row = text("原因汇总 · " + line, 13, MUTED, Typeface.NORMAL);
         row.setPadding(dp(12), dp(8), dp(12), dp(8));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(SURFACE_ALT, LINE));
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(8);
         row.setLayoutParams(params);
@@ -2280,7 +2303,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(SURFACE_ALT, LINE));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2347,10 +2370,11 @@ public final class MainActivity extends Activity {
     private LinearLayout card() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(16), dp(16), dp(16));
-        card.setBackground(cardBackground(PANEL, LINE));
+        card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        card.setBackground(cardBackground(PANEL, Color.rgb(228, 233, 225)));
+        card.setElevation(dp(1));
         LinearLayout.LayoutParams params = lp(-1, -2);
-        params.bottomMargin = dp(12);
+        params.bottomMargin = dp(14);
         card.setLayoutParams(params);
         return card;
     }
@@ -2363,7 +2387,7 @@ public final class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(12), dp(10), dp(12), dp(10));
-        box.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        box.setBackground(cardBackground(SURFACE, LINE));
         box.addView(text(label, 12, MUTED, Typeface.BOLD));
         LinearLayout.LayoutParams valueParams = lp(-1, -2);
         valueParams.topMargin = dp(6);
@@ -2584,31 +2608,14 @@ public final class MainActivity extends Activity {
     }
 
     private void showAppPicker(EditText packageNameInput, EditText institutionInput) {
-        List<LaunchableApp> apps = getLaunchableApps();
-        if (apps.isEmpty()) {
-            toast("没有找到可启动的 App。");
-            return;
-        }
-
-        String[] labels = new String[apps.size()];
-        for (int index = 0; index < apps.size(); index += 1) {
-            LaunchableApp app = apps.get(index);
-            labels[index] = app.label + "\n" + app.packageName;
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("选择已安装 App")
-                .setNegativeButton("取消", null)
-                .setItems(labels, (dialog, which) -> {
-                    LaunchableApp selected = apps.get(which);
-                    packageNameInput.setText(selected.packageName);
-                    String institution = clean(institutionInput.getText().toString());
-                    if (institution.isEmpty() || institution.contains("待绑定")) {
-                        institutionInput.setText(selected.label);
-                    }
-                    toast("已选择 " + selected.label);
-                })
-                .show();
+        showLaunchableAppPicker("选择已安装 App", "搜索银行、券商、钱包或包名。", selected -> {
+            packageNameInput.setText(selected.packageName);
+            String institution = clean(institutionInput.getText().toString());
+            if (institution.isEmpty() || institution.contains("待绑定")) {
+                institutionInput.setText(selected.label);
+            }
+            toast("已选择 " + selected.label);
+        });
     }
 
     private List<LaunchableApp> getLaunchableApps() {
@@ -2629,7 +2636,8 @@ public final class MainActivity extends Activity {
             seenPackages.add(packageName);
             CharSequence label = resolvedApp.loadLabel(packageManager);
             String appLabel = label == null ? packageName : label.toString();
-            apps.add(new LaunchableApp(appLabel, packageName));
+            Drawable icon = resolvedApp.loadIcon(packageManager);
+            apps.add(new LaunchableApp(appLabel, packageName, icon));
         }
         Collections.sort(apps, (left, right) -> left.label.compareToIgnoreCase(right.label));
         return apps;
@@ -2670,34 +2678,94 @@ public final class MainActivity extends Activity {
     }
 
     private void showAssetAppBindingDialog(AssetRecord asset) {
+        showLaunchableAppPicker("绑定并打开 App", "「" + asset.name + "」还没有绑定 App。先选择一次，以后就能一键打开。", selected -> {
+            asset.packageName = selected.packageName;
+            if (asset.institution.isEmpty() || asset.institution.contains("待绑定")) {
+                asset.institution = selected.label;
+            }
+            store.save(assets);
+            render();
+            toast("已绑定 " + selected.label + "。");
+            openLinkedApp(asset);
+        });
+    }
+
+    private void showLaunchableAppPicker(String title, String helperText, AppSelectionHandler handler) {
         List<LaunchableApp> apps = getLaunchableApps();
         if (apps.isEmpty()) {
             toast("没有找到可启动的 App。");
             return;
         }
 
-        String[] labels = new String[apps.size()];
-        for (int index = 0; index < apps.size(); index += 1) {
-            LaunchableApp app = apps.get(index);
-            labels[index] = app.label + "\n" + app.packageName;
-        }
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        content.setPadding(pad, dp(6), pad, 0);
 
-        new AlertDialog.Builder(this)
-                .setTitle("绑定并打开 App")
-                .setMessage("「" + asset.name + "」还没有绑定 App。先选择一个已安装 App，之后就可以一键打开。")
+        TextView helper = text(helperText, 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams helperParams = lp(-1, -2);
+        helperParams.bottomMargin = dp(12);
+        content.addView(helper, helperParams);
+
+        EditText search = input("搜索 App 或包名", "", InputType.TYPE_CLASS_TEXT);
+        content.addView(search);
+
+        FrameLayout listFrame = new FrameLayout(this);
+        LinearLayout.LayoutParams frameParams = lp(-1, dp(360));
+        listFrame.setLayoutParams(frameParams);
+
+        ListView list = new ListView(this);
+        list.setDivider(null);
+        list.setCacheColorHint(Color.TRANSPARENT);
+        list.setSelector(buttonBackground(SURFACE_ALT, Color.rgb(226, 238, 232), LINE));
+        LaunchableAppAdapter adapter = new LaunchableAppAdapter(apps);
+        list.setAdapter(adapter);
+        listFrame.addView(list, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+
+        TextView empty = text("没有匹配的 App", 14, MUTED, Typeface.BOLD);
+        empty.setGravity(Gravity.CENTER);
+        empty.setVisibility(View.GONE);
+        listFrame.addView(empty, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        list.setEmptyView(empty);
+        content.addView(listFrame);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(content)
                 .setNegativeButton("取消", null)
-                .setItems(labels, (dialog, which) -> {
-                    LaunchableApp selected = apps.get(which);
-                    asset.packageName = selected.packageName;
-                    if (asset.institution.isEmpty() || asset.institution.contains("待绑定")) {
-                        asset.institution = selected.label;
-                    }
-                    store.save(assets);
-                    render();
-                    toast("已绑定 " + selected.label + "。");
-                    openLinkedApp(asset);
-                })
-                .show();
+                .create();
+        list.setOnItemClickListener((parent, view, position, id) -> {
+            LaunchableApp selected = adapter.getItem(position);
+            handler.onSelected(selected);
+            dialog.dismiss();
+        });
+        search.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                adapter.filter(text == null ? "" : text.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+        dialog.setOnShowListener(view -> {
+            Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            if (cancel != null) {
+                cancel.setTextColor(MUTED);
+            }
+        });
+        dialog.show();
     }
 
     private void openMarket(String packageName) {
@@ -3059,8 +3127,9 @@ public final class MainActivity extends Activity {
         input.setInputType(inputType);
         input.setTextColor(INK);
         input.setHintTextColor(MUTED);
-        input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        input.setBackground(cardBackground(Color.WHITE, LINE));
+        input.setTextSize(15);
+        input.setPadding(dp(14), dp(8), dp(14), dp(8));
+        input.setBackground(cardBackground(SURFACE, LINE));
 
         LinearLayout.LayoutParams params = lp(-1, dp(52));
         params.bottomMargin = dp(10);
@@ -3111,10 +3180,15 @@ public final class MainActivity extends Activity {
         button.setTextSize(15);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setAllCaps(false);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(ACCENT);
-        bg.setCornerRadius(dp(8));
-        button.setBackground(bg);
+        button.setIncludeFontPadding(false);
+        button.setGravity(Gravity.CENTER);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(14), 0, dp(14), 0);
+        button.setStateListAnimator(null);
+        button.setBackground(buttonBackground(ACCENT, ACCENT_DARK, ACCENT_DARK));
         return button;
     }
 
@@ -3125,14 +3199,34 @@ public final class MainActivity extends Activity {
         button.setTextSize(14);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setAllCaps(false);
-        button.setBackground(cardBackground(Color.WHITE, LINE));
+        button.setIncludeFontPadding(false);
+        button.setGravity(Gravity.CENTER);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(12), 0, dp(12), 0);
+        button.setStateListAnimator(null);
+        button.setBackground(buttonBackground(Color.WHITE, SURFACE_ALT, LINE));
         return button;
     }
 
     private GradientDrawable cardBackground(int fill, int border) {
+        return roundedBackground(fill, border, 8);
+    }
+
+    private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_pressed}, roundedBackground(pressedFill, border, 8));
+        states.addState(new int[]{android.R.attr.state_focused}, roundedBackground(pressedFill, border, 8));
+        states.addState(new int[]{}, roundedBackground(fill, border, 8));
+        return states;
+    }
+
+    private GradientDrawable roundedBackground(int fill, int border, int radius) {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(fill);
-        bg.setCornerRadius(dp(8));
+        bg.setCornerRadius(dp(radius));
         bg.setStroke(dp(1), border);
         return bg;
     }
@@ -3190,13 +3284,97 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private interface AppSelectionHandler {
+        void onSelected(LaunchableApp app);
+    }
+
+    private final class LaunchableAppAdapter extends BaseAdapter {
+        private final List<LaunchableApp> source;
+        private final List<LaunchableApp> filtered = new ArrayList<>();
+
+        LaunchableAppAdapter(List<LaunchableApp> apps) {
+            source = apps;
+            filtered.addAll(apps);
+        }
+
+        void filter(String query) {
+            String normalized = clean(query).toLowerCase(Locale.ROOT);
+            filtered.clear();
+            for (LaunchableApp app : source) {
+                if (normalized.isEmpty()
+                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)
+                        || app.packageName.toLowerCase(Locale.ROOT).contains(normalized)) {
+                    filtered.add(app);
+                }
+            }
+            notifyDataSetChanged();
+        }
+
+        @Override
+        public int getCount() {
+            return filtered.size();
+        }
+
+        @Override
+        public LaunchableApp getItem(int position) {
+            return filtered.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            LaunchableApp app = getItem(position);
+            LinearLayout row = new LinearLayout(MainActivity.this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(12), dp(10), dp(12), dp(10));
+            row.setMinimumHeight(dp(70));
+            row.setBackground(cardBackground(Color.WHITE, Color.TRANSPARENT));
+
+            ImageView icon = new ImageView(MainActivity.this);
+            icon.setImageDrawable(app.icon);
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            GradientDrawable iconBg = roundedBackground(SURFACE_ALT, LINE, 8);
+            icon.setBackground(iconBg);
+            icon.setPadding(dp(6), dp(6), dp(6), dp(6));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));
+
+            LinearLayout texts = new LinearLayout(MainActivity.this);
+            texts.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, -2, 1);
+            textParams.leftMargin = dp(12);
+            row.addView(texts, textParams);
+
+            TextView label = text(app.label, 15, INK, Typeface.BOLD);
+            label.setSingleLine(true);
+            texts.addView(label);
+
+            TextView packageName = text(app.packageName, 12, MUTED, Typeface.NORMAL);
+            packageName.setSingleLine(true);
+            LinearLayout.LayoutParams packageParams = lp(-1, -2);
+            packageParams.topMargin = dp(4);
+            texts.addView(packageName, packageParams);
+
+            TextView chevron = text("›", 24, BLUE, Typeface.BOLD);
+            chevron.setGravity(Gravity.CENTER);
+            row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(46)));
+            return row;
+        }
+    }
+
     private static final class LaunchableApp {
         final String label;
         final String packageName;
+        final Drawable icon;
 
-        LaunchableApp(String label, String packageName) {
+        LaunchableApp(String label, String packageName, Drawable icon) {
             this.label = label;
             this.packageName = packageName;
+            this.icon = icon;
         }
     }
 

@@ -6,6 +6,7 @@
     <color name="muted">#667068</color>
     <color name="accent">#126B5F</color>
     <color name="accent_dark">#0F5148</color>
+    <color name="launcher_bg">#126B5F</color>
     <color name="line">#D9DDD5</color>
     <color name="danger">#B74955</color>
 </resources>
