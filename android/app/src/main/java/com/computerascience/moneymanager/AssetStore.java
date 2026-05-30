@@ -184,8 +184,12 @@ final class AssetStore {
 
     List<AssetSnapshot> deleteSnapshot(String dayKey, String baseCurrency) {
         List<AssetSnapshot> snapshots = loadSnapshots();
-        snapshots.removeIf(snapshot -> dayKey.equals(snapshot.dayKey)
-                && baseCurrency.equals(snapshot.baseCurrency));
+        for (int index = snapshots.size() - 1; index >= 0; index -= 1) {
+            AssetSnapshot snapshot = snapshots.get(index);
+            if (dayKey.equals(snapshot.dayKey) && baseCurrency.equals(snapshot.baseCurrency)) {
+                snapshots.remove(index);
+            }
+        }
         saveSnapshots(snapshots);
         return snapshots;
     }
@@ -200,7 +204,12 @@ final class AssetStore {
 
     List<AssetUpdateEvent> deleteUpdateEvent(String assetId, long timestamp) {
         List<AssetUpdateEvent> events = loadUpdateEvents();
-        events.removeIf(event -> assetId.equals(event.assetId) && event.timestamp == timestamp);
+        for (int index = events.size() - 1; index >= 0; index -= 1) {
+            AssetUpdateEvent event = events.get(index);
+            if (assetId.equals(event.assetId) && event.timestamp == timestamp) {
+                events.remove(index);
+            }
+        }
         events = pruneAndSortUpdateEvents(events);
         saveUpdateEvents(events);
         return events;

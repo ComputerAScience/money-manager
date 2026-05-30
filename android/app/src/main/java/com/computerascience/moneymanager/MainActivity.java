@@ -14,6 +14,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
@@ -61,18 +62,19 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
-    private static final int BG = Color.rgb(245, 246, 241);
+    private static final int BG = Color.rgb(247, 248, 250);
     private static final int PANEL = Color.WHITE;
-    private static final int INK = Color.rgb(30, 35, 32);
-    private static final int MUTED = Color.rgb(102, 112, 104);
-    private static final int LINE = Color.rgb(217, 221, 213);
+    private static final int INK = Color.rgb(31, 41, 55);
+    private static final int MUTED = Color.rgb(100, 116, 139);
+    private static final int PANEL_BORDER = Color.rgb(226, 232, 240);
+    private static final int ROW_SURFACE = Color.rgb(248, 250, 252);
     private static final int ACCENT = Color.rgb(18, 107, 95);
-    private static final int ACCENT_DARK = Color.rgb(15, 81, 72);
-    private static final int SURFACE = Color.rgb(252, 253, 250);
-    private static final int SURFACE_ALT = Color.rgb(238, 245, 241);
-    private static final int BLUE = Color.rgb(55, 95, 150);
-    private static final int DANGER = Color.rgb(183, 73, 85);
-    private static final int AMBER = Color.rgb(154, 119, 32);
+    private static final int ACCENT_DARK = Color.rgb(9, 75, 67);
+    private static final int SURFACE = Color.rgb(249, 251, 252);
+    private static final int SURFACE_ALT = Color.rgb(232, 246, 242);
+    private static final int BLUE = Color.rgb(51, 94, 170);
+    private static final int DANGER = Color.rgb(190, 67, 80);
+    private static final int AMBER = Color.rgb(166, 121, 24);
     private static final String PAGE_OVERVIEW = "overview";
     private static final String PAGE_TREND = "trend";
     private static final String PAGE_ASSETS = "assets";
@@ -144,6 +146,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        configureSystemBars();
         store = new AssetStore(this);
         assets = store.load();
         settings = store.loadSettings();
@@ -155,6 +158,20 @@ public final class MainActivity extends Activity {
         buildUi();
         render();
         refreshExchangeRates(false);
+    }
+
+    private void configureSystemBars() {
+        getWindow().setStatusBarColor(BG);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getWindow().setNavigationBarColor(BG);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            getWindow().getDecorView().setSystemUiVisibility(flags);
+        }
     }
 
     @Override
@@ -186,8 +203,8 @@ public final class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(18), statusBarHeight() + dp(12), dp(18), dp(10));
-        header.setBackgroundColor(BG);
+        header.setPadding(dp(18), statusBarHeight() + dp(14), dp(18), dp(12));
+        header.setBackground(headerBackground());
 
         LinearLayout brand = row();
         brand.setGravity(Gravity.CENTER_VERTICAL);
@@ -195,7 +212,7 @@ public final class MainActivity extends Activity {
         mark.setGravity(Gravity.CENTER);
         mark.setIncludeFontPadding(false);
         mark.setBackground(roundedBackground(ACCENT, ACCENT_DARK, 8));
-        brand.addView(mark, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        brand.addView(mark, new LinearLayout.LayoutParams(dp(32), dp(32)));
 
         TextView eyebrow = label("Money Manager");
         LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
@@ -205,11 +222,11 @@ public final class MainActivity extends Activity {
         View brandSpacer = new View(this);
         brand.addView(brandSpacer, new LinearLayout.LayoutParams(0, 1, 1));
 
-        Button settingsButton = secondaryButton("⚙");
+        Button settingsButton = iconButton("⚙");
         settingsButton.setTextSize(19);
         settingsButton.setContentDescription("设置");
         settingsButton.setOnClickListener(view -> showSettingsMenu());
-        brand.addView(settingsButton, new LinearLayout.LayoutParams(dp(42), dp(36)));
+        brand.addView(settingsButton, new LinearLayout.LayoutParams(dp(42), dp(38)));
         header.addView(brand);
 
         pageTitle = text("", 26, INK, Typeface.BOLD);
@@ -232,7 +249,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(10), dp(18), dp(28));
+        root.setPadding(dp(18), dp(12), dp(18), dp(28));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -271,8 +288,8 @@ public final class MainActivity extends Activity {
 
         LinearLayout bottomNav = row();
         bottomNav.setPadding(dp(4), dp(4), dp(4), dp(4));
-        bottomNav.setBackground(cardBackground(Color.WHITE, LINE));
-        bottomNav.setElevation(dp(2));
+        bottomNav.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        bottomNav.setElevation(dp(6));
         overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
         trendTab = bottomTabButton("趋势", PAGE_TREND);
         assetsTab = bottomTabButton("资产", PAGE_ASSETS);
@@ -338,9 +355,10 @@ public final class MainActivity extends Activity {
             return;
         }
         button.setTextColor(active ? Color.WHITE : INK);
+        button.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
         button.setBackground(buttonBackground(
                 active ? ACCENT : Color.TRANSPARENT,
-                active ? ACCENT_DARK : SURFACE_ALT,
+                active ? ACCENT_DARK : ROW_SURFACE,
                 active ? ACCENT_DARK : Color.TRANSPARENT
         ));
     }
@@ -761,6 +779,7 @@ public final class MainActivity extends Activity {
         card.addView(assetTrendSummary, summaryParams);
 
         assetTrendSpinner = new Spinner(this);
+        styleSpinner(assetTrendSpinner);
         assetTrendSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -1115,7 +1134,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -1200,7 +1219,7 @@ public final class MainActivity extends Activity {
     private View institutionRow(InstitutionBreakdown institution, double total) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -1825,7 +1844,7 @@ public final class MainActivity extends Activity {
     private View assetGroupHeader(String category, List<AssetRecord> groupAssets, String baseCurrency) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.bottomMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -1976,7 +1995,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2121,7 +2140,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2271,7 +2290,7 @@ public final class MainActivity extends Activity {
     private View snapshotRow(AssetSnapshot snapshot) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(10), dp(10));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2502,7 +2521,7 @@ public final class MainActivity extends Activity {
     private View healthIssueRow(String issue) {
         TextView row = text("• " + issue, 14, MUTED, Typeface.NORMAL);
         row.setPadding(dp(12), dp(8), dp(12), dp(8));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(8);
         row.setLayoutParams(params);
@@ -2564,7 +2583,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(12));
-        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2728,7 +2747,7 @@ public final class MainActivity extends Activity {
     private View reasonSummaryRow(String line) {
         TextView row = text("原因汇总 · " + line, 13, MUTED, Typeface.NORMAL);
         row.setPadding(dp(12), dp(8), dp(12), dp(8));
-        row.setBackground(cardBackground(SURFACE_ALT, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(8);
         row.setLayoutParams(params);
@@ -2739,7 +2758,7 @@ public final class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(SURFACE_ALT, LINE));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
         rowParams.topMargin = dp(8);
         row.setLayoutParams(rowParams);
@@ -2807,8 +2826,8 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackground(cardBackground(PANEL, Color.rgb(228, 233, 225)));
-        card.setElevation(dp(1));
+        card.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        card.setElevation(dp(3));
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.bottomMargin = dp(14);
         card.setLayoutParams(params);
@@ -2816,14 +2835,16 @@ public final class MainActivity extends Activity {
     }
 
     private TextView sectionTitle(String title) {
-        return text(title, 18, INK, Typeface.BOLD);
+        TextView text = text(title, 17, INK, Typeface.BOLD);
+        text.setIncludeFontPadding(false);
+        return text;
     }
 
     private LinearLayout metric(String label, TextView value) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(12), dp(10), dp(12), dp(10));
-        box.setBackground(cardBackground(SURFACE, LINE));
+        box.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         box.addView(text(label, 12, MUTED, Typeface.BOLD));
         LinearLayout.LayoutParams valueParams = lp(-1, -2);
         valueParams.topMargin = dp(6);
@@ -2835,7 +2856,8 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(16), dp(16), dp(16), dp(14));
-        card.setBackground(cardBackground(PANEL, statusColor(asset)));
+        card.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        card.setElevation(dp(2));
 
         LinearLayout.LayoutParams cardParams = lp(-1, -2);
         cardParams.bottomMargin = dp(12);
@@ -2947,6 +2969,7 @@ public final class MainActivity extends Activity {
 
         Spinner category = new Spinner(this);
         category.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, CATEGORIES));
+        styleSpinner(category);
         category.setSelection(indexOf(CATEGORIES, draft.category));
         form.addView(fieldBox("类型", category));
 
@@ -2970,7 +2993,7 @@ public final class MainActivity extends Activity {
         TextView selectedApp = text(appBindingText(selectedAppName[0], selectedPackageName[0], selectedLaunchUri[0]), 15, INK, Typeface.BOLD);
         selectedApp.setGravity(Gravity.CENTER_VERTICAL);
         selectedApp.setPadding(dp(14), 0, dp(14), 0);
-        selectedApp.setBackground(cardBackground(SURFACE, LINE));
+        selectedApp.setBackground(cardBackground(SURFACE, PANEL_BORDER));
         form.addView(fieldBox("绑定 App", selectedApp));
 
         Button chooseApp = secondaryButton(selectedPackageName[0].isEmpty() && selectedLaunchUri[0].isEmpty()
@@ -3052,7 +3075,7 @@ public final class MainActivity extends Activity {
                         .setMessage("确定删除「" + original.name + "」吗？")
                         .setNegativeButton("取消", null)
                         .setPositiveButton("删除", (confirm, which) -> {
-                            assets.removeIf(asset -> asset.id.equals(original.id));
+                            removeAssetById(original.id);
                             store.save(assets);
                             snapshots = store.recordSnapshot(assets, settings);
                             render();
@@ -3170,7 +3193,7 @@ public final class MainActivity extends Activity {
         ListView list = new ListView(this);
         list.setDivider(null);
         list.setCacheColorHint(Color.TRANSPARENT);
-        list.setSelector(buttonBackground(SURFACE_ALT, Color.rgb(226, 238, 232), LINE));
+        list.setSelector(buttonBackground(SURFACE_ALT, ROW_SURFACE, PANEL_BORDER));
         LaunchableAppAdapter adapter = new LaunchableAppAdapter(apps);
         list.setAdapter(adapter);
         listFrame.addView(list, new FrameLayout.LayoutParams(
@@ -3253,6 +3276,7 @@ public final class MainActivity extends Activity {
 
         Spinner reason = new Spinner(this);
         reason.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, UPDATE_REASONS));
+        styleSpinner(reason);
         reason.setSelection(indexOf(UPDATE_REASONS, "余额核对"));
         form.addView(fieldBox("变化原因", reason));
 
@@ -3411,6 +3435,14 @@ public final class MainActivity extends Activity {
             if (assets.get(index).id.equals(updated.id)) {
                 assets.set(index, updated);
                 return;
+            }
+        }
+    }
+
+    private void removeAssetById(String assetId) {
+        for (int index = assets.size() - 1; index >= 0; index -= 1) {
+            if (assets.get(index).id.equals(assetId)) {
+                assets.remove(index);
             }
         }
     }
@@ -3628,7 +3660,7 @@ public final class MainActivity extends Activity {
         input.setHintTextColor(MUTED);
         input.setTextSize(15);
         input.setPadding(dp(14), dp(8), dp(14), dp(8));
-        input.setBackground(cardBackground(SURFACE, LINE));
+        input.setBackground(cardBackground(PANEL, PANEL_BORDER));
 
         LinearLayout.LayoutParams params = lp(-1, dp(52));
         params.bottomMargin = dp(10);
@@ -3656,6 +3688,7 @@ public final class MainActivity extends Activity {
         List<String> options = currencyOptions(selected);
         Spinner spinner = new Spinner(this);
         spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, options));
+        styleSpinner(spinner);
         int selectedIndex = options.indexOf(selected);
         spinner.setSelection(Math.max(0, selectedIndex));
         return spinner;
@@ -3716,6 +3749,13 @@ public final class MainActivity extends Activity {
         return button;
     }
 
+    private Button iconButton(String label) {
+        Button button = secondaryButton(label);
+        button.setPadding(0, 0, 0, 0);
+        button.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
+        return button;
+    }
+
     private Button secondaryButton(String label) {
         Button button = new Button(this);
         button.setText(label);
@@ -3731,12 +3771,27 @@ public final class MainActivity extends Activity {
         button.setMinimumWidth(0);
         button.setPadding(dp(12), 0, dp(12), 0);
         button.setStateListAnimator(null);
-        button.setBackground(buttonBackground(Color.WHITE, SURFACE_ALT, LINE));
+        button.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
         return button;
     }
 
     private GradientDrawable cardBackground(int fill, int border) {
         return roundedBackground(fill, border, 8);
+    }
+
+    private GradientDrawable headerBackground() {
+        GradientDrawable bg = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.rgb(241, 247, 246), BG}
+        );
+        bg.setCornerRadius(0);
+        return bg;
+    }
+
+    private void styleSpinner(Spinner spinner) {
+        spinner.setPadding(dp(12), 0, dp(12), 0);
+        spinner.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        spinner.setMinimumHeight(dp(48));
     }
 
     private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
@@ -3882,7 +3937,7 @@ public final class MainActivity extends Activity {
             ImageView icon = new ImageView(MainActivity.this);
             icon.setImageDrawable(app.icon);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            GradientDrawable iconBg = roundedBackground(SURFACE_ALT, LINE, 8);
+            GradientDrawable iconBg = roundedBackground(SURFACE_ALT, PANEL_BORDER, 8);
             icon.setBackground(iconBg);
             icon.setPadding(dp(6), dp(6), dp(6), dp(6));
             row.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));

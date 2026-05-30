@@ -51,7 +51,7 @@ final class TrendChartView extends View {
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(dp(1));
-        paint.setColor(0xFFD9DDD5);
+        paint.setColor(0xFFDEE6EE);
         for (int i = 0; i < 4; i += 1) {
             float y = top + (bottom - top) * i / 3f;
             canvas.drawLine(left, y, right, y, paint);
@@ -59,7 +59,7 @@ final class TrendChartView extends View {
 
         if (points.size() < 2) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0xFF667068);
+            paint.setColor(0xFF64748B);
             paint.setTextSize(dp(14));
             paint.setTextAlign(Paint.Align.CENTER);
             canvas.drawText(emptyText, getWidth() / 2f, (top + bottom) / 2f, paint);

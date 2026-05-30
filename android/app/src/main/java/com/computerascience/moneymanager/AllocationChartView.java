@@ -40,7 +40,7 @@ final class AllocationChartView extends View {
 
         paint.setStyle(Paint.Style.FILL);
         if (total <= 0) {
-            paint.setColor(0xFFD9DDD5);
+            paint.setColor(0xFFDEE6EE);
             canvas.drawOval(oval, paint);
         } else {
             float start = -90f;
@@ -56,7 +56,7 @@ final class AllocationChartView extends View {
         canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, size * 0.28f, paint);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(dp(1));
-        paint.setColor(0xFFD9DDD5);
+        paint.setColor(0xFFDEE6EE);
         canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, size * 0.28f, paint);
     }
 
