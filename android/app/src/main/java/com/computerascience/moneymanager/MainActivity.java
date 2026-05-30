@@ -1031,6 +1031,7 @@ public final class MainActivity extends Activity {
         LinearLayout header = row();
         TextView name = text(event.assetName.isEmpty() ? "未知资产" : event.assetName, 14, INK, Typeface.BOLD);
         header.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+
         TextView time = text(dateFormat.format(new Date(event.timestamp)), 12, MUTED, Typeface.NORMAL);
         time.setGravity(Gravity.END);
         header.addView(time);
@@ -1045,7 +1046,28 @@ public final class MainActivity extends Activity {
             noteParams.topMargin = dp(4);
             row.addView(text(event.note, 12, MUTED, Typeface.NORMAL), noteParams);
         }
+
+        Button delete = secondaryButton("删除记录");
+        delete.setTextColor(DANGER);
+        delete.setOnClickListener(view -> confirmDeleteUpdateEvent(event));
+        LinearLayout.LayoutParams deleteParams = lp(-1, dp(38));
+        deleteParams.topMargin = dp(8);
+        row.addView(delete, deleteParams);
         return row;
+    }
+
+    private void confirmDeleteUpdateEvent(AssetUpdateEvent event) {
+        String assetName = event.assetName.isEmpty() ? "这条资产" : event.assetName;
+        new AlertDialog.Builder(this)
+                .setTitle("删除更新记录？")
+                .setMessage("确定删除「" + assetName + "」这条更新记录吗？这只删除历史记录，不会回滚资产金额或趋势快照。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("删除", (dialog, which) -> {
+                    updateEvents = store.deleteUpdateEvent(event.assetId, event.timestamp);
+                    render();
+                    toast("已删除更新记录。");
+                })
+                .show();
     }
 
     private String updateEventChangeText(AssetUpdateEvent event) {

@@ -162,6 +162,14 @@ final class AssetStore {
         return events;
     }
 
+    List<AssetUpdateEvent> deleteUpdateEvent(String assetId, long timestamp) {
+        List<AssetUpdateEvent> events = loadUpdateEvents();
+        events.removeIf(event -> assetId.equals(event.assetId) && event.timestamp == timestamp);
+        events = pruneAndSortUpdateEvents(events);
+        saveUpdateEvents(events);
+        return events;
+    }
+
     String exportJson(
             List<AssetRecord> assets,
             List<AssetSnapshot> snapshots,
