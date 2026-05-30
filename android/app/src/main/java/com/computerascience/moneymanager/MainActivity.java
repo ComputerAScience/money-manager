@@ -546,8 +546,14 @@ public final class MainActivity extends Activity {
         Button importButton = secondaryButton("批量导入快照");
         importButton.setOnClickListener(view -> showSnapshotBulkImportDialog());
         LinearLayout.LayoutParams importParams = lp(-1, dp(44));
-        importParams.bottomMargin = dp(12);
+        importParams.bottomMargin = dp(8);
         card.addView(importButton, importParams);
+
+        Button copyCsvButton = secondaryButton("复制快照 CSV");
+        copyCsvButton.setOnClickListener(view -> copySnapshotCsv());
+        LinearLayout.LayoutParams copyParams = lp(-1, dp(44));
+        copyParams.bottomMargin = dp(12);
+        card.addView(copyCsvButton, copyParams);
 
         trendHistoryList = new LinearLayout(this);
         trendHistoryList.setOrientation(LinearLayout.VERTICAL);
@@ -1852,6 +1858,41 @@ public final class MainActivity extends Activity {
         return imported;
     }
 
+    private void copySnapshotCsv() {
+        if (settings.hideAmounts) {
+            toast("隐私模式已开启，请先显示金额再复制快照 CSV。");
+            return;
+        }
+
+        List<AssetSnapshot> trendSnapshots = snapshotsForBase(settings.baseCurrency);
+        if (trendSnapshots.isEmpty()) {
+            toast("还没有可复制的趋势快照。");
+            return;
+        }
+
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            toast("无法访问剪贴板。");
+            return;
+        }
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager 快照 CSV", buildSnapshotCsv(trendSnapshots)));
+        toast("已复制 " + trendSnapshots.size() + " 条快照 CSV。");
+    }
+
+    private String buildSnapshotCsv(List<AssetSnapshot> trendSnapshots) {
+        List<String> lines = new ArrayList<>();
+        lines.add("date,baseCurrency,netWorth,grossAssets,liabilities");
+        for (AssetSnapshot snapshot : trendSnapshots) {
+            lines.add(snapshot.dayKey
+                    + "," + snapshot.baseCurrency
+                    + "," + formatCsvNumber(snapshot.netWorth)
+                    + "," + formatCsvNumber(snapshot.grossAssets)
+                    + "," + formatCsvNumber(snapshot.liabilities));
+        }
+        return joinLines(lines);
+    }
+
     private String buildInsightText(PortfolioSummary portfolio) {
         List<String> lines = new ArrayList<>();
         if (!portfolio.categories.isEmpty()) {
@@ -2913,6 +2954,11 @@ public final class MainActivity extends Activity {
 
     private String formatInputNumber(double value) {
         DecimalFormat format = new DecimalFormat("0.##");
+        return format.format(value);
+    }
+
+    private String formatCsvNumber(double value) {
+        DecimalFormat format = new DecimalFormat("0.####");
         return format.format(value);
     }
 
