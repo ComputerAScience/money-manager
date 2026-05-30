@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -26,9 +28,12 @@ import android.widget.Toast;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public final class MainActivity extends Activity {
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
@@ -273,8 +278,14 @@ public final class MainActivity extends Activity {
         form.addView(cadence);
 
         EditText packageName = input("App 包名", draft.packageName, InputType.TYPE_CLASS_TEXT);
-        packageName.setHint("例如 com.example.bank");
+        packageName.setHint("可手动填写，也可从已安装 App 选择");
         form.addView(packageName);
+
+        Button chooseApp = secondaryButton("选择已安装 App");
+        chooseApp.setOnClickListener(view -> showAppPicker(packageName, institution));
+        LinearLayout.LayoutParams chooseAppParams = lp(-1, dp(44));
+        chooseAppParams.bottomMargin = dp(10);
+        form.addView(chooseApp, chooseAppParams);
 
         EditText launchUri = input("启动链接（可选）", draft.launchUri, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         launchUri.setHint("例如 bankapp://home");
@@ -348,6 +359,58 @@ public final class MainActivity extends Activity {
         });
 
         dialog.show();
+    }
+
+    private void showAppPicker(EditText packageNameInput, EditText institutionInput) {
+        List<LaunchableApp> apps = getLaunchableApps();
+        if (apps.isEmpty()) {
+            toast("没有找到可启动的 App。");
+            return;
+        }
+
+        String[] labels = new String[apps.size()];
+        for (int index = 0; index < apps.size(); index += 1) {
+            LaunchableApp app = apps.get(index);
+            labels[index] = app.label + "\n" + app.packageName;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("选择已安装 App")
+                .setNegativeButton("取消", null)
+                .setItems(labels, (dialog, which) -> {
+                    LaunchableApp selected = apps.get(which);
+                    packageNameInput.setText(selected.packageName);
+                    String institution = clean(institutionInput.getText().toString());
+                    if (institution.isEmpty() || institution.contains("待绑定")) {
+                        institutionInput.setText(selected.label);
+                    }
+                    toast("已选择 " + selected.label);
+                })
+                .show();
+    }
+
+    private List<LaunchableApp> getLaunchableApps() {
+        PackageManager packageManager = getPackageManager();
+        Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
+        launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        List<ResolveInfo> resolvedApps = packageManager.queryIntentActivities(launcherIntent, 0);
+        List<LaunchableApp> apps = new ArrayList<>();
+        Set<String> seenPackages = new HashSet<>();
+        for (ResolveInfo resolvedApp : resolvedApps) {
+            String packageName = resolvedApp.activityInfo == null ? "" : resolvedApp.activityInfo.packageName;
+            if (packageName == null
+                    || packageName.isEmpty()
+                    || packageName.equals(getPackageName())
+                    || seenPackages.contains(packageName)) {
+                continue;
+            }
+            seenPackages.add(packageName);
+            CharSequence label = resolvedApp.loadLabel(packageManager);
+            String appLabel = label == null ? packageName : label.toString();
+            apps.add(new LaunchableApp(appLabel, packageName));
+        }
+        Collections.sort(apps, (left, right) -> left.label.compareToIgnoreCase(right.label));
+        return apps;
     }
 
     private void openLinkedApp(AssetRecord asset) {
@@ -600,6 +663,16 @@ public final class MainActivity extends Activity {
         SpaceView(Activity activity, int width, int height) {
             super(activity);
             setLayoutParams(new LinearLayout.LayoutParams(width, height));
+        }
+    }
+
+    private static final class LaunchableApp {
+        final String label;
+        final String packageName;
+
+        LaunchableApp(String label, String packageName) {
+            this.label = label;
+            this.packageName = packageName;
         }
     }
 }
