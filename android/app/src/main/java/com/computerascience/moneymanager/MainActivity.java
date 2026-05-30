@@ -59,6 +59,7 @@ public final class MainActivity extends Activity {
     private AssetStore store;
     private List<AssetRecord> assets = new ArrayList<>();
     private List<AssetSnapshot> snapshots = new ArrayList<>();
+    private PortfolioSettings settings;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout managementBody;
@@ -69,6 +70,7 @@ public final class MainActivity extends Activity {
     private TextView liabilitiesValue;
     private TextView freshnessValue;
     private TextView currencyNote;
+    private TextView currencySettingsSummary;
     private TextView trendSummary;
     private TextView insightSummary;
     private TextView managementSummary;
@@ -87,9 +89,10 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         store = new AssetStore(this);
         assets = store.load();
+        settings = store.loadSettings();
         snapshots = store.loadSnapshots();
         if (snapshots.isEmpty()) {
-            snapshots = store.recordSnapshot(assets);
+            snapshots = store.recordSnapshot(assets, settings);
         }
         buildUi();
         render();
@@ -143,6 +146,7 @@ public final class MainActivity extends Activity {
         root.addView(subtitle, subtitleParams);
 
         root.addView(overviewCard());
+        root.addView(currencyCard());
         root.addView(allocationCard());
         root.addView(trendCard());
         root.addView(insightCard());
@@ -167,21 +171,21 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
-        PortfolioSummary portfolio = AssetMath.summarize(assets);
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
 
-        netWorthValue.setText(formatMoney(portfolio.netWorth, portfolio.primaryCurrency));
-        grossAssetsValue.setText(formatMoney(portfolio.grossAssets, portfolio.primaryCurrency));
-        liabilitiesValue.setText(formatMoney(portfolio.liabilities, portfolio.primaryCurrency));
+        netWorthValue.setText(formatMoney(portfolio.netWorth, portfolio.baseCurrency));
+        grossAssetsValue.setText(formatMoney(portfolio.grossAssets, portfolio.baseCurrency));
+        liabilitiesValue.setText(formatMoney(portfolio.liabilities, portfolio.baseCurrency));
         freshnessValue.setText(portfolio.staleCount + " 项待更新");
-        currencyNote.setText(portfolio.hasMixedCurrencies
-                ? "检测到多币种；当前总额按原始数字合计，后续可接入汇率换算。"
-                : "总额以 " + portfolio.primaryCurrency + " 显示。");
+        currencyNote.setText(currencyNoteText(portfolio));
+        currencySettingsSummary.setText(currencySettingsText());
 
         allocationChart.setCategories(portfolio.categories);
         renderAllocationLegend(portfolio);
 
-        trendChart.setSnapshots(snapshots);
-        trendSummary.setText(trendSummaryText(portfolio));
+        List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
+        trendChart.setSnapshots(trendSnapshots);
+        trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
 
         insightSummary.setText(buildInsightText(portfolio));
 
@@ -242,6 +246,22 @@ public final class MainActivity extends Activity {
         return card;
     }
 
+    private View currencyCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("基准币种与汇率"));
+
+        currencySettingsSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(12);
+        card.addView(currencySettingsSummary, summaryParams);
+
+        Button editButton = secondaryButton("编辑汇率");
+        editButton.setOnClickListener(view -> showCurrencySettingsDialog());
+        card.addView(editButton, lp(-1, dp(44)));
+        return card;
+    }
+
     private View allocationCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("资产比例"));
@@ -279,7 +299,7 @@ public final class MainActivity extends Activity {
 
         Button snapshotButton = secondaryButton("记录今日快照");
         snapshotButton.setOnClickListener(view -> {
-            snapshots = store.recordSnapshot(assets);
+            snapshots = store.recordSnapshot(assets, settings);
             render();
             toast("已记录今日总资产快照。");
         });
@@ -419,6 +439,91 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private String currencyNoteText(PortfolioSummary portfolio) {
+        if (portfolio.missingRateCount > 0) {
+            return "总额以 " + portfolio.baseCurrency + " 显示；"
+                    + portfolio.missingRateCount + " 项资产缺少汇率，暂按 1:1 估算。";
+        }
+        if (portfolio.hasMixedCurrencies) {
+            return "总额以 " + portfolio.baseCurrency + " 显示，多币种资产已按本地汇率换算。";
+        }
+        return "总额以 " + portfolio.baseCurrency + " 显示。";
+    }
+
+    private String currencySettingsText() {
+        List<String> rows = new ArrayList<>();
+        rows.add("基准：" + settings.baseCurrency);
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            if (currency.equals(settings.baseCurrency)) {
+                continue;
+            }
+            double rate = settings.rateFor(currency);
+            if (rate > 0) {
+                rows.add("1 " + currency + " = " + formatRate(rate) + " " + settings.baseCurrency);
+            }
+        }
+        return joinLines(rows);
+    }
+
+    private void showCurrencySettingsDialog() {
+        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        EditText baseCurrency = input("基准币种", draft.baseCurrency, InputType.TYPE_CLASS_TEXT);
+        form.addView(baseCurrency);
+
+        List<CurrencyRateField> rateFields = new ArrayList<>();
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            EditText rateInput = input("1 " + currency + " 等于多少基准币种", formatRate(draft.rateFor(currency)), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            rateFields.add(new CurrencyRateField(currency, rateInput));
+            form.addView(rateInput);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("编辑汇率")
+                .setView(scroll)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                String base = PortfolioSettings.cleanCurrency(baseCurrency.getText().toString());
+                if (base.isEmpty()) {
+                    toast("基准币种不能为空。");
+                    return;
+                }
+
+                draft.baseCurrency = base;
+                for (CurrencyRateField field : rateFields) {
+                    double rate = parsePositiveDouble(field.input.getText().toString(), field.currency.equals(base) ? 1.0 : 0.0);
+                    if (field.currency.equals(base)) {
+                        rate = 1.0;
+                    }
+                    draft.setRate(field.currency, rate);
+                }
+                draft.ensureBaseRate();
+
+                settings = draft;
+                store.saveSettings(settings);
+                snapshots = store.recordSnapshot(assets, settings);
+                render();
+                toast("汇率已更新。");
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
+    }
+
     private void renderAssetFilterButtons() {
         assetFilterButtons.removeAllViews();
         assetFilterButtons.addView(assetFilterButton("全部", "all"), new LinearLayout.LayoutParams(0, dp(40), 1));
@@ -506,16 +611,27 @@ public final class MainActivity extends Activity {
         return 2;
     }
 
-    private String trendSummaryText(PortfolioSummary portfolio) {
-        if (snapshots.size() < 2) {
-            return "现在已记录 " + snapshots.size() + " 个快照。每天或每次核对后记录一次，趋势会逐渐形成。";
+    private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
+        List<AssetSnapshot> filtered = new ArrayList<>();
+        for (AssetSnapshot snapshot : snapshots) {
+            if (baseCurrency.equals(snapshot.baseCurrency)) {
+                filtered.add(snapshot);
+            }
         }
-        AssetSnapshot first = snapshots.get(0);
-        AssetSnapshot last = snapshots.get(snapshots.size() - 1);
+        return filtered;
+    }
+
+    private String trendSummaryText(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
+        if (trendSnapshots.size() < 2) {
+            return "当前基准 " + portfolio.baseCurrency + " 已记录 " + trendSnapshots.size()
+                    + " 个快照。每天或每次核对后记录一次，趋势会逐渐形成。";
+        }
+        AssetSnapshot first = trendSnapshots.get(0);
+        AssetSnapshot last = trendSnapshots.get(trendSnapshots.size() - 1);
         double change = last.netWorth - first.netWorth;
         double ratio = Math.abs(first.netWorth) < 0.0001 ? 0 : change / Math.abs(first.netWorth) * 100;
-        return "近一年记录 " + snapshots.size() + " 个快照，净资产变化 "
-                + formatSignedMoney(change, portfolio.primaryCurrency)
+        return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency + " 快照，净资产变化 "
+                + formatSignedMoney(change, portfolio.baseCurrency)
                 + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
     }
 
@@ -539,8 +655,11 @@ public final class MainActivity extends Activity {
         if (portfolio.grossAssets > 0 && portfolio.liabilities / portfolio.grossAssets > 0.4) {
             lines.add("负债率偏高，建议单独关注还款节奏。");
         }
+        if (portfolio.missingRateCount > 0) {
+            lines.add(portfolio.missingRateCount + " 项资产缺少汇率，建议在“基准币种与汇率”里补齐。");
+        }
         if (portfolio.hasMixedCurrencies) {
-            lines.add("当前存在多币种资产，后续可接入汇率后再做精确合计。");
+            lines.add("当前存在多币种资产，总额按本地汇率换算。");
         }
         return joinLines(lines);
     }
@@ -758,7 +877,7 @@ public final class MainActivity extends Activity {
                     replaceAsset(draft);
                 }
                 store.save(assets);
-                snapshots = store.recordSnapshot(assets);
+                snapshots = store.recordSnapshot(assets, settings);
                 render();
                 dialog.dismiss();
             });
@@ -773,7 +892,7 @@ public final class MainActivity extends Activity {
                         .setPositiveButton("删除", (confirm, which) -> {
                             assets.removeIf(asset -> asset.id.equals(original.id));
                             store.save(assets);
-                            snapshots = store.recordSnapshot(assets);
+                            snapshots = store.recordSnapshot(assets, settings);
                             render();
                             dialog.dismiss();
                         })
@@ -894,7 +1013,7 @@ public final class MainActivity extends Activity {
     private void markUpdated(AssetRecord asset) {
         asset.lastUpdatedAt = System.currentTimeMillis();
         store.save(assets);
-        snapshots = store.recordSnapshot(assets);
+        snapshots = store.recordSnapshot(assets, settings);
         render();
         toast("已更新「" + asset.name + "」。");
     }
@@ -928,7 +1047,7 @@ public final class MainActivity extends Activity {
                 toast("无法写入备份文件。");
                 return;
             }
-            String raw = store.exportJson(assets, snapshots);
+            String raw = store.exportJson(assets, snapshots, settings);
             output.write(raw.getBytes(StandardCharsets.UTF_8));
             toast("备份已导出。");
         } catch (Exception error) {
@@ -959,9 +1078,10 @@ public final class MainActivity extends Activity {
                 .setPositiveButton("导入", (dialog, which) -> {
                     store.replaceAll(backup);
                     assets = store.load();
+                    settings = store.loadSettings();
                     snapshots = store.loadSnapshots();
                     if (snapshots.isEmpty()) {
-                        snapshots = store.recordSnapshot(assets);
+                        snapshots = store.recordSnapshot(assets, settings);
                     }
                     render();
                     toast("备份已导入。");
@@ -1043,6 +1163,11 @@ public final class MainActivity extends Activity {
     private String formatMoney(double value, String currency) {
         DecimalFormat format = new DecimalFormat("#,##0.##");
         return format.format(value) + " " + currency;
+    }
+
+    private String formatRate(double value) {
+        DecimalFormat format = new DecimalFormat("#,##0.####");
+        return format.format(value);
     }
 
     private String formatSignedMoney(double value, String currency) {
@@ -1167,6 +1292,15 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private double parsePositiveDouble(String value, double fallback) {
+        try {
+            double parsed = Double.parseDouble(value.trim().replace(",", ""));
+            return parsed > 0 ? parsed : fallback;
+        } catch (NumberFormatException error) {
+            return fallback;
+        }
+    }
+
     private int indexOf(String[] values, String value) {
         for (int index = 0; index < values.length; index += 1) {
             if (values[index].equals(value)) {
@@ -1198,6 +1332,16 @@ public final class MainActivity extends Activity {
         LaunchableApp(String label, String packageName) {
             this.label = label;
             this.packageName = packageName;
+        }
+    }
+
+    private static final class CurrencyRateField {
+        final String currency;
+        final EditText input;
+
+        CurrencyRateField(String currency, EditText input) {
+            this.currency = currency;
+            this.input = input;
         }
     }
 }

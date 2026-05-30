@@ -9,7 +9,8 @@ final class PortfolioSummary {
     final int assetCount;
     final int staleCount;
     final int missingBindingCount;
-    final String primaryCurrency;
+    final int missingRateCount;
+    final String baseCurrency;
     final boolean hasMixedCurrencies;
     final List<CategoryBreakdown> categories;
 
@@ -20,7 +21,8 @@ final class PortfolioSummary {
             int assetCount,
             int staleCount,
             int missingBindingCount,
-            String primaryCurrency,
+            int missingRateCount,
+            String baseCurrency,
             boolean hasMixedCurrencies,
             List<CategoryBreakdown> categories
     ) {
@@ -30,7 +32,8 @@ final class PortfolioSummary {
         this.assetCount = assetCount;
         this.staleCount = staleCount;
         this.missingBindingCount = missingBindingCount;
-        this.primaryCurrency = primaryCurrency;
+        this.missingRateCount = missingRateCount;
+        this.baseCurrency = baseCurrency;
         this.hasMixedCurrencies = hasMixedCurrencies;
         this.categories = categories;
     }

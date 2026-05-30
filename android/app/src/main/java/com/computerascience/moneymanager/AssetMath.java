@@ -13,18 +13,27 @@ final class AssetMath {
     private AssetMath() {
     }
 
-    static PortfolioSummary summarize(List<AssetRecord> assets) {
+    static PortfolioSummary summarize(List<AssetRecord> assets, PortfolioSettings settings) {
         double grossAssets = 0;
         double liabilities = 0;
         int staleCount = 0;
         int missingBindingCount = 0;
-        String primaryCurrency = "CNY";
-        boolean foundCurrency = false;
+        int missingRateCount = 0;
+        String baseCurrency = settings.baseCurrency;
         boolean hasMixedCurrencies = false;
         Map<String, Double> categoryTotals = new HashMap<>();
 
         for (AssetRecord asset : assets) {
-            double amount = Math.abs(parseAmount(asset.amount));
+            String currency = cleanCurrency(asset.currency);
+            if (!currency.isEmpty() && !currency.equals(baseCurrency)) {
+                hasMixedCurrencies = true;
+            }
+            double rate = settings.rateFor(currency);
+            if (!settings.hasRateFor(currency)) {
+                missingRateCount += 1;
+                rate = 1.0;
+            }
+            double amount = Math.abs(parseAmount(asset.amount)) * rate;
             boolean liability = isLiability(asset);
             if (liability) {
                 liabilities += amount;
@@ -38,16 +47,6 @@ final class AssetMath {
             }
             if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
                 missingBindingCount += 1;
-            }
-
-            String currency = cleanCurrency(asset.currency);
-            if (!currency.isEmpty()) {
-                if (!foundCurrency) {
-                    primaryCurrency = currency;
-                    foundCurrency = true;
-                } else if (!primaryCurrency.equals(currency)) {
-                    hasMixedCurrencies = true;
-                }
             }
         }
 
@@ -67,7 +66,8 @@ final class AssetMath {
                 assets.size(),
                 staleCount,
                 missingBindingCount,
-                primaryCurrency,
+                missingRateCount,
+                baseCurrency,
                 hasMixedCurrencies,
                 categories
         );

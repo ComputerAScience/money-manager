@@ -18,6 +18,7 @@ final class AssetStore {
     private static final String PREFS = "money_manager_assets";
     private static final String KEY_ASSETS = "assets";
     private static final String KEY_SNAPSHOTS = "snapshots";
+    private static final String KEY_SETTINGS = "settings";
 
     private final SharedPreferences preferences;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -56,6 +57,27 @@ final class AssetStore {
         preferences.edit().putString(KEY_ASSETS, array.toString()).apply();
     }
 
+    PortfolioSettings loadSettings() {
+        String raw = preferences.getString(KEY_SETTINGS, "");
+        if (raw == null || raw.isEmpty()) {
+            return new PortfolioSettings();
+        }
+        try {
+            return PortfolioSettings.fromJson(new JSONObject(raw));
+        } catch (JSONException error) {
+            return new PortfolioSettings();
+        }
+    }
+
+    void saveSettings(PortfolioSettings settings) {
+        settings.ensureBaseRate();
+        try {
+            preferences.edit().putString(KEY_SETTINGS, settings.toJson().toString()).apply();
+        } catch (JSONException ignored) {
+            // Keep the previous settings if serialization fails.
+        }
+    }
+
     List<AssetSnapshot> loadSnapshots() {
         String raw = preferences.getString(KEY_SNAPSHOTS, "");
         if (raw == null || raw.isEmpty()) {
@@ -74,14 +96,15 @@ final class AssetStore {
         }
     }
 
-    List<AssetSnapshot> recordSnapshot(List<AssetRecord> assets) {
+    List<AssetSnapshot> recordSnapshot(List<AssetRecord> assets, PortfolioSettings settings) {
         List<AssetSnapshot> snapshots = loadSnapshots();
-        PortfolioSummary summary = AssetMath.summarize(assets);
+        PortfolioSummary summary = AssetMath.summarize(assets, settings);
         long now = System.currentTimeMillis();
         String today = dayFormat.format(new Date(now));
         AssetSnapshot snapshot = new AssetSnapshot(
                 today,
                 now,
+                summary.baseCurrency,
                 summary.netWorth,
                 summary.grossAssets,
                 summary.liabilities
@@ -89,7 +112,8 @@ final class AssetStore {
 
         boolean replaced = false;
         for (int index = 0; index < snapshots.size(); index += 1) {
-            if (today.equals(snapshots.get(index).dayKey)) {
+            AssetSnapshot existing = snapshots.get(index);
+            if (today.equals(existing.dayKey) && summary.baseCurrency.equals(existing.baseCurrency)) {
                 snapshots.set(index, snapshot);
                 replaced = true;
                 break;
@@ -103,7 +127,7 @@ final class AssetStore {
         return snapshots;
     }
 
-    String exportJson(List<AssetRecord> assets, List<AssetSnapshot> snapshots) throws JSONException {
+    String exportJson(List<AssetRecord> assets, List<AssetSnapshot> snapshots, PortfolioSettings settings) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("app", "money-manager-android");
         root.put("version", 1);
@@ -120,6 +144,7 @@ final class AssetStore {
             snapshotArray.put(snapshot.toJson());
         }
         root.put("snapshots", snapshotArray);
+        root.put("settings", settings.toJson());
         return root.toString(2);
     }
 
@@ -142,12 +167,16 @@ final class AssetStore {
                 importedSnapshots.add(AssetSnapshot.fromJson(snapshotArray.getJSONObject(index)));
             }
         }
-        return new AssetBackup(importedAssets, pruneAndSort(importedSnapshots));
+        PortfolioSettings importedSettings = root.has("settings")
+                ? PortfolioSettings.fromJson(root.getJSONObject("settings"))
+                : new PortfolioSettings();
+        return new AssetBackup(importedAssets, pruneAndSort(importedSnapshots), importedSettings);
     }
 
     void replaceAll(AssetBackup backup) {
         save(backup.assets);
         saveSnapshots(pruneAndSort(backup.snapshots));
+        saveSettings(backup.settings);
     }
 
     private void saveSnapshots(List<AssetSnapshot> snapshots) {
