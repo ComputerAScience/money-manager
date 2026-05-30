@@ -35,6 +35,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -50,6 +52,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
@@ -72,7 +76,6 @@ public final class MainActivity extends Activity {
     private static final String PAGE_OVERVIEW = "overview";
     private static final String PAGE_TREND = "trend";
     private static final String PAGE_ASSETS = "assets";
-    private static final String PAGE_UPDATES = "updates";
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     private AssetStore store;
@@ -86,11 +89,9 @@ public final class MainActivity extends Activity {
     private LinearLayout overviewPage;
     private LinearLayout trendPage;
     private LinearLayout assetsPage;
-    private LinearLayout updatesPage;
     private Button overviewTab;
     private Button trendTab;
     private Button assetsTab;
-    private Button updatesTab;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -153,6 +154,7 @@ public final class MainActivity extends Activity {
         }
         buildUi();
         render();
+        refreshExchangeRates(false);
     }
 
     @Override
@@ -242,8 +244,7 @@ public final class MainActivity extends Activity {
         overviewPage.addView(allocationTargetCard());
         overviewPage.addView(institutionCard());
         overviewPage.addView(netWorthGoalCard());
-        overviewPage.addView(insightCard());
-        overviewPage.addView(dataHealthCard());
+        overviewPage.addView(actionCenterCard());
         root.addView(overviewPage);
 
         trendPage = page();
@@ -254,12 +255,8 @@ public final class MainActivity extends Activity {
 
         assetsPage = page();
         assetsPage.addView(assetManagementSection());
+        assetsPage.addView(recentUpdatesCard());
         root.addView(assetsPage);
-
-        updatesPage = page();
-        updatesPage.addView(updatePlanCard());
-        updatesPage.addView(recentUpdatesCard());
-        root.addView(updatesPage);
 
         screen.addView(scrollView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -279,11 +276,9 @@ public final class MainActivity extends Activity {
         overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
         trendTab = bottomTabButton("趋势", PAGE_TREND);
         assetsTab = bottomTabButton("资产", PAGE_ASSETS);
-        updatesTab = bottomTabButton("更新", PAGE_UPDATES);
         bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(48), 1));
         bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(48), 1));
         bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(updatesTab, new LinearLayout.LayoutParams(0, dp(48), 1));
         bottomShell.addView(bottomNav, lp(-1, dp(56)));
         screen.addView(bottomShell, lp(-1, -2));
         setContentView(screen);
@@ -295,16 +290,6 @@ public final class MainActivity extends Activity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setLayoutParams(lp(-1, -2));
         return page;
-    }
-
-    private Button tabButton(String label, String page) {
-        Button button = secondaryButton(label);
-        button.setTextSize(13);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setPadding(dp(14), 0, dp(14), 0);
-        button.setOnClickListener(view -> selectPage(page));
-        return button;
     }
 
     private Button bottomTabButton(String label, String page) {
@@ -329,12 +314,10 @@ public final class MainActivity extends Activity {
         setPageVisible(overviewPage, PAGE_OVERVIEW.equals(currentPage));
         setPageVisible(trendPage, PAGE_TREND.equals(currentPage));
         setPageVisible(assetsPage, PAGE_ASSETS.equals(currentPage));
-        setPageVisible(updatesPage, PAGE_UPDATES.equals(currentPage));
 
         styleTab(overviewTab, PAGE_OVERVIEW.equals(currentPage));
         styleTab(trendTab, PAGE_TREND.equals(currentPage));
         styleTab(assetsTab, PAGE_ASSETS.equals(currentPage));
-        styleTab(updatesTab, PAGE_UPDATES.equals(currentPage));
 
         if (pageTitle != null) {
             pageTitle.setText(pageTitleText());
@@ -369,9 +352,6 @@ public final class MainActivity extends Activity {
         if (PAGE_ASSETS.equals(currentPage)) {
             return "资产管理";
         }
-        if (PAGE_UPDATES.equals(currentPage)) {
-            return "更新";
-        }
         return "总览";
     }
 
@@ -380,10 +360,7 @@ public final class MainActivity extends Activity {
             return "记录总资产快照，查看总额、分布和单项资产变化。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
-            return "新增、筛选、绑定和核对每一项资产。";
-        }
-        if (PAGE_UPDATES.equals(currentPage)) {
-            return "按更新周期处理待核对资产，回看最近变化。";
+            return "新增、筛选、绑定、核对资产，并回看最近更新。";
         }
         return "净资产、资产分布、年度目标和需要处理的提醒。";
     }
@@ -812,23 +789,37 @@ public final class MainActivity extends Activity {
         return card;
     }
 
-    private View insightCard() {
+    private View actionCenterCard() {
         LinearLayout card = card();
-        card.addView(sectionTitle("待办提醒"));
-        insightSummary = text("", 15, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = dp(10);
-        card.addView(insightSummary, params);
-        return card;
-    }
+        card.addView(sectionTitle("行动中心"));
 
-    private View dataHealthCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("数据健康"));
+        insightSummary = text("", 15, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams insightParams = lp(-1, -2);
+        insightParams.topMargin = dp(10);
+        insightParams.bottomMargin = dp(12);
+        card.addView(insightSummary, insightParams);
+
+        TextView updateTitle = text("优先核对", 13, MUTED, Typeface.BOLD);
+        card.addView(updateTitle, lp(-1, -2));
+
+        updatePlanSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams updateSummaryParams = lp(-1, -2);
+        updateSummaryParams.topMargin = dp(6);
+        updateSummaryParams.bottomMargin = dp(6);
+        card.addView(updatePlanSummary, updateSummaryParams);
+
+        updatePlanList = new LinearLayout(this);
+        updatePlanList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(updatePlanList, lp(-1, -2));
+
+        TextView healthTitle = text("数据质量", 13, MUTED, Typeface.BOLD);
+        LinearLayout.LayoutParams healthTitleParams = lp(-1, -2);
+        healthTitleParams.topMargin = dp(14);
+        card.addView(healthTitle, healthTitleParams);
 
         dataHealthSummary = text("", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
+        summaryParams.topMargin = dp(6);
         summaryParams.bottomMargin = dp(8);
         card.addView(dataHealthSummary, summaryParams);
 
@@ -841,22 +832,6 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
         buttonParams.topMargin = dp(10);
         card.addView(reviewButton, buttonParams);
-        return card;
-    }
-
-    private View updatePlanCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("更新计划"));
-
-        updatePlanSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(updatePlanSummary, summaryParams);
-
-        updatePlanList = new LinearLayout(this);
-        updatePlanList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(updatePlanList, lp(-1, -2));
         return card;
     }
 
@@ -1398,8 +1373,18 @@ public final class MainActivity extends Activity {
         int pad = dp(18);
         form.setPadding(pad, dp(6), pad, 0);
 
-        EditText baseCurrency = input("基准币种", draft.baseCurrency, InputType.TYPE_CLASS_TEXT);
-        form.addView(baseCurrency);
+        TextView description = text("会自动获取常用币种的最新公开汇率；网络不可用时仍可手动修改。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        Spinner baseCurrency = currencySpinner(draft.baseCurrency);
+        form.addView(fieldBox("基准币种", baseCurrency));
+
+        Button refreshButton = secondaryButton("获取实时汇率");
+        LinearLayout.LayoutParams refreshParams = lp(-1, dp(44));
+        refreshParams.bottomMargin = dp(12);
+        form.addView(refreshButton, refreshParams);
 
         List<CurrencyRateField> rateFields = new ArrayList<>();
         for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
@@ -1412,17 +1397,38 @@ public final class MainActivity extends Activity {
         scroll.addView(form);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("编辑汇率")
+                .setTitle("汇率设置")
                 .setView(scroll)
                 .setNegativeButton("取消", null)
                 .setPositiveButton("保存", null)
                 .create();
 
         dialog.setOnShowListener(view -> {
+            refreshButton.setOnClickListener(button -> {
+                String base = String.valueOf(baseCurrency.getSelectedItem());
+                refreshButton.setEnabled(false);
+                refreshButton.setText("获取中...");
+                fetchRealtimeRates(base, rates -> {
+                    draft.baseCurrency = base;
+                    draft.ratesToBase.putAll(rates);
+                    draft.ensureBaseRate();
+                    for (CurrencyRateField field : rateFields) {
+                        field.input.setText(formatRate(draft.rateFor(field.currency)));
+                    }
+                    refreshButton.setEnabled(true);
+                    refreshButton.setText("获取实时汇率");
+                    toast("实时汇率已填入。");
+                }, message -> {
+                    refreshButton.setEnabled(true);
+                    refreshButton.setText("获取实时汇率");
+                    toast(message);
+                });
+            });
+
             Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             save.setTextColor(ACCENT);
             save.setOnClickListener(button -> {
-                String base = PortfolioSettings.cleanCurrency(baseCurrency.getText().toString());
+                String base = PortfolioSettings.cleanCurrency(String.valueOf(baseCurrency.getSelectedItem()));
                 if (base.isEmpty()) {
                     toast("基准币种不能为空。");
                     return;
@@ -1448,6 +1454,112 @@ public final class MainActivity extends Activity {
         });
 
         dialog.show();
+    }
+
+    private void refreshExchangeRates(boolean showToast) {
+        fetchRealtimeRates(settings.baseCurrency, rates -> {
+            settings.ratesToBase.putAll(rates);
+            settings.ensureBaseRate();
+            store.saveSettings(settings);
+            render();
+            if (showToast) {
+                toast("实时汇率已更新。");
+            }
+        }, message -> {
+            if (showToast) {
+                toast(message);
+            }
+        });
+    }
+
+    private void fetchRealtimeRates(
+            String baseCurrency,
+            RateSuccessHandler successHandler,
+            RateFailureHandler failureHandler
+    ) {
+        String base = PortfolioSettings.cleanCurrency(baseCurrency);
+        if (!isCommonCurrency(base)) {
+            failureHandler.onFailure("实时汇率暂只支持 CNY / USD / HKD / EUR / JPY。");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                Map<String, Double> rates = fetchRatesToBase(base);
+                runOnUiThread(() -> successHandler.onSuccess(rates));
+            } catch (Exception error) {
+                runOnUiThread(() -> failureHandler.onFailure("实时汇率获取失败，请稍后重试。"));
+            }
+        }).start();
+    }
+
+    private Map<String, Double> fetchRatesToBase(String baseCurrency) throws Exception {
+        String targets = realtimeRateTargets();
+        URL url = new URL("https://api.frankfurter.dev/v1/latest?base=USD&symbols=" + targets);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(8000);
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("User-Agent", "MoneyManagerAndroid/0.1");
+        int status = connection.getResponseCode();
+        if (status != HttpURLConnection.HTTP_OK) {
+            connection.disconnect();
+            throw new IOException("FX HTTP " + status);
+        }
+
+        String raw;
+        try (InputStream input = connection.getInputStream()) {
+            raw = readUtf8(input);
+        } finally {
+            connection.disconnect();
+        }
+        JSONObject json = new JSONObject(raw);
+        JSONObject rates = json.getJSONObject("rates");
+        Map<String, Double> usdToCurrency = new HashMap<>();
+        usdToCurrency.put("USD", 1.0);
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            if (!"USD".equals(currency) && rates.has(currency)) {
+                double value = rates.optDouble(currency, 0);
+                if (value > 0) {
+                    usdToCurrency.put(currency, value);
+                }
+            }
+        }
+
+        Double usdToBase = usdToCurrency.get(baseCurrency);
+        if (usdToBase == null || usdToBase <= 0) {
+            throw new IOException("Missing base rate");
+        }
+
+        Map<String, Double> ratesToBase = new HashMap<>();
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            Double usdToTarget = usdToCurrency.get(currency);
+            if (usdToTarget != null && usdToTarget > 0) {
+                ratesToBase.put(currency, currency.equals(baseCurrency) ? 1.0 : usdToBase / usdToTarget);
+            }
+        }
+        return ratesToBase;
+    }
+
+    private String realtimeRateTargets() {
+        List<String> targets = new ArrayList<>();
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            if (!"USD".equals(currency)) {
+                targets.add(currency);
+            }
+        }
+        return joinComma(targets);
+    }
+
+    private boolean isCommonCurrency(String currency) {
+        String cleanCurrency = PortfolioSettings.cleanCurrency(currency);
+        for (String option : PortfolioSettings.COMMON_CURRENCIES) {
+            if (option.equals(cleanCurrency)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void showAllocationTargetDialog() {
@@ -2311,22 +2423,14 @@ public final class MainActivity extends Activity {
                         + "，剩余 " + Math.max(0, daysLeft) + " 天。");
             }
         }
-        if (portfolio.staleCount > 0) {
-            lines.add(portfolio.staleCount + " 项资产已到更新周期。");
-        } else {
-            lines.add("所有资产都在更新周期内。");
-        }
-        if (portfolio.missingBindingCount > 0) {
-            lines.add(portfolio.missingBindingCount + " 项资产还没绑定 App，可在资产管理里选择已安装 App。");
-        }
         if (portfolio.grossAssets > 0 && portfolio.liabilities / portfolio.grossAssets > 0.4) {
             lines.add("负债率偏高，建议单独关注还款节奏。");
         }
-        if (portfolio.missingRateCount > 0) {
-            lines.add(portfolio.missingRateCount + " 项资产缺少汇率，建议在“基准币种与汇率”里补齐。");
-        }
         if (portfolio.hasMixedCurrencies) {
-            lines.add("当前存在多币种资产，总额按本地汇率换算。");
+            lines.add("当前存在多币种资产，总额会按最新或本地汇率换算。");
+        }
+        if (lines.isEmpty()) {
+            lines.add("暂无突出的配置或目标风险，按下面的更新周期处理即可。");
         }
         return joinLines(lines);
     }
@@ -2335,7 +2439,7 @@ public final class MainActivity extends Activity {
         dataHealthList.removeAllViews();
         List<String> issues = dataHealthIssues(portfolio);
         if (issues.isEmpty()) {
-            dataHealthSummary.setText("数据状态良好：金额、机构、App 绑定、汇率和更新时间都已覆盖。");
+            dataHealthSummary.setText("数据状态良好：金额、机构、App 绑定和汇率都已覆盖。");
             dataHealthList.addView(text("继续保持定期核对即可。", 14, MUTED, Typeface.NORMAL));
             return;
         }
@@ -2353,8 +2457,6 @@ public final class MainActivity extends Activity {
         int missingInstitution = 0;
         int missingBinding = 0;
         int missingRate = 0;
-        int neverUpdated = 0;
-        int staleUpdated = 0;
 
         for (AssetRecord asset : assets) {
             String amount = clean(asset.amount);
@@ -2373,11 +2475,6 @@ public final class MainActivity extends Activity {
             String currency = AssetMath.cleanCurrency(asset.currency);
             if (!settings.hasRateFor(currency)) {
                 missingRate += 1;
-            }
-            if (asset.lastUpdatedAt <= 0) {
-                neverUpdated += 1;
-            } else if (isStale(asset)) {
-                staleUpdated += 1;
             }
         }
 
@@ -2398,12 +2495,6 @@ public final class MainActivity extends Activity {
         }
         if (missingRate > 0) {
             issues.add(missingRate + " 项资产缺少到 " + portfolio.baseCurrency + " 的汇率。");
-        }
-        if (neverUpdated > 0) {
-            issues.add(neverUpdated + " 项资产从未标记更新。");
-        }
-        if (staleUpdated > 0) {
-            issues.add(staleUpdated + " 项资产已超过更新周期。");
         }
         return issues;
     }
@@ -2864,10 +2955,10 @@ public final class MainActivity extends Activity {
 
         LinearLayout amountRow = row();
         EditText amount = input("金额", draft.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText currency = input("币种", draft.currency, InputType.TYPE_CLASS_TEXT);
-        amountRow.addView(amount, new LinearLayout.LayoutParams(0, -2, 1));
+        Spinner currency = currencySpinner(draft.currency);
+        amountRow.addView(fieldBox("金额", amount), new LinearLayout.LayoutParams(0, -2, 1));
         amountRow.addView(new SpaceView(this, dp(8), 1));
-        amountRow.addView(currency, new LinearLayout.LayoutParams(0, -2, 0.55f));
+        amountRow.addView(fieldBox("币种", currency), new LinearLayout.LayoutParams(0, -2, 0.62f));
         form.addView(amountRow);
 
         EditText cadence = input("更新周期（天）", String.valueOf(draft.updateEveryDays), InputType.TYPE_CLASS_NUMBER);
@@ -2933,14 +3024,13 @@ public final class MainActivity extends Activity {
                 draft.category = String.valueOf(category.getSelectedItem());
                 draft.institution = clean(institution.getText().toString());
                 draft.amount = clean(amount.getText().toString());
-                draft.currency = clean(currency.getText().toString()).isEmpty()
-                        ? "CNY"
-                        : clean(currency.getText().toString()).toUpperCase(Locale.ROOT);
+                draft.currency = String.valueOf(currency.getSelectedItem());
                 draft.updateEveryDays = everyDays;
                 draft.appName = clean(selectedAppName[0]);
                 draft.packageName = clean(selectedPackageName[0]);
                 draft.launchUri = clean(selectedLaunchUri[0]);
                 draft.note = clean(note.getText().toString());
+                draft.lastUpdatedAt = System.currentTimeMillis();
 
                 if (creating) {
                     assets.add(draft);
@@ -2950,6 +3040,7 @@ public final class MainActivity extends Activity {
                 store.save(assets);
                 snapshots = store.recordSnapshot(assets, settings);
                 render();
+                toast(creating ? "资产已新增并标记更新。" : "资产已保存并标记更新。");
                 dialog.dismiss();
             });
 
@@ -3481,6 +3572,17 @@ public final class MainActivity extends Activity {
         return builder.toString();
     }
 
+    private String joinComma(List<String> values) {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < values.size(); index += 1) {
+            if (index > 0) {
+                builder.append(",");
+            }
+            builder.append(values.get(index));
+        }
+        return builder.toString();
+    }
+
     private String backupDate() {
         return new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
     }
@@ -3544,6 +3646,31 @@ public final class MainActivity extends Activity {
         params.bottomMargin = dp(10);
         box.setLayoutParams(params);
         return box;
+    }
+
+    private Spinner currencySpinner(String selectedCurrency) {
+        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
+        if (selected.isEmpty()) {
+            selected = "CNY";
+        }
+        List<String> options = currencyOptions(selected);
+        Spinner spinner = new Spinner(this);
+        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, options));
+        int selectedIndex = options.indexOf(selected);
+        spinner.setSelection(Math.max(0, selectedIndex));
+        return spinner;
+    }
+
+    private List<String> currencyOptions(String selectedCurrency) {
+        List<String> options = new ArrayList<>();
+        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
+            options.add(currency);
+        }
+        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
+        if (!selected.isEmpty() && !options.contains(selected)) {
+            options.add(selected);
+        }
+        return options;
     }
 
     private LinearLayout row() {
@@ -3696,6 +3823,14 @@ public final class MainActivity extends Activity {
 
     private interface AppSelectionHandler {
         void onSelected(LaunchableApp app);
+    }
+
+    private interface RateSuccessHandler {
+        void onSuccess(Map<String, Double> rates);
+    }
+
+    private interface RateFailureHandler {
+        void onFailure(String message);
     }
 
     private final class LaunchableAppAdapter extends BaseAdapter {
