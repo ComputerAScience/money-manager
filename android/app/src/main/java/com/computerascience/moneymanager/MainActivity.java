@@ -3,6 +3,8 @@ package com.computerascience.moneymanager;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -248,15 +250,22 @@ public final class MainActivity extends Activity {
         noteParams.bottomMargin = dp(10);
         card.addView(currencyNote, noteParams);
 
+        LinearLayout overviewActions = row();
         privacyToggle = secondaryButton("隐藏金额");
         privacyToggle.setOnClickListener(view -> {
             settings.hideAmounts = !settings.hideAmounts;
             store.saveSettings(settings);
             render();
         });
-        LinearLayout.LayoutParams privacyParams = lp(-1, dp(42));
-        privacyParams.bottomMargin = dp(14);
-        card.addView(privacyToggle, privacyParams);
+        overviewActions.addView(privacyToggle, new LinearLayout.LayoutParams(0, dp(42), 1));
+        overviewActions.addView(new SpaceView(this, dp(10), 1));
+
+        Button copySummary = secondaryButton("复制摘要");
+        copySummary.setOnClickListener(view -> copyAssetSummary());
+        overviewActions.addView(copySummary, new LinearLayout.LayoutParams(0, dp(42), 1));
+        LinearLayout.LayoutParams actionParams = lp(-1, -2);
+        actionParams.bottomMargin = dp(14);
+        card.addView(overviewActions, actionParams);
 
         LinearLayout row1 = row();
         grossAssetsValue = text("--", 18, INK, Typeface.BOLD);
@@ -271,6 +280,77 @@ public final class MainActivity extends Activity {
         freshParams.topMargin = dp(10);
         card.addView(metric("更新状态", freshnessValue), freshParams);
         return card;
+    }
+
+    private void copyAssetSummary() {
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
+        List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            toast("无法访问剪贴板。");
+            return;
+        }
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager 资产摘要", buildAssetSummary(portfolio, trendSnapshots)));
+        toast("资产摘要已复制。");
+    }
+
+    private String buildAssetSummary(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Money Manager 资产摘要");
+        lines.add("生成时间：" + dateFormat.format(new Date()));
+        lines.add("基准币种：" + portfolio.baseCurrency);
+        lines.add("");
+        lines.add("净资产：" + formatMoney(portfolio.netWorth, portfolio.baseCurrency));
+        lines.add("资产总额：" + formatMoney(portfolio.grossAssets, portfolio.baseCurrency));
+        lines.add("负债：" + formatMoney(portfolio.liabilities, portfolio.baseCurrency));
+        lines.add("更新状态：" + portfolio.staleCount + " 项待更新 / 共 " + portfolio.assetCount + " 项");
+        lines.add("");
+        lines.add("一年趋势：" + trendSummaryText(portfolio, trendSnapshots));
+
+        if (!portfolio.categories.isEmpty()) {
+            lines.add("");
+            lines.add("资产比例 Top 3");
+            double total = portfolio.grossAssets + portfolio.liabilities;
+            int limit = Math.min(3, portfolio.categories.size());
+            for (int index = 0; index < limit; index += 1) {
+                CategoryBreakdown category = portfolio.categories.get(index);
+                lines.add("- " + category.category + "："
+                        + formatMoney(category.value, portfolio.baseCurrency)
+                        + "，" + formatPercent(category.value, total));
+            }
+        }
+
+        if (!portfolio.institutions.isEmpty()) {
+            lines.add("");
+            lines.add("机构分布 Top 3");
+            double total = portfolio.grossAssets + portfolio.liabilities;
+            int limit = Math.min(3, portfolio.institutions.size());
+            for (int index = 0; index < limit; index += 1) {
+                InstitutionBreakdown institution = portfolio.institutions.get(index);
+                lines.add("- " + institution.institution + "："
+                        + formatMoney(institution.value, portfolio.baseCurrency)
+                        + "，" + formatPercent(institution.value, total)
+                        + "，" + institution.assetCount + " 项");
+            }
+        }
+
+        int urgentCount = 0;
+        int soonCount = 0;
+        for (AssetRecord asset : assets) {
+            int days = daysUntilDue(asset);
+            if (days <= 0) {
+                urgentCount += 1;
+            } else if (days <= 3) {
+                soonCount += 1;
+            }
+        }
+        lines.add("");
+        lines.add("更新计划：" + updatePlanSummaryText(urgentCount, soonCount));
+        lines.add("最近更新：" + (updateEvents.isEmpty()
+                ? "还没有更新记录。"
+                : recentUpdateSummaryText()));
+        return joinLines(lines);
     }
 
     private View currencyCard() {
@@ -961,8 +1041,7 @@ public final class MainActivity extends Activity {
             }
         }
 
-        updatePlanSummary.setText(urgentCount + " 项需要现在核对，"
-                + soonCount + " 项将在 3 天内到期。");
+        updatePlanSummary.setText(updatePlanSummaryText(urgentCount, soonCount));
 
         int limit = Math.min(5, planned.size());
         for (int index = 0; index < limit; index += 1) {
@@ -987,6 +1066,11 @@ public final class MainActivity extends Activity {
             return left.name.compareToIgnoreCase(right.name);
         });
         return planned;
+    }
+
+    private String updatePlanSummaryText(int urgentCount, int soonCount) {
+        return urgentCount + " 项需要现在核对，"
+                + soonCount + " 项将在 3 天内到期。";
     }
 
     private View updatePlanRow(AssetRecord asset) {
