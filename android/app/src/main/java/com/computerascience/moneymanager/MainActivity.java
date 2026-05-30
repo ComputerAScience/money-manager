@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
@@ -59,6 +60,12 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = Color.rgb(18, 107, 95);
     private static final int DANGER = Color.rgb(183, 73, 85);
     private static final int AMBER = Color.rgb(154, 119, 32);
+    private static final String PAGE_OVERVIEW = "overview";
+    private static final String PAGE_DISTRIBUTION = "distribution";
+    private static final String PAGE_TREND = "trend";
+    private static final String PAGE_ASSETS = "assets";
+    private static final String PAGE_UPDATES = "updates";
+    private static final String PAGE_SETTINGS = "settings";
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     private AssetStore store;
@@ -67,6 +74,20 @@ public final class MainActivity extends Activity {
     private List<AssetUpdateEvent> updateEvents = new ArrayList<>();
     private PortfolioSettings settings;
     private ScrollView mainScrollView;
+    private TextView pageTitle;
+    private TextView pageSubtitle;
+    private LinearLayout overviewPage;
+    private LinearLayout distributionPage;
+    private LinearLayout trendPage;
+    private LinearLayout assetsPage;
+    private LinearLayout updatesPage;
+    private LinearLayout settingsPage;
+    private Button overviewTab;
+    private Button distributionTab;
+    private Button trendTab;
+    private Button assetsTab;
+    private Button updatesTab;
+    private Button settingsTab;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -104,6 +125,7 @@ public final class MainActivity extends Activity {
     private boolean managementExpanded = true;
     private String assetSearchQuery = "";
     private String assetFilterMode = "all";
+    private String currentPage = PAGE_OVERVIEW;
     private final Set<String> collapsedAssetGroups = new HashSet<>();
 
     @Override
@@ -144,6 +166,54 @@ public final class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setBackgroundColor(BG);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(18), dp(18), dp(18), dp(10));
+        header.setBackgroundColor(BG);
+
+        TextView eyebrow = label("Money Manager");
+        header.addView(eyebrow);
+
+        pageTitle = text("", 26, INK, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = lp(-1, -2);
+        titleParams.topMargin = dp(4);
+        header.addView(pageTitle, titleParams);
+
+        pageSubtitle = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams subtitleParams = lp(-1, -2);
+        subtitleParams.topMargin = dp(4);
+        subtitleParams.bottomMargin = dp(12);
+        header.addView(pageSubtitle, subtitleParams);
+
+        HorizontalScrollView tabsScroll = new HorizontalScrollView(this);
+        tabsScroll.setHorizontalScrollBarEnabled(false);
+        tabsScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        LinearLayout tabs = row();
+        tabs.setGravity(Gravity.CENTER_VERTICAL);
+        overviewTab = tabButton("总览", PAGE_OVERVIEW);
+        distributionTab = tabButton("分布", PAGE_DISTRIBUTION);
+        trendTab = tabButton("趋势", PAGE_TREND);
+        assetsTab = tabButton("资产", PAGE_ASSETS);
+        updatesTab = tabButton("更新", PAGE_UPDATES);
+        settingsTab = tabButton("设置", PAGE_SETTINGS);
+        addTab(tabs, overviewTab);
+        addTab(tabs, distributionTab);
+        addTab(tabs, trendTab);
+        addTab(tabs, assetsTab);
+        addTab(tabs, updatesTab);
+        addTab(tabs, settingsTab);
+        tabsScroll.addView(tabs, new HorizontalScrollView.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        header.addView(tabsScroll, lp(-1, -2));
+        screen.addView(header, lp(-1, -2));
+
         ScrollView scrollView = new ScrollView(this);
         mainScrollView = scrollView;
         scrollView.setFillViewport(true);
@@ -151,39 +221,159 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(22), dp(18), dp(28));
+        root.setPadding(dp(18), dp(10), dp(18), dp(28));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        TextView eyebrow = label("Money Manager");
-        root.addView(eyebrow);
+        overviewPage = page();
+        overviewPage.addView(overviewCard());
+        overviewPage.addView(netWorthGoalCard());
+        overviewPage.addView(insightCard());
+        overviewPage.addView(dataHealthCard());
+        root.addView(overviewPage);
 
-        TextView title = text("总资产", 28, INK, Typeface.BOLD);
-        root.addView(title);
+        distributionPage = page();
+        distributionPage.addView(allocationCard());
+        distributionPage.addView(allocationTargetCard());
+        distributionPage.addView(institutionCard());
+        root.addView(distributionPage);
 
-        TextView subtitle = text("看总额、比例和一年趋势；资产更新入口也放在这里。", 15, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams subtitleParams = lp(-1, -2);
-        subtitleParams.topMargin = dp(6);
-        subtitleParams.bottomMargin = dp(18);
-        root.addView(subtitle, subtitleParams);
+        trendPage = page();
+        trendPage.addView(trendCard());
+        root.addView(trendPage);
 
-        root.addView(overviewCard());
-        root.addView(netWorthGoalCard());
-        root.addView(currencyCard());
-        root.addView(allocationCard());
-        root.addView(allocationTargetCard());
-        root.addView(institutionCard());
-        root.addView(trendCard());
-        root.addView(insightCard());
-        root.addView(dataHealthCard());
-        root.addView(updatePlanCard());
-        root.addView(recentUpdatesCard());
-        root.addView(backupCard());
-        root.addView(assetManagementSection());
+        assetsPage = page();
+        assetsPage.addView(assetManagementSection());
+        root.addView(assetsPage);
 
-        setContentView(scrollView);
+        updatesPage = page();
+        updatesPage.addView(updatePlanCard());
+        updatesPage.addView(recentUpdatesCard());
+        root.addView(updatesPage);
+
+        settingsPage = page();
+        settingsPage.addView(currencyCard());
+        settingsPage.addView(backupCard());
+        root.addView(settingsPage);
+
+        screen.addView(scrollView, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1
+        ));
+        setContentView(screen);
+        updatePageVisibility();
+    }
+
+    private LinearLayout page() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setLayoutParams(lp(-1, -2));
+        return page;
+    }
+
+    private Button tabButton(String label, String page) {
+        Button button = secondaryButton(label);
+        button.setTextSize(13);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(14), 0, dp(14), 0);
+        button.setOnClickListener(view -> selectPage(page));
+        return button;
+    }
+
+    private void addTab(LinearLayout tabs, Button button) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(74), dp(40));
+        params.rightMargin = dp(8);
+        tabs.addView(button, params);
+    }
+
+    private void selectPage(String page) {
+        if (currentPage.equals(page)) {
+            return;
+        }
+        currentPage = page;
+        updatePageVisibility();
+        if (mainScrollView != null) {
+            mainScrollView.post(() -> mainScrollView.smoothScrollTo(0, 0));
+        }
+    }
+
+    private void updatePageVisibility() {
+        setPageVisible(overviewPage, PAGE_OVERVIEW.equals(currentPage));
+        setPageVisible(distributionPage, PAGE_DISTRIBUTION.equals(currentPage));
+        setPageVisible(trendPage, PAGE_TREND.equals(currentPage));
+        setPageVisible(assetsPage, PAGE_ASSETS.equals(currentPage));
+        setPageVisible(updatesPage, PAGE_UPDATES.equals(currentPage));
+        setPageVisible(settingsPage, PAGE_SETTINGS.equals(currentPage));
+
+        styleTab(overviewTab, PAGE_OVERVIEW.equals(currentPage));
+        styleTab(distributionTab, PAGE_DISTRIBUTION.equals(currentPage));
+        styleTab(trendTab, PAGE_TREND.equals(currentPage));
+        styleTab(assetsTab, PAGE_ASSETS.equals(currentPage));
+        styleTab(updatesTab, PAGE_UPDATES.equals(currentPage));
+        styleTab(settingsTab, PAGE_SETTINGS.equals(currentPage));
+
+        if (pageTitle != null) {
+            pageTitle.setText(pageTitleText());
+        }
+        if (pageSubtitle != null) {
+            pageSubtitle.setText(pageSubtitleText());
+        }
+    }
+
+    private void setPageVisible(View page, boolean visible) {
+        if (page != null) {
+            page.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void styleTab(Button button, boolean active) {
+        if (button == null) {
+            return;
+        }
+        button.setTextColor(active ? Color.WHITE : INK);
+        button.setBackground(cardBackground(active ? ACCENT : Color.WHITE, active ? ACCENT : LINE));
+    }
+
+    private String pageTitleText() {
+        if (PAGE_DISTRIBUTION.equals(currentPage)) {
+            return "资产分布";
+        }
+        if (PAGE_TREND.equals(currentPage)) {
+            return "一年趋势";
+        }
+        if (PAGE_ASSETS.equals(currentPage)) {
+            return "资产管理";
+        }
+        if (PAGE_UPDATES.equals(currentPage)) {
+            return "更新";
+        }
+        if (PAGE_SETTINGS.equals(currentPage)) {
+            return "设置";
+        }
+        return "总览";
+    }
+
+    private String pageSubtitleText() {
+        if (PAGE_DISTRIBUTION.equals(currentPage)) {
+            return "查看类型比例、目标比例和资金所在机构。";
+        }
+        if (PAGE_TREND.equals(currentPage)) {
+            return "记录快照，复盘近 30 天、90 天和一年的变化。";
+        }
+        if (PAGE_ASSETS.equals(currentPage)) {
+            return "新增、筛选、绑定和核对每一项资产。";
+        }
+        if (PAGE_UPDATES.equals(currentPage)) {
+            return "按更新周期处理待核对资产，回看最近变化。";
+        }
+        if (PAGE_SETTINGS.equals(currentPage)) {
+            return "维护基准币种、手动汇率和本地备份。";
+        }
+        return "先看净资产、年度目标和需要处理的提醒。";
     }
 
     @Override
@@ -251,6 +441,8 @@ public final class MainActivity extends Activity {
         } else {
             renderAssetGroups(visibleAssets, portfolio);
         }
+
+        updatePageVisibility();
     }
 
     private View overviewCard() {
@@ -710,6 +902,7 @@ public final class MainActivity extends Activity {
         managementExpanded = true;
         assetFilterMode = filterMode;
         assetSearchQuery = "";
+        currentPage = PAGE_ASSETS;
         render();
         scrollToAssetManagement();
     }
