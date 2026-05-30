@@ -55,7 +55,15 @@ gradle :app:assembleDebug
 
 ## 不写代码，直接下载 APK
 
-这个仓库已经配置了 GitHub Actions 自动构建：
+这个仓库已经配置了 GitHub Actions 自动构建。最简单的方式是手机扫描仓库首页 README 里的二维码，或直接打开固定下载地址：
+
+[下载最新版 Android APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk)
+
+<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-debug.apk" alt="扫码下载 Money Manager Android APK" width="220" height="220">
+</a>
+
+如果想从构建记录里下载，也可以：
 
 1. 打开 GitHub 仓库页面。
 2. 进入 `Actions`。
@@ -68,7 +76,7 @@ gradle :app:assembleDebug
 
 1. 进入 `Actions -> Build Android APK`。
 2. 点击 `Run workflow`。
-3. 等待运行成功后下载 artifact。
+3. 等待运行成功后，固定下载地址和二维码会自动更新。
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 

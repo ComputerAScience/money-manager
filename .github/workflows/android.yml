@@ -15,9 +15,6 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
-  release:
-    types:
-      - created
 
 permissions:
   contents: write
@@ -56,8 +53,21 @@ jobs:
           name: money-manager-debug-apk
           path: android/app/build/outputs/apk/debug/money-manager-debug.apk
 
-      - name: Attach APK to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: android/app/build/outputs/apk/debug/money-manager-debug.apk
+      - name: Publish latest debug APK release
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="android-debug-latest"
+          apk="app/build/outputs/apk/debug/money-manager-debug.apk"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$tag" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$tag"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "Latest Android Debug APK" \
+              --notes "最新 debug APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
+              --prerelease
+          fi
+          gh release upload "$tag" "$apk" --clobber

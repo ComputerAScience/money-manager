@@ -49,4 +49,16 @@ Android 版本已经包含总资产页、资产比例图、一年趋势、本地
 
 详见 [android/README.md](android/README.md)。
 
-如果你只想下载安装包，不想配置 Android 开发环境，可以在 GitHub 仓库的 `Actions -> Build Android APK` 里下载 `money-manager-debug-apk` artifact。
+### 扫码下载 APK
+
+GitHub Actions 每次构建后会更新固定的 debug APK 下载地址：
+
+[下载最新版 Android APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk)
+
+手机打开 GitHub 这个 README，或用相机扫描下面的二维码即可下载：
+
+<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-debug.apk" alt="扫码下载 Money Manager Android APK" width="220" height="220">
+</a>
+
+这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
