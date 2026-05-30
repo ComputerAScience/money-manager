@@ -63,6 +63,7 @@ public final class MainActivity extends Activity {
     private List<AssetSnapshot> snapshots = new ArrayList<>();
     private List<AssetUpdateEvent> updateEvents = new ArrayList<>();
     private PortfolioSettings settings;
+    private ScrollView mainScrollView;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout institutionList;
@@ -87,6 +88,7 @@ public final class MainActivity extends Activity {
     private TextView recentUpdateSummary;
     private TextView managementSummary;
     private TextView assetResultSummary;
+    private View assetManagementCard;
     private EditText assetSearchInput;
     private LinearLayout assetFilterButtons;
     private Button managementToggle;
@@ -135,6 +137,7 @@ public final class MainActivity extends Activity {
 
     private void buildUi() {
         ScrollView scrollView = new ScrollView(this);
+        mainScrollView = scrollView;
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(BG);
 
@@ -473,12 +476,7 @@ public final class MainActivity extends Activity {
         card.addView(dataHealthList, lp(-1, -2));
 
         Button reviewButton = secondaryButton("查看待处理资产");
-        reviewButton.setOnClickListener(view -> {
-            managementExpanded = true;
-            assetFilterMode = "issues";
-            assetSearchQuery = "";
-            render();
-        });
+        reviewButton.setOnClickListener(view -> showAssetManagement("issues"));
         LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
         buttonParams.topMargin = dp(10);
         card.addView(reviewButton, buttonParams);
@@ -542,6 +540,7 @@ public final class MainActivity extends Activity {
 
     private View assetManagementSection() {
         LinearLayout card = card();
+        assetManagementCard = card;
 
         LinearLayout header = row();
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -607,6 +606,21 @@ public final class MainActivity extends Activity {
         assetList.setOrientation(LinearLayout.VERTICAL);
         managementBody.addView(assetList, lp(-1, -2));
         return card;
+    }
+
+    private void showAssetManagement(String filterMode) {
+        managementExpanded = true;
+        assetFilterMode = filterMode;
+        assetSearchQuery = "";
+        render();
+        scrollToAssetManagement();
+    }
+
+    private void scrollToAssetManagement() {
+        if (mainScrollView == null || assetManagementCard == null) {
+            return;
+        }
+        mainScrollView.post(() -> mainScrollView.smoothScrollTo(0, assetManagementCard.getTop()));
     }
 
     private void renderAllocationLegend(PortfolioSummary portfolio) {
