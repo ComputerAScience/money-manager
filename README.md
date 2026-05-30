@@ -45,6 +45,8 @@ python3 -m http.server 4173
 
 仓库里也包含一个原生 Android 版本，位于 `android/`。它的目标更低也更稳：记录每项资产的更新时间，并在需要更新时一键打开对应银行、券商或钱包 App。
 
+Android 版本已经包含总资产页、资产比例图、一年趋势、本地快照、待办提醒，以及可折叠的资产管理区域。
+
 详见 [android/README.md](android/README.md)。
 
 如果你只想下载安装包，不想配置 Android 开发环境，可以在 GitHub 仓库的 `Actions -> Build Android APK` 里下载 `money-manager-debug-apk` artifact。

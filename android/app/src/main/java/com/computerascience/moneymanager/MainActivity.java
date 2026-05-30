@@ -36,7 +36,6 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class MainActivity extends Activity {
-    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final int BG = Color.rgb(245, 246, 241);
     private static final int PANEL = Color.WHITE;
@@ -50,16 +49,34 @@ public final class MainActivity extends Activity {
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     private AssetStore store;
     private List<AssetRecord> assets = new ArrayList<>();
-    private LinearLayout list;
-    private TextView summary;
+    private List<AssetSnapshot> snapshots = new ArrayList<>();
+    private LinearLayout assetList;
+    private LinearLayout allocationLegend;
+    private LinearLayout managementBody;
+    private AllocationChartView allocationChart;
+    private TrendChartView trendChart;
+    private TextView netWorthValue;
+    private TextView grossAssetsValue;
+    private TextView liabilitiesValue;
+    private TextView freshnessValue;
+    private TextView currencyNote;
+    private TextView trendSummary;
+    private TextView insightSummary;
+    private TextView managementSummary;
+    private Button managementToggle;
     private String pendingLaunchAssetId;
     private boolean waitingForExternalReturn;
+    private boolean managementExpanded = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new AssetStore(this);
         assets = store.load();
+        snapshots = store.loadSnapshots();
+        if (snapshots.isEmpty()) {
+            snapshots = store.recordSnapshot(assets);
+        }
         buildUi();
         render();
     }
@@ -102,53 +119,281 @@ public final class MainActivity extends Activity {
         TextView eyebrow = label("Money Manager");
         root.addView(eyebrow);
 
-        TextView title = text("资产更新助手", 28, INK, Typeface.BOLD);
+        TextView title = text("总资产", 28, INK, Typeface.BOLD);
         root.addView(title);
 
-        TextView subtitle = text("记录资产更新时间，一键打开对应 App 核对余额。", 15, MUTED, Typeface.NORMAL);
+        TextView subtitle = text("看总额、比例和一年趋势；资产更新入口也放在这里。", 15, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams subtitleParams = lp(-1, -2);
         subtitleParams.topMargin = dp(6);
         subtitleParams.bottomMargin = dp(18);
         root.addView(subtitle, subtitleParams);
 
-        summary = text("", 15, MUTED, Typeface.NORMAL);
-        summary.setPadding(dp(14), dp(12), dp(14), dp(12));
-        summary.setBackground(cardBackground(Color.TRANSPARENT, LINE));
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.bottomMargin = dp(12);
-        root.addView(summary, summaryParams);
-
-        Button addButton = primaryButton("新增资产");
-        addButton.setOnClickListener(view -> showEditDialog(null));
-        LinearLayout.LayoutParams addParams = lp(-1, dp(48));
-        addParams.bottomMargin = dp(14);
-        root.addView(addButton, addParams);
-
-        list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        root.addView(list, lp(-1, -2));
+        root.addView(overviewCard());
+        root.addView(allocationCard());
+        root.addView(trendCard());
+        root.addView(insightCard());
+        root.addView(assetManagementSection());
 
         setContentView(scrollView);
     }
 
     private void render() {
-        list.removeAllViews();
-        int staleCount = 0;
+        PortfolioSummary portfolio = AssetMath.summarize(assets);
+
+        netWorthValue.setText(formatMoney(portfolio.netWorth, portfolio.primaryCurrency));
+        grossAssetsValue.setText(formatMoney(portfolio.grossAssets, portfolio.primaryCurrency));
+        liabilitiesValue.setText(formatMoney(portfolio.liabilities, portfolio.primaryCurrency));
+        freshnessValue.setText(portfolio.staleCount + " 项待更新");
+        currencyNote.setText(portfolio.hasMixedCurrencies
+                ? "检测到多币种；当前总额按原始数字合计，后续可接入汇率换算。"
+                : "总额以 " + portfolio.primaryCurrency + " 显示。");
+
+        allocationChart.setCategories(portfolio.categories);
+        renderAllocationLegend(portfolio);
+
+        trendChart.setSnapshots(snapshots);
+        trendSummary.setText(trendSummaryText(portfolio));
+
+        insightSummary.setText(buildInsightText(portfolio));
+
+        managementSummary.setText("共 " + portfolio.assetCount + " 项资产，"
+                + portfolio.staleCount + " 项需要更新，"
+                + portfolio.missingBindingCount + " 项还没绑定 App。");
+        managementToggle.setText(managementExpanded ? "折叠" : "展开");
+        managementBody.setVisibility(managementExpanded ? View.VISIBLE : View.GONE);
+
+        assetList.removeAllViews();
         for (AssetRecord asset : assets) {
-            if (isStale(asset)) {
-                staleCount += 1;
-            }
-            list.addView(assetCard(asset));
+            assetList.addView(assetCard(asset));
         }
 
-        summary.setText("共 " + assets.size() + " 项资产，" + staleCount + " 项需要更新。"
-                + "打开外部 App 后，回到这里可标记为已更新。");
         if (assets.isEmpty()) {
             TextView empty = text("还没有资产。先新增一项，再绑定对应 App。", 16, MUTED, Typeface.NORMAL);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(28), dp(18), dp(28));
-            list.addView(empty, lp(-1, -2));
+            assetList.addView(empty, lp(-1, -2));
         }
+    }
+
+    private View overviewCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("总资产概览"));
+
+        netWorthValue = text("--", 34, INK, Typeface.BOLD);
+        LinearLayout.LayoutParams netParams = lp(-1, -2);
+        netParams.topMargin = dp(10);
+        card.addView(netWorthValue, netParams);
+
+        currencyNote = text("", 13, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams noteParams = lp(-1, -2);
+        noteParams.topMargin = dp(8);
+        noteParams.bottomMargin = dp(14);
+        card.addView(currencyNote, noteParams);
+
+        LinearLayout row1 = row();
+        grossAssetsValue = text("--", 18, INK, Typeface.BOLD);
+        liabilitiesValue = text("--", 18, INK, Typeface.BOLD);
+        row1.addView(metric("资产总额", grossAssetsValue), new LinearLayout.LayoutParams(0, -2, 1));
+        row1.addView(new SpaceView(this, dp(10), 1));
+        row1.addView(metric("负债", liabilitiesValue), new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(row1);
+
+        freshnessValue = text("--", 18, INK, Typeface.BOLD);
+        LinearLayout.LayoutParams freshParams = lp(-1, -2);
+        freshParams.topMargin = dp(10);
+        card.addView(metric("更新状态", freshnessValue), freshParams);
+        return card;
+    }
+
+    private View allocationCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("资产比例"));
+
+        LinearLayout body = row();
+        LinearLayout.LayoutParams bodyParams = lp(-1, -2);
+        bodyParams.topMargin = dp(12);
+        body.setLayoutParams(bodyParams);
+
+        allocationChart = new AllocationChartView(this);
+        body.addView(allocationChart, new LinearLayout.LayoutParams(dp(148), dp(148)));
+
+        allocationLegend = new LinearLayout(this);
+        allocationLegend.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams legendParams = new LinearLayout.LayoutParams(0, -2, 1);
+        legendParams.leftMargin = dp(14);
+        body.addView(allocationLegend, legendParams);
+        card.addView(body);
+        return card;
+    }
+
+    private View trendCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("一年变化趋势"));
+
+        trendSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        card.addView(trendSummary, summaryParams);
+
+        trendChart = new TrendChartView(this);
+        LinearLayout.LayoutParams chartParams = lp(-1, dp(190));
+        chartParams.topMargin = dp(10);
+        card.addView(trendChart, chartParams);
+
+        Button snapshotButton = secondaryButton("记录今日快照");
+        snapshotButton.setOnClickListener(view -> {
+            snapshots = store.recordSnapshot(assets);
+            render();
+            toast("已记录今日总资产快照。");
+        });
+        LinearLayout.LayoutParams buttonParams = lp(-1, dp(44));
+        buttonParams.topMargin = dp(8);
+        card.addView(snapshotButton, buttonParams);
+        return card;
+    }
+
+    private View insightCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("待办提醒"));
+        insightSummary = text("", 15, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams params = lp(-1, -2);
+        params.topMargin = dp(10);
+        card.addView(insightSummary, params);
+        return card;
+    }
+
+    private View assetManagementSection() {
+        LinearLayout card = card();
+
+        LinearLayout header = row();
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        titleGroup.addView(sectionTitle("资产管理"));
+        managementSummary = text("", 13, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(4);
+        titleGroup.addView(managementSummary, summaryParams);
+        header.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        managementToggle = secondaryButton("折叠");
+        managementToggle.setOnClickListener(view -> {
+            managementExpanded = !managementExpanded;
+            render();
+        });
+        header.addView(managementToggle, new LinearLayout.LayoutParams(dp(86), dp(42)));
+        card.addView(header);
+
+        managementBody = new LinearLayout(this);
+        managementBody.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams bodyParams = lp(-1, -2);
+        bodyParams.topMargin = dp(14);
+        card.addView(managementBody, bodyParams);
+
+        Button addButton = primaryButton("新增资产");
+        addButton.setOnClickListener(view -> showEditDialog(null));
+        LinearLayout.LayoutParams addParams = lp(-1, dp(48));
+        addParams.bottomMargin = dp(14);
+        managementBody.addView(addButton, addParams);
+
+        assetList = new LinearLayout(this);
+        assetList.setOrientation(LinearLayout.VERTICAL);
+        managementBody.addView(assetList, lp(-1, -2));
+        return card;
+    }
+
+    private void renderAllocationLegend(PortfolioSummary portfolio) {
+        allocationLegend.removeAllViews();
+        double total = portfolio.grossAssets + portfolio.liabilities;
+        if (portfolio.categories.isEmpty() || total <= 0) {
+            allocationLegend.addView(text("暂无可展示的资产比例。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        for (CategoryBreakdown category : portfolio.categories) {
+            LinearLayout row = row();
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowParams = lp(-1, -2);
+            rowParams.bottomMargin = dp(8);
+            row.setLayoutParams(rowParams);
+
+            TextView dot = text("●", 16, category.color, Typeface.BOLD);
+            row.addView(dot);
+
+            TextView label = text("  " + category.category, 14, INK, Typeface.BOLD);
+            row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+
+            double ratio = category.value / total * 100;
+            TextView value = text(String.format(Locale.getDefault(), "%.1f%%", ratio), 14, MUTED, Typeface.BOLD);
+            row.addView(value);
+            allocationLegend.addView(row);
+        }
+    }
+
+    private String trendSummaryText(PortfolioSummary portfolio) {
+        if (snapshots.size() < 2) {
+            return "现在已记录 " + snapshots.size() + " 个快照。每天或每次核对后记录一次，趋势会逐渐形成。";
+        }
+        AssetSnapshot first = snapshots.get(0);
+        AssetSnapshot last = snapshots.get(snapshots.size() - 1);
+        double change = last.netWorth - first.netWorth;
+        double ratio = Math.abs(first.netWorth) < 0.0001 ? 0 : change / Math.abs(first.netWorth) * 100;
+        return "近一年记录 " + snapshots.size() + " 个快照，净资产变化 "
+                + formatSignedMoney(change, portfolio.primaryCurrency)
+                + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
+    }
+
+    private String buildInsightText(PortfolioSummary portfolio) {
+        List<String> lines = new ArrayList<>();
+        if (!portfolio.categories.isEmpty()) {
+            CategoryBreakdown largest = portfolio.categories.get(0);
+            double base = portfolio.grossAssets + portfolio.liabilities;
+            double ratio = base <= 0 ? 0 : largest.value / base * 100;
+            lines.add("最大类别：" + largest.category + "，占比 "
+                    + String.format(Locale.getDefault(), "%.1f", ratio) + "%。");
+        }
+        if (portfolio.staleCount > 0) {
+            lines.add(portfolio.staleCount + " 项资产已到更新周期。");
+        } else {
+            lines.add("所有资产都在更新周期内。");
+        }
+        if (portfolio.missingBindingCount > 0) {
+            lines.add(portfolio.missingBindingCount + " 项资产还没绑定 App，可在资产管理里选择已安装 App。");
+        }
+        if (portfolio.grossAssets > 0 && portfolio.liabilities / portfolio.grossAssets > 0.4) {
+            lines.add("负债率偏高，建议单独关注还款节奏。");
+        }
+        if (portfolio.hasMixedCurrencies) {
+            lines.add("当前存在多币种资产，后续可接入汇率后再做精确合计。");
+        }
+        return joinLines(lines);
+    }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackground(cardBackground(PANEL, LINE));
+        LinearLayout.LayoutParams params = lp(-1, -2);
+        params.bottomMargin = dp(12);
+        card.setLayoutParams(params);
+        return card;
+    }
+
+    private TextView sectionTitle(String title) {
+        return text(title, 18, INK, Typeface.BOLD);
+    }
+
+    private LinearLayout metric(String label, TextView value) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(12), dp(10), dp(12), dp(10));
+        box.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        box.addView(text(label, 12, MUTED, Typeface.BOLD));
+        LinearLayout.LayoutParams valueParams = lp(-1, -2);
+        valueParams.topMargin = dp(6);
+        box.addView(value, valueParams);
+        return box;
     }
 
     private View assetCard(AssetRecord asset) {
@@ -337,6 +582,7 @@ public final class MainActivity extends Activity {
                     replaceAsset(draft);
                 }
                 store.save(assets);
+                snapshots = store.recordSnapshot(assets);
                 render();
                 dialog.dismiss();
             });
@@ -351,6 +597,7 @@ public final class MainActivity extends Activity {
                         .setPositiveButton("删除", (confirm, which) -> {
                             assets.removeIf(asset -> asset.id.equals(original.id));
                             store.save(assets);
+                            snapshots = store.recordSnapshot(assets);
                             render();
                             dialog.dismiss();
                         })
@@ -471,6 +718,7 @@ public final class MainActivity extends Activity {
     private void markUpdated(AssetRecord asset) {
         asset.lastUpdatedAt = System.currentTimeMillis();
         store.save(assets);
+        snapshots = store.recordSnapshot(assets);
         render();
         toast("已更新「" + asset.name + "」。");
     }
@@ -498,11 +746,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean isStale(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return true;
-        }
-        long days = (System.currentTimeMillis() - asset.lastUpdatedAt) / DAY_MS;
-        return days >= asset.updateEveryDays;
+        return AssetMath.isStale(asset);
     }
 
     private int statusColor(AssetRecord asset) {
@@ -523,7 +767,7 @@ public final class MainActivity extends Activity {
         if (asset.lastUpdatedAt <= 0) {
             return "最后更新：从未更新";
         }
-        long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / DAY_MS);
+        long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
         return "最后更新：" + dateFormat.format(new Date(asset.lastUpdatedAt)) + " · " + days + " 天前";
     }
 
@@ -538,6 +782,27 @@ public final class MainActivity extends Activity {
         } catch (NumberFormatException error) {
             return asset.amount + " " + asset.currency;
         }
+    }
+
+    private String formatMoney(double value, String currency) {
+        DecimalFormat format = new DecimalFormat("#,##0.##");
+        return format.format(value) + " " + currency;
+    }
+
+    private String formatSignedMoney(double value, String currency) {
+        String sign = value > 0 ? "+" : "";
+        return sign + formatMoney(value, currency);
+    }
+
+    private String joinLines(List<String> lines) {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < lines.size(); index += 1) {
+            if (index > 0) {
+                builder.append("\n");
+            }
+            builder.append(lines.get(index));
+        }
+        return builder.toString();
     }
 
     private EditText input(String label, String value, int inputType) {
