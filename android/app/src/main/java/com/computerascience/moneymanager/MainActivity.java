@@ -104,6 +104,7 @@ public final class MainActivity extends Activity {
     private boolean managementExpanded = true;
     private String assetSearchQuery = "";
     private String assetFilterMode = "all";
+    private final Set<String> collapsedAssetGroups = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -239,10 +240,6 @@ public final class MainActivity extends Activity {
                 + " 项，当前筛选：" + assetFilterLabel() + "。");
 
         assetList.removeAllViews();
-        for (AssetRecord asset : visibleAssets) {
-            assetList.addView(assetCard(asset));
-        }
-
         if (visibleAssets.isEmpty()) {
             String message = assets.isEmpty()
                     ? "还没有资产。先新增一项，再绑定对应 App。"
@@ -251,6 +248,8 @@ public final class MainActivity extends Activity {
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(28), dp(18), dp(28));
             assetList.addView(empty, lp(-1, -2));
+        } else {
+            renderAssetGroups(visibleAssets, portfolio);
         }
     }
 
@@ -1340,6 +1339,93 @@ public final class MainActivity extends Activity {
                 || !settings.hasRateFor(currency)
                 || asset.lastUpdatedAt <= 0
                 || isStale(asset);
+    }
+
+    private void renderAssetGroups(List<AssetRecord> visibleAssets, PortfolioSummary portfolio) {
+        for (String category : visibleCategoryOrder(visibleAssets)) {
+            List<AssetRecord> groupAssets = assetsForCategory(visibleAssets, category);
+            if (groupAssets.isEmpty()) {
+                continue;
+            }
+
+            assetList.addView(assetGroupHeader(category, groupAssets, portfolio.baseCurrency));
+            if (!collapsedAssetGroups.contains(category)) {
+                for (AssetRecord asset : groupAssets) {
+                    assetList.addView(assetCard(asset));
+                }
+            }
+        }
+    }
+
+    private List<String> visibleCategoryOrder(List<AssetRecord> visibleAssets) {
+        Set<String> present = new HashSet<>();
+        for (AssetRecord asset : visibleAssets) {
+            present.add(asset.category);
+        }
+
+        List<String> ordered = new ArrayList<>();
+        for (String category : CATEGORIES) {
+            if (present.contains(category)) {
+                ordered.add(category);
+                present.remove(category);
+            }
+        }
+        List<String> rest = new ArrayList<>(present);
+        Collections.sort(rest);
+        ordered.addAll(rest);
+        return ordered;
+    }
+
+    private List<AssetRecord> assetsForCategory(List<AssetRecord> visibleAssets, String category) {
+        List<AssetRecord> group = new ArrayList<>();
+        for (AssetRecord asset : visibleAssets) {
+            if (category.equals(asset.category)) {
+                group.add(asset);
+            }
+        }
+        return group;
+    }
+
+    private View assetGroupHeader(String category, List<AssetRecord> groupAssets, String baseCurrency) {
+        LinearLayout row = row();
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.bottomMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout labelGroup = new LinearLayout(this);
+        labelGroup.setOrientation(LinearLayout.VERTICAL);
+        labelGroup.addView(text(category + " · " + groupAssets.size() + " 项", 14, INK, Typeface.BOLD));
+
+        int stale = 0;
+        double total = 0;
+        for (AssetRecord asset : groupAssets) {
+            if (isStale(asset)) {
+                stale += 1;
+            }
+            String currency = AssetMath.cleanCurrency(asset.currency);
+            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+            total += Math.abs(AssetMath.parseAmount(asset.amount)) * rate;
+        }
+
+        String detail = "小计 " + formatMoney(total, baseCurrency) + " · " + stale + " 项待更新";
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(4);
+        labelGroup.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
+        row.addView(labelGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        Button toggle = secondaryButton(collapsedAssetGroups.contains(category) ? "展开" : "折叠");
+        toggle.setOnClickListener(view -> {
+            if (collapsedAssetGroups.contains(category)) {
+                collapsedAssetGroups.remove(category);
+            } else {
+                collapsedAssetGroups.add(category);
+            }
+            render();
+        });
+        row.addView(toggle, new LinearLayout.LayoutParams(dp(72), dp(38)));
+        return row;
     }
 
     private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
