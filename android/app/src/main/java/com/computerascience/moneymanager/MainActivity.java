@@ -706,11 +706,18 @@ public final class MainActivity extends Activity {
         resultParams.bottomMargin = dp(10);
         managementBody.addView(assetResultSummary, resultParams);
 
+        LinearLayout managementActions = row();
         Button addButton = primaryButton("新增资产");
         addButton.setOnClickListener(view -> showEditDialog(null));
-        LinearLayout.LayoutParams addParams = lp(-1, dp(48));
-        addParams.bottomMargin = dp(14);
-        managementBody.addView(addButton, addParams);
+        managementActions.addView(addButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        managementActions.addView(new SpaceView(this, dp(10), 1));
+
+        Button copyCsvButton = secondaryButton("复制资产 CSV");
+        copyCsvButton.setOnClickListener(view -> copyVisibleAssetCsv());
+        managementActions.addView(copyCsvButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        LinearLayout.LayoutParams actionParams = lp(-1, -2);
+        actionParams.bottomMargin = dp(14);
+        managementBody.addView(managementActions, actionParams);
 
         assetList = new LinearLayout(this);
         assetList.setOrientation(LinearLayout.VERTICAL);
@@ -1258,6 +1265,78 @@ public final class MainActivity extends Activity {
             render();
         });
         return button;
+    }
+
+    private void copyVisibleAssetCsv() {
+        if (settings.hideAmounts) {
+            toast("隐私模式已开启，请先显示金额再复制资产 CSV。");
+            return;
+        }
+
+        List<AssetRecord> visible = visibleAssets();
+        if (visible.isEmpty()) {
+            toast("当前筛选下没有可复制的资产。");
+            return;
+        }
+
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            toast("无法访问剪贴板。");
+            return;
+        }
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager 资产 CSV", buildAssetCsv(visible)));
+        toast("已复制 " + visible.size() + " 项资产 CSV。");
+    }
+
+    private String buildAssetCsv(List<AssetRecord> visible) {
+        List<String> lines = new ArrayList<>();
+        lines.add("name,category,institution,amount,currency,amountInBase,baseCurrency,lastUpdated,updateEveryDays,status,appBound,note");
+        for (AssetRecord asset : visible) {
+            String currency = AssetMath.cleanCurrency(asset.currency);
+            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+            double amountInBase = Math.abs(AssetMath.parseAmount(asset.amount)) * rate;
+            List<String> columns = new ArrayList<>();
+            columns.add(asset.name);
+            columns.add(asset.category);
+            columns.add(asset.institution);
+            columns.add(asset.amount);
+            columns.add(asset.currency);
+            columns.add(formatCsvNumber(amountInBase));
+            columns.add(settings.baseCurrency);
+            columns.add(asset.lastUpdatedAt <= 0 ? "" : dateFormat.format(new Date(asset.lastUpdatedAt)));
+            columns.add(String.valueOf(asset.updateEveryDays));
+            columns.add(statusText(asset));
+            columns.add(asset.packageName.isEmpty() && asset.launchUri.isEmpty() ? "否" : "是");
+            columns.add(asset.note);
+            lines.add(csvLine(columns));
+        }
+        return joinLines(lines);
+    }
+
+    private String csvLine(List<String> columns) {
+        List<String> escaped = new ArrayList<>();
+        for (String column : columns) {
+            escaped.add(csvCell(column));
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < escaped.size(); index += 1) {
+            if (index > 0) {
+                builder.append(",");
+            }
+            builder.append(escaped.get(index));
+        }
+        return builder.toString();
+    }
+
+    private String csvCell(String value) {
+        String text = value == null ? "" : value;
+        boolean needsQuote = text.contains(",")
+                || text.contains("\"")
+                || text.contains("\n")
+                || text.contains("\r");
+        String escaped = text.replace("\"", "\"\"");
+        return needsQuote ? "\"" + escaped + "\"" : escaped;
     }
 
     private List<AssetRecord> visibleAssets() {
