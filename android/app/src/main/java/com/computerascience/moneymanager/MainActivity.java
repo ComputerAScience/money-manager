@@ -81,6 +81,8 @@ public final class MainActivity extends Activity {
     private TextView trendSummary;
     private LinearLayout trendHistoryList;
     private TextView insightSummary;
+    private TextView dataHealthSummary;
+    private LinearLayout dataHealthList;
     private TextView updatePlanSummary;
     private TextView recentUpdateSummary;
     private TextView managementSummary;
@@ -162,6 +164,7 @@ public final class MainActivity extends Activity {
         root.addView(institutionCard());
         root.addView(trendCard());
         root.addView(insightCard());
+        root.addView(dataHealthCard());
         root.addView(updatePlanCard());
         root.addView(recentUpdatesCard());
         root.addView(backupCard());
@@ -205,6 +208,7 @@ public final class MainActivity extends Activity {
         renderTrendHistory(trendSnapshots);
 
         insightSummary.setText(buildInsightText(portfolio));
+        renderDataHealth(portfolio);
         renderUpdatePlan();
         renderRecentUpdates();
 
@@ -451,6 +455,33 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams params = lp(-1, -2);
         params.topMargin = dp(10);
         card.addView(insightSummary, params);
+        return card;
+    }
+
+    private View dataHealthCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("数据健康"));
+
+        dataHealthSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(dataHealthSummary, summaryParams);
+
+        dataHealthList = new LinearLayout(this);
+        dataHealthList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(dataHealthList, lp(-1, -2));
+
+        Button reviewButton = secondaryButton("查看待处理资产");
+        reviewButton.setOnClickListener(view -> {
+            managementExpanded = true;
+            assetFilterMode = "stale";
+            assetSearchQuery = "";
+            render();
+        });
+        LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
+        buttonParams.topMargin = dp(10);
+        card.addView(reviewButton, buttonParams);
         return card;
     }
 
@@ -1020,6 +1051,93 @@ public final class MainActivity extends Activity {
             lines.add("当前存在多币种资产，总额按本地汇率换算。");
         }
         return joinLines(lines);
+    }
+
+    private void renderDataHealth(PortfolioSummary portfolio) {
+        dataHealthList.removeAllViews();
+        List<String> issues = dataHealthIssues(portfolio);
+        if (issues.isEmpty()) {
+            dataHealthSummary.setText("数据状态良好：金额、机构、App 绑定、汇率和更新时间都已覆盖。");
+            dataHealthList.addView(text("继续保持定期核对即可。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，建议优先处理。");
+        for (String issue : issues) {
+            dataHealthList.addView(healthIssueRow(issue));
+        }
+    }
+
+    private List<String> dataHealthIssues(PortfolioSummary portfolio) {
+        List<String> issues = new ArrayList<>();
+        int missingAmount = 0;
+        int invalidAmount = 0;
+        int missingInstitution = 0;
+        int missingBinding = 0;
+        int missingRate = 0;
+        int neverUpdated = 0;
+        int staleUpdated = 0;
+
+        for (AssetRecord asset : assets) {
+            String amount = clean(asset.amount);
+            if (amount.isEmpty()) {
+                missingAmount += 1;
+            } else if (parseNumber(amount) == null) {
+                invalidAmount += 1;
+            }
+            String institution = clean(asset.institution);
+            if (institution.isEmpty() || institution.contains("待绑定")) {
+                missingInstitution += 1;
+            }
+            if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
+                missingBinding += 1;
+            }
+            String currency = AssetMath.cleanCurrency(asset.currency);
+            if (!settings.hasRateFor(currency)) {
+                missingRate += 1;
+            }
+            if (asset.lastUpdatedAt <= 0) {
+                neverUpdated += 1;
+            } else if (isStale(asset)) {
+                staleUpdated += 1;
+            }
+        }
+
+        if (assets.isEmpty()) {
+            issues.add("还没有资产，请先新增至少一项资产。");
+        }
+        if (missingAmount > 0) {
+            issues.add(missingAmount + " 项资产缺少金额。");
+        }
+        if (invalidAmount > 0) {
+            issues.add(invalidAmount + " 项资产金额无法识别。");
+        }
+        if (missingInstitution > 0) {
+            issues.add(missingInstitution + " 项资产缺少明确机构。");
+        }
+        if (missingBinding > 0) {
+            issues.add(missingBinding + " 项资产还没有绑定 App 或启动链接。");
+        }
+        if (missingRate > 0) {
+            issues.add(missingRate + " 项资产缺少到 " + portfolio.baseCurrency + " 的汇率。");
+        }
+        if (neverUpdated > 0) {
+            issues.add(neverUpdated + " 项资产从未标记更新。");
+        }
+        if (staleUpdated > 0) {
+            issues.add(staleUpdated + " 项资产已超过更新周期。");
+        }
+        return issues;
+    }
+
+    private View healthIssueRow(String issue) {
+        TextView row = text("• " + issue, 14, MUTED, Typeface.NORMAL);
+        row.setPadding(dp(12), dp(8), dp(12), dp(8));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams params = lp(-1, -2);
+        params.topMargin = dp(8);
+        row.setLayoutParams(params);
+        return row;
     }
 
     private void renderUpdatePlan() {
