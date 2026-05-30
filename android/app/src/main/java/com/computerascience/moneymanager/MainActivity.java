@@ -340,16 +340,23 @@ public final class MainActivity extends Activity {
         chartParams.topMargin = dp(10);
         card.addView(trendChart, chartParams);
 
+        LinearLayout snapshotActions = row();
         Button snapshotButton = secondaryButton("记录今日快照");
         snapshotButton.setOnClickListener(view -> {
             snapshots = store.recordSnapshot(assets, settings);
             render();
             toast("已记录今日总资产快照。");
         });
-        LinearLayout.LayoutParams buttonParams = lp(-1, dp(44));
-        buttonParams.topMargin = dp(8);
-        buttonParams.bottomMargin = dp(12);
-        card.addView(snapshotButton, buttonParams);
+        snapshotActions.addView(snapshotButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        snapshotActions.addView(new SpaceView(this, dp(10), 1));
+
+        Button backfillButton = secondaryButton("补录快照");
+        backfillButton.setOnClickListener(view -> showSnapshotBackfillDialog());
+        snapshotActions.addView(backfillButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        LinearLayout.LayoutParams actionParams = lp(-1, -2);
+        actionParams.topMargin = dp(8);
+        actionParams.bottomMargin = dp(12);
+        card.addView(snapshotActions, actionParams);
 
         trendHistoryList = new LinearLayout(this);
         trendHistoryList.setOrientation(LinearLayout.VERTICAL);
@@ -824,6 +831,86 @@ public final class MainActivity extends Activity {
                     toast("已删除趋势快照。");
                 })
                 .show();
+    }
+
+    private void showSnapshotBackfillDialog() {
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("按当前基准币种 " + portfolio.baseCurrency + " 补录近一年历史快照；同一天会覆盖原快照。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        EditText day = input("日期（yyyy-MM-dd）", dayKey(System.currentTimeMillis()), InputType.TYPE_CLASS_TEXT);
+        form.addView(day);
+
+        EditText netWorth = input("净资产", formatInputNumber(portfolio.netWorth), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        form.addView(netWorth);
+
+        EditText grossAssets = input("资产总额", formatInputNumber(portfolio.grossAssets), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        form.addView(grossAssets);
+
+        EditText liabilities = input("负债", formatInputNumber(portfolio.liabilities), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        form.addView(liabilities);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("补录历史快照")
+                .setView(form)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存快照", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                Date parsedDay = parseDay(clean(day.getText().toString()));
+                if (parsedDay == null) {
+                    toast("日期格式应为 yyyy-MM-dd。");
+                    return;
+                }
+                long timestamp = parsedDay.getTime();
+                long now = System.currentTimeMillis();
+                if (timestamp > now) {
+                    toast("不能补录未来日期。");
+                    return;
+                }
+                if (timestamp < now - 370L * AssetMath.DAY_MS) {
+                    toast("只能补录近一年快照。");
+                    return;
+                }
+
+                Double net = parseNumber(clean(netWorth.getText().toString()));
+                Double gross = parseNumber(clean(grossAssets.getText().toString()));
+                Double debt = parseNumber(clean(liabilities.getText().toString()));
+                if (net == null || gross == null || debt == null) {
+                    toast("金额必须是数字。");
+                    return;
+                }
+                if (gross < 0 || debt < 0) {
+                    toast("资产总额和负债不能为负数。");
+                    return;
+                }
+
+                snapshots = store.upsertSnapshot(new AssetSnapshot(
+                        dayKey(timestamp),
+                        timestamp,
+                        portfolio.baseCurrency,
+                        net,
+                        gross,
+                        debt
+                ));
+                render();
+                toast("已补录历史快照。");
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
     }
 
     private String buildInsightText(PortfolioSummary portfolio) {
@@ -1666,6 +1753,11 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private String formatInputNumber(double value) {
+        DecimalFormat format = new DecimalFormat("0.##");
+        return format.format(value);
+    }
+
     private String formatRate(double value) {
         DecimalFormat format = new DecimalFormat("#,##0.####");
         return format.format(value);
@@ -1702,6 +1794,28 @@ public final class MainActivity extends Activity {
 
     private String backupDate() {
         return new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
+    }
+
+    private String dayKey(long timestamp) {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date(timestamp));
+    }
+
+    private Date parseDay(String value) {
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            format.setLenient(false);
+            return format.parse(value);
+        } catch (Exception error) {
+            return null;
+        }
+    }
+
+    private Double parseNumber(String value) {
+        try {
+            return Double.parseDouble(value.replace(",", ""));
+        } catch (NumberFormatException error) {
+            return null;
+        }
     }
 
     private EditText input(String label, String value, int inputType) {
