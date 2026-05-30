@@ -23,6 +23,7 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
@@ -941,7 +942,7 @@ public final class MainActivity extends Activity {
             dialog.dismiss();
             startBackupImport();
         });
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private View assetManagementSection() {
@@ -1383,7 +1384,7 @@ public final class MainActivity extends Activity {
             });
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void showCurrencySettingsDialog() {
@@ -1473,7 +1474,7 @@ public final class MainActivity extends Activity {
             });
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void refreshExchangeRates(boolean showToast) {
@@ -1662,7 +1663,7 @@ public final class MainActivity extends Activity {
             });
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void renderAssetFilterButtons() {
@@ -2314,7 +2315,7 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmDeleteSnapshot(AssetSnapshot snapshot) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("删除快照？")
                 .setMessage("确定删除 " + snapshot.dayKey + " 的 " + snapshot.baseCurrency + " 快照吗？趋势图会立刻更新。")
                 .setNegativeButton("取消", null)
@@ -2323,7 +2324,8 @@ public final class MainActivity extends Activity {
                     render();
                     toast("已删除趋势快照。");
                 })
-                .show();
+                .create();
+        showStyledDialog(dialog);
     }
 
     private void showSnapshotBackfillDialog() {
@@ -2403,7 +2405,7 @@ public final class MainActivity extends Activity {
             });
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private String buildInsightText(PortfolioSummary portfolio) {
@@ -2794,7 +2796,7 @@ public final class MainActivity extends Activity {
 
     private void confirmDeleteUpdateEvent(AssetUpdateEvent event) {
         String assetName = event.assetName.isEmpty() ? "这条资产" : event.assetName;
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("删除更新记录？")
                 .setMessage("确定删除「" + assetName + "」这条更新记录吗？这只删除历史记录，不会回滚资产金额或趋势快照。")
                 .setNegativeButton("取消", null)
@@ -2803,7 +2805,8 @@ public final class MainActivity extends Activity {
                     render();
                     toast("已删除更新记录。");
                 })
-                .show();
+                .create();
+        showStyledDialog(dialog);
     }
 
     private String updateEventChangeText(AssetUpdateEvent event) {
@@ -3067,22 +3070,25 @@ public final class MainActivity extends Activity {
             Button delete = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
             if (delete != null) {
                 delete.setTextColor(DANGER);
-                delete.setOnClickListener(button -> new AlertDialog.Builder(this)
-                        .setTitle("删除资产")
-                        .setMessage("确定删除「" + original.name + "」吗？")
-                        .setNegativeButton("取消", null)
-                        .setPositiveButton("删除", (confirm, which) -> {
-                            removeAssetById(original.id);
-                            store.save(assets);
-                            snapshots = store.recordSnapshot(assets, settings);
-                            render();
-                            dialog.dismiss();
-                        })
-                        .show());
+                delete.setOnClickListener(button -> {
+                    AlertDialog confirmDialog = new AlertDialog.Builder(this)
+                            .setTitle("删除资产")
+                            .setMessage("确定删除「" + original.name + "」吗？")
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("删除", (confirm, which) -> {
+                                removeAssetById(original.id);
+                                store.save(assets);
+                                snapshots = store.recordSnapshot(assets, settings);
+                                render();
+                                dialog.dismiss();
+                            })
+                            .create();
+                    showStyledDialog(confirmDialog);
+                });
             }
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void showAppPicker(AppSelectionHandler handler) {
@@ -3247,7 +3253,7 @@ public final class MainActivity extends Activity {
                 cancel.setTextColor(MUTED);
             }
         });
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void openMarket(String packageName) {
@@ -3319,7 +3325,7 @@ public final class MainActivity extends Activity {
             });
         });
 
-        dialog.show();
+        showStyledDialog(dialog);
     }
 
     private void applyAssetUpdate(AssetRecord asset, String amount, String note, String reason) {
@@ -3396,7 +3402,7 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmImportBackup(AssetBackup backup) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("导入备份？")
                 .setMessage("将导入 " + backup.assets.size() + " 项资产和 "
                         + backup.snapshots.size() + " 个趋势快照、"
@@ -3414,7 +3420,8 @@ public final class MainActivity extends Activity {
                     render();
                     toast("备份已导入。");
                 })
-                .show();
+                .create();
+        showStyledDialog(dialog);
     }
 
     private String readUtf8(InputStream input) throws IOException {
@@ -3808,6 +3815,39 @@ public final class MainActivity extends Activity {
         spinner.setPadding(dp(12), 0, dp(12), 0);
         spinner.setBackground(cardBackground(PANEL, PANEL_BORDER));
         spinner.setMinimumHeight(dp(48));
+    }
+
+    private void showStyledDialog(AlertDialog dialog) {
+        dialog.show();
+        styleDialog(dialog);
+    }
+
+    private void styleDialog(AlertDialog dialog) {
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(roundedBackground(PANEL, PANEL_BORDER, 8));
+            window.setDimAmount(0.42f);
+        }
+        Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (positive != null) {
+            String label = String.valueOf(positive.getText());
+            styleDialogButton(positive, label.contains("删除") ? DANGER : ACCENT);
+        }
+        styleDialogButton(dialog.getButton(AlertDialog.BUTTON_NEGATIVE), MUTED);
+        Button neutral = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+        if (neutral != null) {
+            String label = String.valueOf(neutral.getText());
+            styleDialogButton(neutral, label.contains("删除") || label.contains("清空") ? DANGER : MUTED);
+        }
+    }
+
+    private void styleDialogButton(Button button, int color) {
+        if (button == null) {
+            return;
+        }
+        button.setAllCaps(false);
+        button.setTextColor(color);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
     }
 
     private int appPickerListHeight() {

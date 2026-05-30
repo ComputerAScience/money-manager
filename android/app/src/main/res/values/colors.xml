@@ -6,7 +6,7 @@
     <color name="muted">#64748B</color>
     <color name="accent">#126B5F</color>
     <color name="accent_dark">#094B43</color>
-    <color name="launcher_bg">#126B5F</color>
+    <color name="launcher_bg">#094B43</color>
     <color name="line">#DEE6EE</color>
     <color name="danger">#BE4350</color>
 </resources>
