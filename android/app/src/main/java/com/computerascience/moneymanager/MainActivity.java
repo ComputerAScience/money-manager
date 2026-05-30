@@ -221,7 +221,7 @@ public final class MainActivity extends Activity {
         renderAssetFilterButtons();
         List<AssetRecord> visibleAssets = visibleAssets();
         assetResultSummary.setText("显示 " + visibleAssets.size() + " / " + assets.size()
-                + " 项，按待更新和金额优先排序。");
+                + " 项，当前筛选：" + assetFilterLabel() + "。");
 
         assetList.removeAllViews();
         for (AssetRecord asset : visibleAssets) {
@@ -475,7 +475,7 @@ public final class MainActivity extends Activity {
         Button reviewButton = secondaryButton("查看待处理资产");
         reviewButton.setOnClickListener(view -> {
             managementExpanded = true;
-            assetFilterMode = "stale";
+            assetFilterMode = "issues";
             assetSearchQuery = "";
             render();
         });
@@ -776,6 +776,8 @@ public final class MainActivity extends Activity {
         assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
         assetFilterButtons.addView(assetFilterButton("未绑定", "unbound"), new LinearLayout.LayoutParams(0, dp(40), 1));
         assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
+        assetFilterButtons.addView(assetFilterButton("待完善", "issues"), new LinearLayout.LayoutParams(0, dp(40), 1));
+        assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
         assetFilterButtons.addView(assetFilterButton("负债", "debt"), new LinearLayout.LayoutParams(0, dp(40), 1));
     }
 
@@ -842,6 +844,9 @@ public final class MainActivity extends Activity {
         if ("debt".equals(assetFilterMode)) {
             return AssetMath.isLiability(asset);
         }
+        if ("issues".equals(assetFilterMode)) {
+            return hasDataIssue(asset);
+        }
         return true;
     }
 
@@ -853,6 +858,36 @@ public final class MainActivity extends Activity {
             return 1;
         }
         return 2;
+    }
+
+    private String assetFilterLabel() {
+        if ("stale".equals(assetFilterMode)) {
+            return "待更新";
+        }
+        if ("unbound".equals(assetFilterMode)) {
+            return "未绑定";
+        }
+        if ("issues".equals(assetFilterMode)) {
+            return "待完善";
+        }
+        if ("debt".equals(assetFilterMode)) {
+            return "负债";
+        }
+        return "全部";
+    }
+
+    private boolean hasDataIssue(AssetRecord asset) {
+        String amount = clean(asset.amount);
+        String institution = clean(asset.institution);
+        String currency = AssetMath.cleanCurrency(asset.currency);
+        return amount.isEmpty()
+                || parseNumber(amount) == null
+                || institution.isEmpty()
+                || institution.contains("待绑定")
+                || (asset.packageName.isEmpty() && asset.launchUri.isEmpty())
+                || !settings.hasRateFor(currency)
+                || asset.lastUpdatedAt <= 0
+                || isStale(asset);
     }
 
     private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
