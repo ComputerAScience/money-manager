@@ -13,12 +13,16 @@ final class PortfolioSettings {
 
     String baseCurrency;
     boolean hideAmounts;
+    double netWorthTarget;
+    long netWorthTargetDate;
     final Map<String, Double> ratesToBase;
     final Map<String, Double> allocationTargets;
 
     PortfolioSettings() {
         baseCurrency = "CNY";
         hideAmounts = false;
+        netWorthTarget = 0;
+        netWorthTargetDate = 0;
         ratesToBase = new HashMap<>();
         allocationTargets = new HashMap<>();
         ratesToBase.put("CNY", 1.0);
@@ -32,6 +36,8 @@ final class PortfolioSettings {
         PortfolioSettings settings = new PortfolioSettings();
         settings.baseCurrency = cleanCurrency(json.optString("baseCurrency", settings.baseCurrency));
         settings.hideAmounts = json.optBoolean("hideAmounts", settings.hideAmounts);
+        settings.netWorthTarget = Math.max(0, json.optDouble("netWorthTarget", settings.netWorthTarget));
+        settings.netWorthTargetDate = Math.max(0, json.optLong("netWorthTargetDate", settings.netWorthTargetDate));
         JSONObject rates = json.optJSONObject("ratesToBase");
         if (rates != null) {
             Iterator<String> keys = rates.keys();
@@ -62,6 +68,8 @@ final class PortfolioSettings {
         PortfolioSettings copy = new PortfolioSettings();
         copy.baseCurrency = source.baseCurrency;
         copy.hideAmounts = source.hideAmounts;
+        copy.netWorthTarget = source.netWorthTarget;
+        copy.netWorthTargetDate = source.netWorthTargetDate;
         copy.ratesToBase.clear();
         copy.ratesToBase.putAll(source.ratesToBase);
         copy.allocationTargets.clear();
@@ -74,6 +82,8 @@ final class PortfolioSettings {
         JSONObject json = new JSONObject();
         json.put("baseCurrency", baseCurrency);
         json.put("hideAmounts", hideAmounts);
+        json.put("netWorthTarget", netWorthTarget);
+        json.put("netWorthTargetDate", netWorthTargetDate);
         JSONObject rates = new JSONObject();
         for (Map.Entry<String, Double> entry : ratesToBase.entrySet()) {
             rates.put(entry.getKey(), entry.getValue());
@@ -132,6 +142,10 @@ final class PortfolioSettings {
 
     boolean hasAllocationTargets() {
         return !allocationTargets.isEmpty();
+    }
+
+    boolean hasNetWorthTarget() {
+        return netWorthTarget > 0 && netWorthTargetDate > 0;
     }
 
     void ensureBaseRate() {

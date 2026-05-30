@@ -81,6 +81,7 @@ public final class MainActivity extends Activity {
     private TextView freshnessValue;
     private Button privacyToggle;
     private TextView currencyNote;
+    private TextView netWorthGoalSummary;
     private TextView currencySettingsSummary;
     private TextView allocationTargetSummary;
     private TextView trendSummary;
@@ -167,6 +168,7 @@ public final class MainActivity extends Activity {
         root.addView(subtitle, subtitleParams);
 
         root.addView(overviewCard());
+        root.addView(netWorthGoalCard());
         root.addView(currencyCard());
         root.addView(allocationCard());
         root.addView(allocationTargetCard());
@@ -205,6 +207,7 @@ public final class MainActivity extends Activity {
         freshnessValue.setText(portfolio.staleCount + " 项待更新");
         privacyToggle.setText(settings.hideAmounts ? "显示金额" : "隐藏金额");
         currencyNote.setText(currencyNoteText(portfolio));
+        netWorthGoalSummary.setText(netWorthGoalText(portfolio));
         currencySettingsSummary.setText(currencySettingsText());
 
         allocationChart.setCategories(portfolio.categories);
@@ -320,6 +323,9 @@ public final class MainActivity extends Activity {
         lines.add("资产总额：" + formatMoney(portfolio.grossAssets, portfolio.baseCurrency));
         lines.add("负债：" + formatMoney(portfolio.liabilities, portfolio.baseCurrency));
         lines.add("更新状态：" + portfolio.staleCount + " 项待更新 / 共 " + portfolio.assetCount + " 项");
+        if (settings.hasNetWorthTarget()) {
+            lines.add("年度目标：" + netWorthGoalText(portfolio));
+        }
         lines.add("");
         lines.add("一年趋势：" + trendSummaryText(portfolio, trendSnapshots));
         List<String> trendReview = trendReviewLines(portfolio, trendSnapshots);
@@ -398,6 +404,22 @@ public final class MainActivity extends Activity {
                 ? "还没有更新记录。"
                 : recentUpdateSummaryText()));
         return joinLines(lines);
+    }
+
+    private View netWorthGoalCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("年度目标"));
+
+        netWorthGoalSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(12);
+        card.addView(netWorthGoalSummary, summaryParams);
+
+        Button editButton = secondaryButton("编辑年度目标");
+        editButton.setOnClickListener(view -> showNetWorthGoalDialog());
+        card.addView(editButton, lp(-1, dp(44)));
+        return card;
     }
 
     private View currencyCard() {
@@ -588,7 +610,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = card();
         card.addView(sectionTitle("数据备份"));
 
-        TextView description = text("导出会保存资产、App 绑定、更新时间、趋势快照、更新记录、汇率和目标比例；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
+        TextView description = text("导出会保存资产、App 绑定、更新时间、趋势快照、更新记录、汇率、年度目标和目标比例；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
         descriptionParams.topMargin = dp(8);
         descriptionParams.bottomMargin = dp(12);
@@ -921,6 +943,40 @@ public final class MainActivity extends Activity {
         return "总额以 " + portfolio.baseCurrency + " 显示。";
     }
 
+    private String netWorthGoalText(PortfolioSummary portfolio) {
+        if (!settings.hasNetWorthTarget()) {
+            return "还没有设置年度目标。设置一个目标净资产和截止日期后，这里会显示进度和所需月均增量。";
+        }
+
+        String targetDate = dayKey(settings.netWorthTargetDate);
+        if (settings.hideAmounts) {
+            return "已设置 " + targetDate + " 前的年度目标；隐私模式已开启，金额和进度暂不显示。";
+        }
+
+        double gap = settings.netWorthTarget - portfolio.netWorth;
+        double progress = settings.netWorthTarget <= 0 ? 0 : portfolio.netWorth / settings.netWorthTarget * 100;
+        int daysLeft = daysUntilTimestamp(settings.netWorthTargetDate);
+        if (gap <= 0) {
+            return "目标 " + formatMoney(settings.netWorthTarget, portfolio.baseCurrency)
+                    + "，截止 " + targetDate + "；当前进度 "
+                    + formatPercentValue(progress) + "，已达到目标。";
+        }
+
+        if (daysLeft <= 0) {
+            return "目标 " + formatMoney(settings.netWorthTarget, portfolio.baseCurrency)
+                    + "，目标日 " + targetDate + " 已到；当前仍差 "
+                    + formatMoney(gap, portfolio.baseCurrency) + "。";
+        }
+
+        double monthsLeft = Math.max(1.0, daysLeft / 30.4375);
+        return "目标 " + formatMoney(settings.netWorthTarget, portfolio.baseCurrency)
+                + "，截止 " + targetDate + "；当前进度 "
+                + formatPercentValue(progress) + "，还差 "
+                + formatMoney(gap, portfolio.baseCurrency)
+                + "，剩余 " + daysLeft + " 天，约每月需要增加 "
+                + formatMoney(gap / monthsLeft, portfolio.baseCurrency) + "。";
+    }
+
     private String currencySettingsText() {
         List<String> rows = new ArrayList<>();
         rows.add("基准：" + settings.baseCurrency);
@@ -934,6 +990,84 @@ public final class MainActivity extends Activity {
             }
         }
         return joinLines(rows);
+    }
+
+    private void showNetWorthGoalDialog() {
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
+        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("目标按当前基准币种 " + portfolio.baseCurrency + " 记录；切换基准币种后建议重新确认目标。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        String targetValue = draft.netWorthTarget > 0
+                ? formatInputNumber(draft.netWorthTarget)
+                : formatInputNumber(Math.max(0, portfolio.netWorth));
+        EditText target = input("目标净资产（" + portfolio.baseCurrency + "）", targetValue, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        form.addView(target);
+
+        String dateValue = draft.netWorthTargetDate > 0 ? dayKey(draft.netWorthTargetDate) : defaultYearEnd();
+        EditText targetDate = input("截止日期（yyyy-MM-dd）", dateValue, InputType.TYPE_CLASS_TEXT);
+        form.addView(targetDate);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("编辑年度目标")
+                .setView(scroll)
+                .setNegativeButton("取消", null)
+                .setNeutralButton("清空目标", null)
+                .setPositiveButton("保存", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button clear = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+            clear.setTextColor(DANGER);
+            clear.setOnClickListener(button -> {
+                settings.netWorthTarget = 0;
+                settings.netWorthTargetDate = 0;
+                store.saveSettings(settings);
+                render();
+                toast("已清空年度目标。");
+                dialog.dismiss();
+            });
+
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                Double value = parseNumber(clean(target.getText().toString()));
+                if (value == null || value <= 0) {
+                    toast("目标净资产需要是大于 0 的数字。");
+                    return;
+                }
+
+                Date parsedDate = parseDay(clean(targetDate.getText().toString()));
+                if (parsedDate == null) {
+                    toast("截止日期格式应为 yyyy-MM-dd。");
+                    return;
+                }
+                if (parsedDate.getTime() < System.currentTimeMillis() - AssetMath.DAY_MS) {
+                    toast("截止日期不能早于今天。");
+                    return;
+                }
+
+                draft.netWorthTarget = value;
+                draft.netWorthTargetDate = parsedDate.getTime();
+                settings = draft;
+                store.saveSettings(settings);
+                render();
+                toast("年度目标已保存。");
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
     }
 
     private void showCurrencySettingsDialog() {
@@ -1508,6 +1642,18 @@ public final class MainActivity extends Activity {
                             + (gap > 0 ? "低配 " : "超配 ")
                             + formatPercentValue(Math.abs(gap)) + "。");
                 }
+            }
+        }
+        if (settings.hasNetWorthTarget()) {
+            double gap = settings.netWorthTarget - portfolio.netWorth;
+            int daysLeft = daysUntilTimestamp(settings.netWorthTargetDate);
+            if (settings.hideAmounts && daysLeft <= 30) {
+                lines.add("年度目标临近，金额暂不显示。");
+            } else if (gap <= 0) {
+                lines.add("年度净资产目标已达到。");
+            } else if (daysLeft <= 30) {
+                lines.add("年度目标还差 " + formatMoney(gap, portfolio.baseCurrency)
+                        + "，剩余 " + Math.max(0, daysLeft) + " 天。");
             }
         }
         if (portfolio.staleCount > 0) {
@@ -2343,7 +2489,7 @@ public final class MainActivity extends Activity {
                 .setTitle("导入备份？")
                 .setMessage("将导入 " + backup.assets.size() + " 项资产和 "
                         + backup.snapshots.size() + " 个趋势快照、"
-                        + backup.updateEvents.size() + " 条更新记录，并覆盖当前本机数据。")
+                        + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置，并覆盖当前本机数据。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("导入", (dialog, which) -> {
                     store.replaceAll(backup);
@@ -2516,6 +2662,15 @@ public final class MainActivity extends Activity {
 
     private String dayKey(long timestamp) {
         return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date(timestamp));
+    }
+
+    private String defaultYearEnd() {
+        return new SimpleDateFormat("yyyy", Locale.getDefault()).format(new Date()) + "-12-31";
+    }
+
+    private int daysUntilTimestamp(long timestamp) {
+        long remaining = timestamp - System.currentTimeMillis();
+        return Math.max(0, (int) Math.ceil(remaining / (double) AssetMath.DAY_MS));
     }
 
     private Date parseDay(String value) {
