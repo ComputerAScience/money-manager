@@ -69,6 +69,7 @@ public final class MainActivity extends Activity {
     private TextView grossAssetsValue;
     private TextView liabilitiesValue;
     private TextView freshnessValue;
+    private Button privacyToggle;
     private TextView currencyNote;
     private TextView currencySettingsSummary;
     private TextView trendSummary;
@@ -177,6 +178,7 @@ public final class MainActivity extends Activity {
         grossAssetsValue.setText(formatMoney(portfolio.grossAssets, portfolio.baseCurrency));
         liabilitiesValue.setText(formatMoney(portfolio.liabilities, portfolio.baseCurrency));
         freshnessValue.setText(portfolio.staleCount + " 项待更新");
+        privacyToggle.setText(settings.hideAmounts ? "显示金额" : "隐藏金额");
         currencyNote.setText(currencyNoteText(portfolio));
         currencySettingsSummary.setText(currencySettingsText());
 
@@ -228,8 +230,18 @@ public final class MainActivity extends Activity {
         currencyNote = text("", 13, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams noteParams = lp(-1, -2);
         noteParams.topMargin = dp(8);
-        noteParams.bottomMargin = dp(14);
+        noteParams.bottomMargin = dp(10);
         card.addView(currencyNote, noteParams);
+
+        privacyToggle = secondaryButton("隐藏金额");
+        privacyToggle.setOnClickListener(view -> {
+            settings.hideAmounts = !settings.hideAmounts;
+            store.saveSettings(settings);
+            render();
+        });
+        LinearLayout.LayoutParams privacyParams = lp(-1, dp(42));
+        privacyParams.bottomMargin = dp(14);
+        card.addView(privacyToggle, privacyParams);
 
         LinearLayout row1 = row();
         grossAssetsValue = text("--", 18, INK, Typeface.BOLD);
@@ -625,6 +637,10 @@ public final class MainActivity extends Activity {
         if (trendSnapshots.size() < 2) {
             return "当前基准 " + portfolio.baseCurrency + " 已记录 " + trendSnapshots.size()
                     + " 个快照。每天或每次核对后记录一次，趋势会逐渐形成。";
+        }
+        if (settings.hideAmounts) {
+            return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency
+                    + " 快照。隐私模式已开启，金额变化暂不显示。";
         }
         AssetSnapshot first = trendSnapshots.get(0);
         AssetSnapshot last = trendSnapshots.get(trendSnapshots.size() - 1);
@@ -1148,6 +1164,9 @@ public final class MainActivity extends Activity {
     }
 
     private String formatAmount(AssetRecord asset) {
+        if (settings.hideAmounts) {
+            return "•••• " + asset.currency;
+        }
         if (asset.amount.isEmpty()) {
             return "-- " + asset.currency;
         }
@@ -1161,6 +1180,9 @@ public final class MainActivity extends Activity {
     }
 
     private String formatMoney(double value, String currency) {
+        if (settings.hideAmounts) {
+            return "•••• " + currency;
+        }
         DecimalFormat format = new DecimalFormat("#,##0.##");
         return format.format(value) + " " + currency;
     }

@@ -12,10 +12,12 @@ final class PortfolioSettings {
     static final String[] COMMON_CURRENCIES = {"CNY", "USD", "HKD", "EUR", "JPY"};
 
     String baseCurrency;
+    boolean hideAmounts;
     final Map<String, Double> ratesToBase;
 
     PortfolioSettings() {
         baseCurrency = "CNY";
+        hideAmounts = false;
         ratesToBase = new HashMap<>();
         ratesToBase.put("CNY", 1.0);
         ratesToBase.put("USD", 7.2);
@@ -27,6 +29,7 @@ final class PortfolioSettings {
     static PortfolioSettings fromJson(JSONObject json) {
         PortfolioSettings settings = new PortfolioSettings();
         settings.baseCurrency = cleanCurrency(json.optString("baseCurrency", settings.baseCurrency));
+        settings.hideAmounts = json.optBoolean("hideAmounts", settings.hideAmounts);
         JSONObject rates = json.optJSONObject("ratesToBase");
         if (rates != null) {
             Iterator<String> keys = rates.keys();
@@ -45,6 +48,7 @@ final class PortfolioSettings {
     static PortfolioSettings copyOf(PortfolioSettings source) {
         PortfolioSettings copy = new PortfolioSettings();
         copy.baseCurrency = source.baseCurrency;
+        copy.hideAmounts = source.hideAmounts;
         copy.ratesToBase.clear();
         copy.ratesToBase.putAll(source.ratesToBase);
         copy.ensureBaseRate();
@@ -54,6 +58,7 @@ final class PortfolioSettings {
     JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("baseCurrency", baseCurrency);
+        json.put("hideAmounts", hideAmounts);
         JSONObject rates = new JSONObject();
         for (Map.Entry<String, Double> entry : ratesToBase.entrySet()) {
             rates.put(entry.getKey(), entry.getValue());
