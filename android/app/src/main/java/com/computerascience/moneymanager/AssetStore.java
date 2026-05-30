@@ -127,6 +127,14 @@ final class AssetStore {
         return snapshots;
     }
 
+    List<AssetSnapshot> deleteSnapshot(String dayKey, String baseCurrency) {
+        List<AssetSnapshot> snapshots = loadSnapshots();
+        snapshots.removeIf(snapshot -> dayKey.equals(snapshot.dayKey)
+                && baseCurrency.equals(snapshot.baseCurrency));
+        saveSnapshots(snapshots);
+        return snapshots;
+    }
+
     String exportJson(List<AssetRecord> assets, List<AssetSnapshot> snapshots, PortfolioSettings settings) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("app", "money-manager-android");

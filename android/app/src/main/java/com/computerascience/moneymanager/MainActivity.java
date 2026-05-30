@@ -73,6 +73,7 @@ public final class MainActivity extends Activity {
     private TextView currencyNote;
     private TextView currencySettingsSummary;
     private TextView trendSummary;
+    private LinearLayout trendHistoryList;
     private TextView insightSummary;
     private TextView managementSummary;
     private TextView assetResultSummary;
@@ -188,6 +189,7 @@ public final class MainActivity extends Activity {
         List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
         trendChart.setSnapshots(trendSnapshots);
         trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
+        renderTrendHistory(trendSnapshots);
 
         insightSummary.setText(buildInsightText(portfolio));
 
@@ -317,7 +319,12 @@ public final class MainActivity extends Activity {
         });
         LinearLayout.LayoutParams buttonParams = lp(-1, dp(44));
         buttonParams.topMargin = dp(8);
+        buttonParams.bottomMargin = dp(12);
         card.addView(snapshotButton, buttonParams);
+
+        trendHistoryList = new LinearLayout(this);
+        trendHistoryList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(trendHistoryList, lp(-1, -2));
         return card;
     }
 
@@ -649,6 +656,67 @@ public final class MainActivity extends Activity {
         return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency + " 快照，净资产变化 "
                 + formatSignedMoney(change, portfolio.baseCurrency)
                 + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
+    }
+
+    private void renderTrendHistory(List<AssetSnapshot> trendSnapshots) {
+        trendHistoryList.removeAllViews();
+        trendHistoryList.addView(text("最近快照", 13, MUTED, Typeface.BOLD));
+
+        if (trendSnapshots.isEmpty()) {
+            TextView empty = text("暂无快照。记录一次后会出现在这里。", 14, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
+            emptyParams.topMargin = dp(8);
+            trendHistoryList.addView(empty, emptyParams);
+            return;
+        }
+
+        int start = Math.max(0, trendSnapshots.size() - 6);
+        for (int index = trendSnapshots.size() - 1; index >= start; index -= 1) {
+            AssetSnapshot snapshot = trendSnapshots.get(index);
+            trendHistoryList.addView(snapshotRow(snapshot));
+        }
+    }
+
+    private View snapshotRow(AssetSnapshot snapshot) {
+        LinearLayout row = row();
+        row.setPadding(dp(12), dp(10), dp(10), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout textGroup = new LinearLayout(this);
+        textGroup.setOrientation(LinearLayout.VERTICAL);
+        textGroup.addView(text(snapshot.dayKey + " · " + snapshot.baseCurrency, 14, INK, Typeface.BOLD));
+
+        String details = "净资产 " + formatMoney(snapshot.netWorth, snapshot.baseCurrency)
+                + " · 资产 " + formatMoney(snapshot.grossAssets, snapshot.baseCurrency)
+                + " · 负债 " + formatMoney(snapshot.liabilities, snapshot.baseCurrency);
+        LinearLayout.LayoutParams detailsParams = lp(-1, -2);
+        detailsParams.topMargin = dp(4);
+        textGroup.addView(text(details, 12, MUTED, Typeface.NORMAL), detailsParams);
+        row.addView(textGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        Button delete = secondaryButton("删除");
+        delete.setTextColor(DANGER);
+        delete.setOnClickListener(view -> confirmDeleteSnapshot(snapshot));
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(72), dp(38));
+        deleteParams.leftMargin = dp(10);
+        row.addView(delete, deleteParams);
+        return row;
+    }
+
+    private void confirmDeleteSnapshot(AssetSnapshot snapshot) {
+        new AlertDialog.Builder(this)
+                .setTitle("删除快照？")
+                .setMessage("确定删除 " + snapshot.dayKey + " 的 " + snapshot.baseCurrency + " 快照吗？趋势图会立刻更新。")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("删除", (dialog, which) -> {
+                    snapshots = store.deleteSnapshot(snapshot.dayKey, snapshot.baseCurrency);
+                    render();
+                    toast("已删除趋势快照。");
+                })
+                .show();
     }
 
     private String buildInsightText(PortfolioSummary portfolio) {
