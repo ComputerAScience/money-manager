@@ -62,6 +62,7 @@ public final class MainActivity extends Activity {
     private PortfolioSettings settings;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
+    private LinearLayout institutionList;
     private LinearLayout managementBody;
     private AllocationChartView allocationChart;
     private TrendChartView trendChart;
@@ -150,6 +151,7 @@ public final class MainActivity extends Activity {
         root.addView(overviewCard());
         root.addView(currencyCard());
         root.addView(allocationCard());
+        root.addView(institutionCard());
         root.addView(trendCard());
         root.addView(insightCard());
         root.addView(backupCard());
@@ -185,6 +187,7 @@ public final class MainActivity extends Activity {
 
         allocationChart.setCategories(portfolio.categories);
         renderAllocationLegend(portfolio);
+        renderInstitutionList(portfolio);
 
         List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
         trendChart.setSnapshots(trendSnapshots);
@@ -294,6 +297,22 @@ public final class MainActivity extends Activity {
         legendParams.leftMargin = dp(14);
         body.addView(allocationLegend, legendParams);
         card.addView(body);
+        return card;
+    }
+
+    private View institutionCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("机构分布"));
+
+        TextView description = text("按银行、券商或钱包汇总，方便核对资金主要放在哪里。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.topMargin = dp(8);
+        descriptionParams.bottomMargin = dp(8);
+        card.addView(description, descriptionParams);
+
+        institutionList = new LinearLayout(this);
+        institutionList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(institutionList, lp(-1, -2));
         return card;
     }
 
@@ -456,6 +475,52 @@ public final class MainActivity extends Activity {
             row.addView(value);
             allocationLegend.addView(row);
         }
+    }
+
+    private void renderInstitutionList(PortfolioSummary portfolio) {
+        institutionList.removeAllViews();
+        double total = portfolio.grossAssets + portfolio.liabilities;
+        if (portfolio.institutions.isEmpty() || total <= 0) {
+            institutionList.addView(text("暂无可展示的机构分布。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        int limit = Math.min(5, portfolio.institutions.size());
+        for (int index = 0; index < limit; index += 1) {
+            InstitutionBreakdown institution = portfolio.institutions.get(index);
+            institutionList.addView(institutionRow(institution, total));
+        }
+    }
+
+    private View institutionRow(InstitutionBreakdown institution, double total) {
+        LinearLayout row = row();
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout labelGroup = new LinearLayout(this);
+        labelGroup.setOrientation(LinearLayout.VERTICAL);
+        labelGroup.addView(text(institution.institution, 14, INK, Typeface.BOLD));
+
+        LinearLayout.LayoutParams countParams = lp(-1, -2);
+        countParams.topMargin = dp(4);
+        labelGroup.addView(text(institution.assetCount + " 项资产", 12, MUTED, Typeface.NORMAL), countParams);
+        row.addView(labelGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        LinearLayout valueGroup = new LinearLayout(this);
+        valueGroup.setOrientation(LinearLayout.VERTICAL);
+        valueGroup.setGravity(Gravity.END);
+        valueGroup.addView(text(formatMoney(institution.value, settings.baseCurrency), 14, INK, Typeface.BOLD));
+
+        LinearLayout.LayoutParams ratioParams = lp(-1, -2);
+        ratioParams.topMargin = dp(4);
+        TextView ratio = text(formatPercent(institution.value, total), 12, MUTED, Typeface.NORMAL);
+        ratio.setGravity(Gravity.END);
+        valueGroup.addView(ratio, ratioParams);
+        row.addView(valueGroup);
+        return row;
     }
 
     private String currencyNoteText(PortfolioSummary portfolio) {
@@ -1258,6 +1323,13 @@ public final class MainActivity extends Activity {
     private String formatRate(double value) {
         DecimalFormat format = new DecimalFormat("#,##0.####");
         return format.format(value);
+    }
+
+    private String formatPercent(double value, double total) {
+        if (total <= 0) {
+            return "0.0%";
+        }
+        return String.format(Locale.getDefault(), "%.1f%%", value / total * 100);
     }
 
     private String formatSignedMoney(double value, String currency) {

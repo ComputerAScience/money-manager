@@ -13,6 +13,7 @@ final class PortfolioSummary {
     final String baseCurrency;
     final boolean hasMixedCurrencies;
     final List<CategoryBreakdown> categories;
+    final List<InstitutionBreakdown> institutions;
 
     PortfolioSummary(
             double netWorth,
@@ -24,7 +25,8 @@ final class PortfolioSummary {
             int missingRateCount,
             String baseCurrency,
             boolean hasMixedCurrencies,
-            List<CategoryBreakdown> categories
+            List<CategoryBreakdown> categories,
+            List<InstitutionBreakdown> institutions
     ) {
         this.netWorth = netWorth;
         this.grossAssets = grossAssets;
@@ -36,5 +38,6 @@ final class PortfolioSummary {
         this.baseCurrency = baseCurrency;
         this.hasMixedCurrencies = hasMixedCurrencies;
         this.categories = categories;
+        this.institutions = institutions;
     }
 }

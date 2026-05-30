@@ -22,6 +22,8 @@ final class AssetMath {
         String baseCurrency = settings.baseCurrency;
         boolean hasMixedCurrencies = false;
         Map<String, Double> categoryTotals = new HashMap<>();
+        Map<String, Double> institutionTotals = new HashMap<>();
+        Map<String, Integer> institutionCounts = new HashMap<>();
 
         for (AssetRecord asset : assets) {
             String currency = cleanCurrency(asset.currency);
@@ -41,6 +43,9 @@ final class AssetMath {
                 grossAssets += amount;
             }
             categoryTotals.put(asset.category, categoryTotals.getOrDefault(asset.category, 0.0) + amount);
+            String institution = cleanInstitution(asset.institution);
+            institutionTotals.put(institution, institutionTotals.getOrDefault(institution, 0.0) + amount);
+            institutionCounts.put(institution, institutionCounts.getOrDefault(institution, 0) + 1);
 
             if (isStale(asset)) {
                 staleCount += 1;
@@ -59,6 +64,20 @@ final class AssetMath {
         }
         Collections.sort(categories, (left, right) -> Double.compare(right.value, left.value));
 
+        List<InstitutionBreakdown> institutions = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : institutionTotals.entrySet()) {
+            if (entry.getValue() <= 0) {
+                continue;
+            }
+            String institution = entry.getKey();
+            institutions.add(new InstitutionBreakdown(
+                    institution,
+                    entry.getValue(),
+                    institutionCounts.getOrDefault(institution, 0)
+            ));
+        }
+        Collections.sort(institutions, (left, right) -> Double.compare(right.value, left.value));
+
         return new PortfolioSummary(
                 grossAssets - liabilities,
                 grossAssets,
@@ -69,7 +88,8 @@ final class AssetMath {
                 missingRateCount,
                 baseCurrency,
                 hasMixedCurrencies,
-                categories
+                categories,
+                institutions
         );
     }
 
@@ -108,6 +128,13 @@ final class AssetMath {
 
     static String cleanCurrency(String currency) {
         return currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+    }
+
+    static String cleanInstitution(String institution) {
+        if (institution == null || institution.trim().isEmpty()) {
+            return "未填写机构";
+        }
+        return institution.trim();
     }
 
     static int colorForCategory(String category) {
