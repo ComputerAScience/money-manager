@@ -540,8 +540,14 @@ public final class MainActivity extends Activity {
         snapshotActions.addView(backfillButton, new LinearLayout.LayoutParams(0, dp(44), 1));
         LinearLayout.LayoutParams actionParams = lp(-1, -2);
         actionParams.topMargin = dp(8);
-        actionParams.bottomMargin = dp(12);
+        actionParams.bottomMargin = dp(8);
         card.addView(snapshotActions, actionParams);
+
+        Button importButton = secondaryButton("批量导入快照");
+        importButton.setOnClickListener(view -> showSnapshotBulkImportDialog());
+        LinearLayout.LayoutParams importParams = lp(-1, dp(44));
+        importParams.bottomMargin = dp(12);
+        card.addView(importButton, importParams);
 
         trendHistoryList = new LinearLayout(this);
         trendHistoryList.setOrientation(LinearLayout.VERTICAL);
@@ -1715,6 +1721,135 @@ public final class MainActivity extends Activity {
         });
 
         dialog.show();
+    }
+
+    private void showSnapshotBulkImportDialog() {
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("每行一条快照，格式：日期,净资产,资产总额,负债。示例：2026-01-31,500000,530000,30000。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        EditText rows = input(
+                "yyyy-MM-dd,净资产,资产总额,负债",
+                "",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        );
+        rows.setMinLines(8);
+        rows.setGravity(Gravity.TOP);
+        LinearLayout.LayoutParams rowsParams = lp(-1, dp(180));
+        rowsParams.bottomMargin = dp(10);
+        rows.setLayoutParams(rowsParams);
+        form.addView(rows);
+
+        TextView note = text("导入使用当前基准币种 " + portfolio.baseCurrency + "；同一天会覆盖原快照，只保留近一年数据。", 12, MUTED, Typeface.NORMAL);
+        form.addView(note, lp(-1, -2));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("批量导入历史快照")
+                .setView(scroll)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("导入", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button importAction = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            importAction.setTextColor(ACCENT);
+            importAction.setOnClickListener(button -> {
+                List<AssetSnapshot> imported = parseSnapshotImportRows(rows.getText().toString(), portfolio.baseCurrency);
+                if (imported.isEmpty()) {
+                    return;
+                }
+
+                snapshots = store.upsertSnapshots(imported);
+                render();
+                toast("已导入 " + imported.size() + " 条历史快照。");
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
+    }
+
+    private List<AssetSnapshot> parseSnapshotImportRows(String raw, String baseCurrency) {
+        List<AssetSnapshot> imported = new ArrayList<>();
+        if (raw == null || raw.trim().isEmpty()) {
+            toast("请先粘贴至少一行快照数据。");
+            return imported;
+        }
+
+        long now = System.currentTimeMillis();
+        String[] lines = raw.split("\\r?\\n");
+        for (int index = 0; index < lines.length; index += 1) {
+            String line = clean(lines[index]);
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (index == 0 && line.contains("日期")) {
+                continue;
+            }
+
+            String[] columns = line.split("[,，\\t]");
+            if (columns.length != 4) {
+                toast("第 " + (index + 1) + " 行格式应为：日期,净资产,资产总额,负债。");
+                imported.clear();
+                return imported;
+            }
+
+            Date parsedDay = parseDay(clean(columns[0]));
+            if (parsedDay == null) {
+                toast("第 " + (index + 1) + " 行日期格式应为 yyyy-MM-dd。");
+                imported.clear();
+                return imported;
+            }
+            long timestamp = parsedDay.getTime();
+            if (timestamp > now) {
+                toast("第 " + (index + 1) + " 行不能导入未来日期。");
+                imported.clear();
+                return imported;
+            }
+            if (timestamp < now - 370L * AssetMath.DAY_MS) {
+                toast("第 " + (index + 1) + " 行超出近一年范围。");
+                imported.clear();
+                return imported;
+            }
+
+            Double net = parseNumber(clean(columns[1]));
+            Double gross = parseNumber(clean(columns[2]));
+            Double debt = parseNumber(clean(columns[3]));
+            if (net == null || gross == null || debt == null) {
+                toast("第 " + (index + 1) + " 行金额必须是数字。");
+                imported.clear();
+                return imported;
+            }
+            if (gross < 0 || debt < 0) {
+                toast("第 " + (index + 1) + " 行资产总额和负债不能为负数。");
+                imported.clear();
+                return imported;
+            }
+
+            imported.add(new AssetSnapshot(
+                    dayKey(timestamp),
+                    timestamp,
+                    baseCurrency,
+                    net,
+                    gross,
+                    debt
+            ));
+        }
+
+        if (imported.isEmpty()) {
+            toast("没有可导入的快照。");
+        }
+        return imported;
     }
 
     private String buildInsightText(PortfolioSummary portfolio) {

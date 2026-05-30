@@ -148,6 +148,23 @@ final class AssetStore {
 
     List<AssetSnapshot> upsertSnapshot(AssetSnapshot snapshot) {
         List<AssetSnapshot> snapshots = loadSnapshots();
+        upsertSnapshotInto(snapshots, snapshot);
+        snapshots = pruneAndSort(snapshots);
+        saveSnapshots(snapshots);
+        return snapshots;
+    }
+
+    List<AssetSnapshot> upsertSnapshots(List<AssetSnapshot> importedSnapshots) {
+        List<AssetSnapshot> snapshots = loadSnapshots();
+        for (AssetSnapshot snapshot : importedSnapshots) {
+            upsertSnapshotInto(snapshots, snapshot);
+        }
+        snapshots = pruneAndSort(snapshots);
+        saveSnapshots(snapshots);
+        return snapshots;
+    }
+
+    private void upsertSnapshotInto(List<AssetSnapshot> snapshots, AssetSnapshot snapshot) {
         boolean replaced = false;
         for (int index = 0; index < snapshots.size(); index += 1) {
             AssetSnapshot existing = snapshots.get(index);
@@ -160,9 +177,6 @@ final class AssetStore {
         if (!replaced) {
             snapshots.add(snapshot);
         }
-        snapshots = pruneAndSort(snapshots);
-        saveSnapshots(snapshots);
-        return snapshots;
     }
 
     List<AssetSnapshot> deleteSnapshot(String dayKey, String baseCurrency) {
