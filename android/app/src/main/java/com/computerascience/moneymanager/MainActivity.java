@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
@@ -1102,7 +1103,7 @@ public final class MainActivity extends Activity {
 
         List<AllocationDrift> drifts = new ArrayList<>();
         for (String category : categories) {
-            double currentValue = currentValues.getOrDefault(category, 0.0);
+            double currentValue = doubleValue(currentValues, category);
             double currentPercent = total <= 0 ? 0 : currentValue / total * 100;
             double targetPercent = settings.targetForCategory(category);
             if (currentPercent <= 0 && targetPercent <= 0) {
@@ -1666,40 +1667,36 @@ public final class MainActivity extends Activity {
 
     private void renderAssetFilterButtons() {
         assetFilterButtons.removeAllViews();
-        LinearLayout topRow = row();
-        addFilterButton(topRow, "全部", "all");
-        addFilterButton(topRow, "待更新", "stale");
-        addFilterButton(topRow, "未绑定", "unbound");
-        assetFilterButtons.addView(topRow, lp(-1, -2));
 
-        LinearLayout bottomRow = row();
-        addFilterButton(bottomRow, "待完善", "issues");
-        addFilterButton(bottomRow, "负债", "debt");
-        LinearLayout spacer = new LinearLayout(this);
-        bottomRow.addView(spacer, new LinearLayout.LayoutParams(0, dp(40), 1));
-        LinearLayout.LayoutParams bottomParams = lp(-1, -2);
-        bottomParams.topMargin = dp(8);
-        assetFilterButtons.addView(bottomRow, bottomParams);
+        LinearLayout segmented = row();
+        segmented.setGravity(Gravity.CENTER_VERTICAL);
+        segmented.setPadding(dp(3), dp(3), dp(3), dp(3));
+        segmented.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        addSegmentFilterButton(segmented, "全部", "all");
+        addSegmentFilterButton(segmented, "待更新", "stale");
+        addSegmentFilterButton(segmented, "未绑定", "unbound");
+        addSegmentFilterButton(segmented, "待完善", "issues");
+        addSegmentFilterButton(segmented, "负债", "debt");
+        assetFilterButtons.addView(segmented, lp(-1, dp(44)));
     }
 
-    private void addFilterButton(LinearLayout row, String label, String mode) {
-        if (row.getChildCount() > 0) {
-            row.addView(new SpaceView(this, dp(8), 1));
-        }
-        row.addView(assetFilterButton(label, mode), new LinearLayout.LayoutParams(0, dp(40), 1));
-    }
-
-    private Button assetFilterButton(String label, String mode) {
+    private void addSegmentFilterButton(LinearLayout row, String label, String mode) {
+        boolean active = assetFilterMode.equals(mode);
         Button button = secondaryButton(label);
-        if (assetFilterMode.equals(mode)) {
-            button.setTextColor(Color.WHITE);
-            button.setBackground(buttonBackground(ACCENT, ACCENT_DARK, ACCENT_DARK));
-        }
+        button.setTextSize(13);
+        button.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
+        button.setTextColor(active ? Color.WHITE : MUTED);
+        button.setPadding(0, 0, 0, 0);
+        button.setBackground(buttonBackground(
+                active ? ACCENT : Color.TRANSPARENT,
+                active ? ACCENT_DARK : ROW_SURFACE,
+                active ? ACCENT_DARK : Color.TRANSPARENT
+        ));
         button.setOnClickListener(view -> {
             assetFilterMode = mode;
             render();
         });
-        return button;
+        row.addView(button, new LinearLayout.LayoutParams(0, dp(38), 1));
     }
 
     private List<AssetRecord> visibleAssets() {
@@ -2709,18 +2706,18 @@ public final class MainActivity extends Activity {
                 continue;
             }
             String reason = cleanReason(event.reason);
-            counts.put(reason, counts.getOrDefault(reason, 0) + 1);
+            counts.put(reason, intValue(counts, reason) + 1);
 
             String currency = AssetMath.cleanCurrency(event.currency);
             double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
             double previous = AssetMath.parseAmount(event.previousAmount);
             double current = AssetMath.parseAmount(event.newAmount);
-            deltas.put(reason, deltas.getOrDefault(reason, 0.0) + (current - previous) * rate);
+            deltas.put(reason, doubleValue(deltas, reason) + (current - previous) * rate);
         }
 
         List<String> reasons = new ArrayList<>(counts.keySet());
         Collections.sort(reasons, (left, right) -> {
-            int countCompare = Integer.compare(counts.getOrDefault(right, 0), counts.getOrDefault(left, 0));
+            int countCompare = Integer.compare(intValue(counts, right), intValue(counts, left));
             if (countCompare != 0) {
                 return countCompare;
             }
@@ -2731,9 +2728,9 @@ public final class MainActivity extends Activity {
         int limit = Math.min(3, reasons.size());
         for (int index = 0; index < limit; index += 1) {
             String reason = reasons.get(index);
-            String line = reason + " " + counts.getOrDefault(reason, 0) + " 次";
+            String line = reason + " " + intValue(counts, reason) + " 次";
             if (!settings.hideAmounts) {
-                line += "，折算变化 " + formatSignedMoney(deltas.getOrDefault(reason, 0.0), settings.baseCurrency);
+                line += "，折算变化 " + formatSignedMoney(doubleValue(deltas, reason), settings.baseCurrency);
             }
             lines.add(line);
         }
@@ -3176,24 +3173,33 @@ public final class MainActivity extends Activity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
-        content.setPadding(pad, dp(6), pad, 0);
+        content.setPadding(pad, dp(6), pad, dp(4));
 
         TextView helper = text(helperText, 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams helperParams = lp(-1, -2);
-        helperParams.bottomMargin = dp(12);
+        helperParams.bottomMargin = dp(8);
         content.addView(helper, helperParams);
+
+        TextView count = text(apps.size() + " 个可绑定 App", 12, MUTED, Typeface.BOLD);
+        LinearLayout.LayoutParams countParams = lp(-1, -2);
+        countParams.bottomMargin = dp(10);
+        content.addView(count, countParams);
 
         EditText search = input("搜索 App 名称", "", InputType.TYPE_CLASS_TEXT);
         content.addView(search);
 
         FrameLayout listFrame = new FrameLayout(this);
-        LinearLayout.LayoutParams frameParams = lp(-1, dp(360));
+        listFrame.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        listFrame.setPadding(dp(6), dp(6), dp(6), dp(6));
+        LinearLayout.LayoutParams frameParams = lp(-1, appPickerListHeight());
         listFrame.setLayoutParams(frameParams);
 
         ListView list = new ListView(this);
-        list.setDivider(null);
+        list.setDivider(new ColorDrawable(Color.TRANSPARENT));
+        list.setDividerHeight(dp(8));
+        list.setPadding(0, 0, 0, 0);
         list.setCacheColorHint(Color.TRANSPARENT);
-        list.setSelector(buttonBackground(SURFACE_ALT, ROW_SURFACE, PANEL_BORDER));
+        list.setSelector(new ColorDrawable(Color.TRANSPARENT));
         LaunchableAppAdapter adapter = new LaunchableAppAdapter(apps);
         list.setAdapter(adapter);
         listFrame.addView(list, new FrameLayout.LayoutParams(
@@ -3650,6 +3656,16 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private double doubleValue(Map<String, Double> values, String key) {
+        Double value = values.get(key);
+        return value == null ? 0.0 : value;
+    }
+
+    private int intValue(Map<String, Integer> values, String key) {
+        Integer value = values.get(key);
+        return value == null ? 0 : value;
+    }
+
     private EditText input(String label, String value, int inputType) {
         EditText input = new EditText(this);
         input.setHint(label);
@@ -3794,6 +3810,11 @@ public final class MainActivity extends Activity {
         spinner.setMinimumHeight(dp(48));
     }
 
+    private int appPickerListHeight() {
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        return Math.min(dp(380), Math.max(dp(220), screenHeight - dp(320)));
+    }
+
     private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{android.R.attr.state_pressed}, roundedBackground(pressedFill, border, 8));
@@ -3931,8 +3952,8 @@ public final class MainActivity extends Activity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(12), dp(10), dp(12), dp(10));
-            row.setMinimumHeight(dp(70));
-            row.setBackground(cardBackground(Color.WHITE, Color.TRANSPARENT));
+            row.setMinimumHeight(dp(66));
+            row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
 
             ImageView icon = new ImageView(MainActivity.this);
             icon.setImageDrawable(app.icon);
@@ -3940,7 +3961,7 @@ public final class MainActivity extends Activity {
             GradientDrawable iconBg = roundedBackground(SURFACE_ALT, PANEL_BORDER, 8);
             icon.setBackground(iconBg);
             icon.setPadding(dp(6), dp(6), dp(6), dp(6));
-            row.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
 
             LinearLayout texts = new LinearLayout(MainActivity.this);
             texts.setOrientation(LinearLayout.VERTICAL);
@@ -3952,14 +3973,14 @@ public final class MainActivity extends Activity {
             label.setSingleLine(true);
             texts.addView(label);
 
-            TextView hint = text("点击选择此 App", 12, MUTED, Typeface.NORMAL);
+            TextView hint = text("点击绑定", 12, MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams hintParams = lp(-1, -2);
             hintParams.topMargin = dp(4);
             texts.addView(hint, hintParams);
 
             TextView chevron = text("›", 24, BLUE, Typeface.BOLD);
             chevron.setGravity(Gravity.CENTER);
-            row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(46)));
+            row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(42)));
             return row;
         }
     }

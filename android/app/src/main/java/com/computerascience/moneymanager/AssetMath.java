@@ -42,10 +42,10 @@ final class AssetMath {
             } else {
                 grossAssets += amount;
             }
-            categoryTotals.put(asset.category, categoryTotals.getOrDefault(asset.category, 0.0) + amount);
+            categoryTotals.put(asset.category, doubleValue(categoryTotals, asset.category) + amount);
             String institution = cleanInstitution(asset.institution);
-            institutionTotals.put(institution, institutionTotals.getOrDefault(institution, 0.0) + amount);
-            institutionCounts.put(institution, institutionCounts.getOrDefault(institution, 0) + 1);
+            institutionTotals.put(institution, doubleValue(institutionTotals, institution) + amount);
+            institutionCounts.put(institution, intValue(institutionCounts, institution) + 1);
 
             if (isStale(asset)) {
                 staleCount += 1;
@@ -73,7 +73,7 @@ final class AssetMath {
             institutions.add(new InstitutionBreakdown(
                     institution,
                     entry.getValue(),
-                    institutionCounts.getOrDefault(institution, 0)
+                    intValue(institutionCounts, institution)
             ));
         }
         Collections.sort(institutions, (left, right) -> Double.compare(right.value, left.value));
@@ -135,6 +135,16 @@ final class AssetMath {
             return "未填写机构";
         }
         return institution.trim();
+    }
+
+    private static double doubleValue(Map<String, Double> values, String key) {
+        Double value = values.get(key);
+        return value == null ? 0.0 : value;
+    }
+
+    private static int intValue(Map<String, Integer> values, String key) {
+        Integer value = values.get(key);
+        return value == null ? 0 : value;
     }
 
     static int colorForCategory(String category) {
