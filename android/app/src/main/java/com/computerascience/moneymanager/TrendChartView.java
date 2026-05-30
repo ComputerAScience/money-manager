@@ -12,7 +12,8 @@ import java.util.List;
 final class TrendChartView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
-    private List<AssetSnapshot> snapshots = new ArrayList<>();
+    private List<Point> points = new ArrayList<>();
+    private String emptyText = "记录几次快照后显示一年趋势";
 
     TrendChartView(Context context) {
         super(context);
@@ -20,7 +21,20 @@ final class TrendChartView extends View {
     }
 
     void setSnapshots(List<AssetSnapshot> snapshots) {
-        this.snapshots = snapshots == null ? new ArrayList<>() : new ArrayList<>(snapshots);
+        List<Point> mapped = new ArrayList<>();
+        if (snapshots != null) {
+            for (AssetSnapshot snapshot : snapshots) {
+                mapped.add(new Point(snapshot.timestamp, snapshot.netWorth));
+            }
+        }
+        setPoints(mapped, "记录几次快照后显示一年趋势");
+    }
+
+    void setPoints(List<Point> points, String emptyText) {
+        this.points = points == null ? new ArrayList<>() : new ArrayList<>(points);
+        this.emptyText = emptyText == null || emptyText.isEmpty()
+                ? "记录几次数据后显示趋势"
+                : emptyText;
         invalidate();
     }
 
@@ -43,20 +57,20 @@ final class TrendChartView extends View {
             canvas.drawLine(left, y, right, y, paint);
         }
 
-        if (snapshots.size() < 2) {
+        if (points.size() < 2) {
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(0xFF667068);
             paint.setTextSize(dp(14));
             paint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText("记录几次快照后显示一年趋势", getWidth() / 2f, (top + bottom) / 2f, paint);
+            canvas.drawText(emptyText, getWidth() / 2f, (top + bottom) / 2f, paint);
             return;
         }
 
         double min = Double.MAX_VALUE;
         double max = -Double.MAX_VALUE;
-        for (AssetSnapshot snapshot : snapshots) {
-            min = Math.min(min, snapshot.netWorth);
-            max = Math.max(max, snapshot.netWorth);
+        for (Point point : points) {
+            min = Math.min(min, point.value);
+            max = Math.max(max, point.value);
         }
         if (Math.abs(max - min) < 0.0001) {
             max += 1;
@@ -64,10 +78,10 @@ final class TrendChartView extends View {
         }
 
         path.reset();
-        for (int index = 0; index < snapshots.size(); index += 1) {
-            AssetSnapshot snapshot = snapshots.get(index);
-            float x = left + (right - left) * index / Math.max(1f, snapshots.size() - 1f);
-            float y = (float) (bottom - ((snapshot.netWorth - min) / (max - min)) * (bottom - top));
+        for (int index = 0; index < points.size(); index += 1) {
+            Point point = points.get(index);
+            float x = left + (right - left) * index / Math.max(1f, points.size() - 1f);
+            float y = (float) (bottom - ((point.value - min) / (max - min)) * (bottom - top));
             if (index == 0) {
                 path.moveTo(x, y);
             } else {
@@ -83,9 +97,9 @@ final class TrendChartView extends View {
         canvas.drawPath(path, paint);
 
         paint.setStyle(Paint.Style.FILL);
-        AssetSnapshot last = snapshots.get(snapshots.size() - 1);
+        Point last = points.get(points.size() - 1);
         float lastX = right;
-        float lastY = (float) (bottom - ((last.netWorth - min) / (max - min)) * (bottom - top));
+        float lastY = (float) (bottom - ((last.value - min) / (max - min)) * (bottom - top));
         paint.setColor(0xFFFFFFFF);
         canvas.drawCircle(lastX, lastY, dp(6), paint);
         paint.setColor(0xFF126B5F);
@@ -94,5 +108,15 @@ final class TrendChartView extends View {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    static final class Point {
+        final long timestamp;
+        final double value;
+
+        Point(long timestamp, double value) {
+            this.timestamp = timestamp;
+            this.value = value;
+        }
     }
 }
