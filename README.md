@@ -1,0 +1,50 @@
+# Money Manager
+
+一个可以直接部署到 GitHub Pages 的个人资产管理 Web 应用。它是纯静态页面，默认把资产数据保存在当前浏览器的 `localStorage` 中，不需要数据库、服务器或 API 密钥。
+
+## 功能
+
+- 记录现金、存款、基金、股票、加密资产、房产、负债和其他资产
+- 按基准币种实时汇总净资产、资产总额、负债和今日浮动
+- 按类型查看资产配置，并观察现金比例、低流动性比例和最大持仓
+- 支持本地 JSON 导入、导出备份
+- 支持外汇汇率和 CoinGecko 加密资产价格的浏览器端刷新
+- 手动资产价格修改后，所有统计会即时重算
+
+## 本地使用
+
+直接用浏览器打开 `index.html` 即可。也可以在仓库目录启动一个静态服务器：
+
+```bash
+python3 -m http.server 4173
+```
+
+然后访问 `http://localhost:4173`。
+
+## 部署到 GitHub Pages
+
+1. 将代码推送到仓库的 `master` 分支。
+2. 打开仓库的 `Settings -> Pages`。
+3. 在 `Build and deployment` 中选择 `GitHub Actions`。
+4. 等待 `Deploy to GitHub Pages` 工作流完成。
+
+部署完成后，GitHub 会在 workflow 页面或 Pages 设置中显示站点地址。
+
+## 数据和隐私
+
+资产明细只保存在浏览器本地。换浏览器、清理站点数据或更换设备前，先用页面右上角的“导出”保存 JSON 备份。
+
+外部行情刷新只会请求公开行情接口：
+
+- `https://api.frankfurter.app` 用于外汇汇率
+- `https://api.coingecko.com` 用于加密资产价格
+
+股票、基金、房产和负债等资产默认采用手动价格。后续如果需要接入券商、银行或付费行情 API，可以在静态前端之外加一个带鉴权的后端服务。
+
+## Android App
+
+仓库里也包含一个原生 Android 版本，位于 `android/`。它的目标更低也更稳：记录每项资产的更新时间，并在需要更新时一键打开对应银行、券商或钱包 App。
+
+详见 [android/README.md](android/README.md)。
+
+如果你只想下载安装包，不想配置 Android 开发环境，可以在 GitHub 仓库的 `Actions -> Build Android APK` 里下载 `money-manager-debug-apk` artifact。
