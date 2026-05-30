@@ -1714,7 +1714,7 @@ public final class MainActivity extends Activity {
 
     private void openLinkedApp(AssetRecord asset) {
         if (asset.launchUri.isEmpty() && asset.packageName.isEmpty()) {
-            toast("先编辑资产，填写对应 App 包名或启动链接。");
+            showAssetAppBindingDialog(asset);
             return;
         }
 
@@ -1744,6 +1744,37 @@ public final class MainActivity extends Activity {
         }
 
         toast("没有找到可打开的 App。");
+    }
+
+    private void showAssetAppBindingDialog(AssetRecord asset) {
+        List<LaunchableApp> apps = getLaunchableApps();
+        if (apps.isEmpty()) {
+            toast("没有找到可启动的 App。");
+            return;
+        }
+
+        String[] labels = new String[apps.size()];
+        for (int index = 0; index < apps.size(); index += 1) {
+            LaunchableApp app = apps.get(index);
+            labels[index] = app.label + "\n" + app.packageName;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("绑定并打开 App")
+                .setMessage("「" + asset.name + "」还没有绑定 App。先选择一个已安装 App，之后就可以一键打开。")
+                .setNegativeButton("取消", null)
+                .setItems(labels, (dialog, which) -> {
+                    LaunchableApp selected = apps.get(which);
+                    asset.packageName = selected.packageName;
+                    if (asset.institution.isEmpty() || asset.institution.contains("待绑定")) {
+                        asset.institution = selected.label;
+                    }
+                    store.save(assets);
+                    render();
+                    toast("已绑定 " + selected.label + "。");
+                    openLinkedApp(asset);
+                })
+                .show();
     }
 
     private void openMarket(String packageName) {
