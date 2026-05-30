@@ -34,9 +34,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -66,6 +68,7 @@ public final class MainActivity extends Activity {
     private ScrollView mainScrollView;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
+    private LinearLayout allocationTargetList;
     private LinearLayout institutionList;
     private LinearLayout updatePlanList;
     private LinearLayout recentUpdateList;
@@ -79,6 +82,7 @@ public final class MainActivity extends Activity {
     private Button privacyToggle;
     private TextView currencyNote;
     private TextView currencySettingsSummary;
+    private TextView allocationTargetSummary;
     private TextView trendSummary;
     private LinearLayout trendHistoryList;
     private TextView insightSummary;
@@ -164,6 +168,7 @@ public final class MainActivity extends Activity {
         root.addView(overviewCard());
         root.addView(currencyCard());
         root.addView(allocationCard());
+        root.addView(allocationTargetCard());
         root.addView(institutionCard());
         root.addView(trendCard());
         root.addView(insightCard());
@@ -203,6 +208,7 @@ public final class MainActivity extends Activity {
 
         allocationChart.setCategories(portfolio.categories);
         renderAllocationLegend(portfolio);
+        renderAllocationTargets(portfolio);
         renderInstitutionList(portfolio);
 
         List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
@@ -328,6 +334,31 @@ public final class MainActivity extends Activity {
             }
         }
 
+        if (settings.hasAllocationTargets()) {
+            List<AllocationDrift> drifts = allocationDrifts(portfolio);
+            if (!drifts.isEmpty()) {
+                lines.add("");
+                lines.add("目标比例提醒");
+                int limit = Math.min(3, drifts.size());
+                for (int index = 0; index < limit; index += 1) {
+                    AllocationDrift drift = drifts.get(index);
+                    double gap = drift.targetPercent - drift.currentPercent;
+                    String status = Math.abs(gap) < 0.5
+                            ? "接近目标"
+                            : (gap > 0 ? "低配" : "超配");
+                    String line = "- " + drift.category + "：当前 "
+                            + formatPercentValue(drift.currentPercent)
+                            + "，目标 " + formatPercentValue(drift.targetPercent)
+                            + "，" + status + " " + formatPercentValue(Math.abs(gap));
+                    if (!settings.hideAmounts && Math.abs(gap) >= 0.5) {
+                        line += "，建议" + (drift.amountDelta > 0 ? "增加 " : "减少 ")
+                                + formatMoney(Math.abs(drift.amountDelta), portfolio.baseCurrency);
+                    }
+                    lines.add(line);
+                }
+            }
+        }
+
         if (!portfolio.institutions.isEmpty()) {
             lines.add("");
             lines.add("机构分布 Top 3");
@@ -394,6 +425,28 @@ public final class MainActivity extends Activity {
         legendParams.leftMargin = dp(14);
         body.addView(allocationLegend, legendParams);
         card.addView(body);
+        return card;
+    }
+
+    private View allocationTargetCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("目标比例"));
+
+        allocationTargetSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(allocationTargetSummary, summaryParams);
+
+        allocationTargetList = new LinearLayout(this);
+        allocationTargetList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(allocationTargetList, lp(-1, -2));
+
+        Button editButton = secondaryButton("编辑目标比例");
+        editButton.setOnClickListener(view -> showAllocationTargetDialog());
+        LinearLayout.LayoutParams buttonParams = lp(-1, dp(44));
+        buttonParams.topMargin = dp(10);
+        card.addView(editButton, buttonParams);
         return card;
     }
 
@@ -519,7 +572,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = card();
         card.addView(sectionTitle("数据备份"));
 
-        TextView description = text("导出会保存资产、App 绑定、更新时间、趋势快照和更新记录；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
+        TextView description = text("导出会保存资产、App 绑定、更新时间、趋势快照、更新记录、汇率和目标比例；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
         descriptionParams.topMargin = dp(8);
         descriptionParams.bottomMargin = dp(12);
@@ -651,6 +704,150 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void renderAllocationTargets(PortfolioSummary portfolio) {
+        allocationTargetList.removeAllViews();
+        if (!settings.hasAllocationTargets()) {
+            allocationTargetSummary.setText("还没有设置目标比例。配置后，这里会提示哪些类型低配或超配。");
+            allocationTargetList.addView(text("适合给银行现金、券商、基金、负债等设置一个长期目标。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        List<AllocationDrift> drifts = allocationDrifts(portfolio);
+        int offTrack = 0;
+        for (AllocationDrift drift : drifts) {
+            if (Math.abs(drift.currentPercent - drift.targetPercent) >= 5) {
+                offTrack += 1;
+            }
+        }
+        allocationTargetSummary.setText("已设置目标比例；"
+                + offTrack + " 类资产偏离目标超过 5 个百分点。");
+
+        if (drifts.isEmpty()) {
+            allocationTargetList.addView(text("目标已保存。新增或更新资产后，这里会显示偏离情况。", 14, MUTED, Typeface.NORMAL));
+            return;
+        }
+
+        int limit = Math.min(5, drifts.size());
+        for (int index = 0; index < limit; index += 1) {
+            allocationTargetList.addView(allocationTargetRow(drifts.get(index)));
+        }
+    }
+
+    private List<AllocationDrift> allocationDrifts(PortfolioSummary portfolio) {
+        double total = portfolio.grossAssets + portfolio.liabilities;
+        Map<String, Double> currentValues = new HashMap<>();
+        Set<String> categories = new HashSet<>();
+        for (CategoryBreakdown category : portfolio.categories) {
+            currentValues.put(category.category, category.value);
+            categories.add(category.category);
+        }
+        for (Map.Entry<String, Double> target : settings.allocationTargets.entrySet()) {
+            if (target.getValue() > 0) {
+                categories.add(target.getKey());
+            }
+        }
+
+        List<AllocationDrift> drifts = new ArrayList<>();
+        for (String category : categories) {
+            double currentValue = currentValues.getOrDefault(category, 0.0);
+            double currentPercent = total <= 0 ? 0 : currentValue / total * 100;
+            double targetPercent = settings.targetForCategory(category);
+            if (currentPercent <= 0 && targetPercent <= 0) {
+                continue;
+            }
+            drifts.add(new AllocationDrift(
+                    category,
+                    currentPercent,
+                    targetPercent,
+                    total * targetPercent / 100 - currentValue,
+                    AssetMath.colorForCategory(category)
+            ));
+        }
+
+        Collections.sort(drifts, (left, right) -> {
+            int driftCompare = Double.compare(
+                    Math.abs(right.currentPercent - right.targetPercent),
+                    Math.abs(left.currentPercent - left.targetPercent)
+            );
+            if (driftCompare != 0) {
+                return driftCompare;
+            }
+            return left.category.compareToIgnoreCase(right.category);
+        });
+        return drifts;
+    }
+
+    private View allocationTargetRow(AllocationDrift drift) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        TextView dot = text("●", 15, drift.color, Typeface.BOLD);
+        header.addView(dot);
+        TextView title = text("  " + drift.category, 14, INK, Typeface.BOLD);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView status = allocationDriftChip(drift);
+        header.addView(status);
+        row.addView(header);
+
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(6);
+        row.addView(text("当前 " + formatPercentValue(drift.currentPercent)
+                + " · 目标 " + formatPercentValue(drift.targetPercent)
+                + " · 偏离 " + formatPoint(drift.currentPercent - drift.targetPercent),
+                13, MUTED, Typeface.NORMAL), detailParams);
+
+        if (!settings.hideAmounts) {
+            LinearLayout.LayoutParams actionParams = lp(-1, -2);
+            actionParams.topMargin = dp(4);
+            row.addView(text(allocationRecommendationText(drift), 12, MUTED, Typeface.NORMAL), actionParams);
+        }
+        return row;
+    }
+
+    private TextView allocationDriftChip(AllocationDrift drift) {
+        double gap = drift.targetPercent - drift.currentPercent;
+        String label;
+        int color;
+        if (Math.abs(gap) < 0.5) {
+            label = "接近目标";
+            color = ACCENT;
+        } else if (gap > 0) {
+            label = "低配";
+            color = AMBER;
+        } else {
+            label = "超配";
+            color = DANGER;
+        }
+        TextView chip = text(label, 12, Color.WHITE, Typeface.BOLD);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(color);
+        bg.setCornerRadius(dp(999));
+        chip.setBackground(bg);
+        return chip;
+    }
+
+    private String allocationRecommendationText(AllocationDrift drift) {
+        double amount = Math.abs(drift.amountDelta);
+        if (Math.abs(drift.targetPercent - drift.currentPercent) < 0.5) {
+            return "已接近目标，无需特别调整。";
+        }
+        if (amount < 0.01) {
+            return "录入资产金额后会估算需要调整的金额。";
+        }
+        String direction = drift.amountDelta > 0 ? "增加" : "减少";
+        return "按当前总额估算，" + direction + "约 "
+                + formatMoney(amount, settings.baseCurrency) + " 可接近目标。";
+    }
+
     private void renderInstitutionList(PortfolioSummary portfolio) {
         institutionList.removeAllViews();
         double total = portfolio.grossAssets + portfolio.liabilities;
@@ -775,6 +972,89 @@ public final class MainActivity extends Activity {
                 snapshots = store.recordSnapshot(assets, settings);
                 render();
                 toast("汇率已更新。");
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
+    }
+
+    private void showAllocationTargetDialog() {
+        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("填写各类型目标占比，合计需要等于 100%。留空表示 0%。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        List<AllocationTargetField> targetFields = new ArrayList<>();
+        for (String category : CATEGORIES) {
+            double current = draft.targetForCategory(category);
+            EditText targetInput = input(
+                    category + " 目标占比（%）",
+                    current <= 0 ? "" : formatInputNumber(current),
+                    InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
+            );
+            targetFields.add(new AllocationTargetField(category, targetInput));
+            form.addView(targetInput);
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("编辑目标比例")
+                .setView(scroll)
+                .setNegativeButton("取消", null)
+                .setNeutralButton("清空目标", null)
+                .setPositiveButton("保存", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button clear = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+            clear.setTextColor(DANGER);
+            clear.setOnClickListener(button -> {
+                settings.clearAllocationTargets();
+                store.saveSettings(settings);
+                render();
+                toast("已清空目标比例。");
+                dialog.dismiss();
+            });
+
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                draft.clearAllocationTargets();
+                double total = 0;
+                for (AllocationTargetField field : targetFields) {
+                    String raw = clean(field.input.getText().toString());
+                    if (raw.isEmpty()) {
+                        continue;
+                    }
+                    Double value = parseNumber(raw);
+                    if (value == null || value < 0 || value > 100) {
+                        toast(field.category + " 的目标占比需要在 0 到 100 之间。");
+                        return;
+                    }
+                    if (value > 0) {
+                        draft.setAllocationTarget(field.category, value);
+                        total += value;
+                    }
+                }
+
+                if (total > 0 && Math.abs(total - 100) > 0.5) {
+                    toast("目标比例合计需要等于 100%。当前为 " + formatPercentValue(total) + "。");
+                    return;
+                }
+
+                settings = draft;
+                store.saveSettings(settings);
+                render();
+                toast(total <= 0 ? "已清空目标比例。" : "目标比例已保存。");
                 dialog.dismiss();
             });
         });
@@ -1081,6 +1361,18 @@ public final class MainActivity extends Activity {
             double ratio = base <= 0 ? 0 : largest.value / base * 100;
             lines.add("最大类别：" + largest.category + "，占比 "
                     + String.format(Locale.getDefault(), "%.1f", ratio) + "%。");
+        }
+        if (settings.hasAllocationTargets()) {
+            List<AllocationDrift> drifts = allocationDrifts(portfolio);
+            if (!drifts.isEmpty()) {
+                AllocationDrift largestDrift = drifts.get(0);
+                double gap = largestDrift.targetPercent - largestDrift.currentPercent;
+                if (Math.abs(gap) >= 5) {
+                    lines.add("比例偏离最大：" + largestDrift.category + " "
+                            + (gap > 0 ? "低配 " : "超配 ")
+                            + formatPercentValue(Math.abs(gap)) + "。");
+                }
+            }
         }
         if (portfolio.staleCount > 0) {
             lines.add(portfolio.staleCount + " 项资产已到更新周期。");
@@ -2052,6 +2344,14 @@ public final class MainActivity extends Activity {
         return String.format(Locale.getDefault(), "%.1f%%", value / total * 100);
     }
 
+    private String formatPercentValue(double value) {
+        return String.format(Locale.getDefault(), "%.1f%%", value);
+    }
+
+    private String formatPoint(double value) {
+        return String.format(Locale.getDefault(), "%+.1f 个百分点", value);
+    }
+
     private String formatSignedMoney(double value, String currency) {
         String sign = value > 0 ? "+" : "";
         return sign + formatMoney(value, currency);
@@ -2252,6 +2552,38 @@ public final class MainActivity extends Activity {
         CurrencyRateField(String currency, EditText input) {
             this.currency = currency;
             this.input = input;
+        }
+    }
+
+    private static final class AllocationTargetField {
+        final String category;
+        final EditText input;
+
+        AllocationTargetField(String category, EditText input) {
+            this.category = category;
+            this.input = input;
+        }
+    }
+
+    private static final class AllocationDrift {
+        final String category;
+        final double currentPercent;
+        final double targetPercent;
+        final double amountDelta;
+        final int color;
+
+        AllocationDrift(
+                String category,
+                double currentPercent,
+                double targetPercent,
+                double amountDelta,
+                int color
+        ) {
+            this.category = category;
+            this.currentPercent = currentPercent;
+            this.targetPercent = targetPercent;
+            this.amountDelta = amountDelta;
+            this.color = color;
         }
     }
 }

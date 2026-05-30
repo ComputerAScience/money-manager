@@ -14,11 +14,13 @@ final class PortfolioSettings {
     String baseCurrency;
     boolean hideAmounts;
     final Map<String, Double> ratesToBase;
+    final Map<String, Double> allocationTargets;
 
     PortfolioSettings() {
         baseCurrency = "CNY";
         hideAmounts = false;
         ratesToBase = new HashMap<>();
+        allocationTargets = new HashMap<>();
         ratesToBase.put("CNY", 1.0);
         ratesToBase.put("USD", 7.2);
         ratesToBase.put("HKD", 0.92);
@@ -41,6 +43,17 @@ final class PortfolioSettings {
                 }
             }
         }
+        JSONObject targets = json.optJSONObject("allocationTargets");
+        if (targets != null) {
+            Iterator<String> keys = targets.keys();
+            while (keys.hasNext()) {
+                String key = keys.next().trim();
+                double value = targets.optDouble(key, 0);
+                if (!key.isEmpty() && value > 0) {
+                    settings.allocationTargets.put(key, value);
+                }
+            }
+        }
         settings.ensureBaseRate();
         return settings;
     }
@@ -51,6 +64,8 @@ final class PortfolioSettings {
         copy.hideAmounts = source.hideAmounts;
         copy.ratesToBase.clear();
         copy.ratesToBase.putAll(source.ratesToBase);
+        copy.allocationTargets.clear();
+        copy.allocationTargets.putAll(source.allocationTargets);
         copy.ensureBaseRate();
         return copy;
     }
@@ -64,6 +79,11 @@ final class PortfolioSettings {
             rates.put(entry.getKey(), entry.getValue());
         }
         json.put("ratesToBase", rates);
+        JSONObject targets = new JSONObject();
+        for (Map.Entry<String, Double> entry : allocationTargets.entrySet()) {
+            targets.put(entry.getKey(), entry.getValue());
+        }
+        json.put("allocationTargets", targets);
         return json;
     }
 
@@ -87,6 +107,31 @@ final class PortfolioSettings {
             return;
         }
         ratesToBase.put(cleaned, rate);
+    }
+
+    double targetForCategory(String category) {
+        Double target = allocationTargets.get(category);
+        return target == null || target <= 0 ? 0 : target;
+    }
+
+    void setAllocationTarget(String category, double percent) {
+        String cleaned = category == null ? "" : category.trim();
+        if (cleaned.isEmpty()) {
+            return;
+        }
+        if (percent <= 0) {
+            allocationTargets.remove(cleaned);
+            return;
+        }
+        allocationTargets.put(cleaned, percent);
+    }
+
+    void clearAllocationTargets() {
+        allocationTargets.clear();
+    }
+
+    boolean hasAllocationTargets() {
+        return !allocationTargets.isEmpty();
     }
 
     void ensureBaseRate() {
