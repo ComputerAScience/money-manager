@@ -11,7 +11,9 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -70,10 +72,15 @@ public final class MainActivity extends Activity {
     private TextView trendSummary;
     private TextView insightSummary;
     private TextView managementSummary;
+    private TextView assetResultSummary;
+    private EditText assetSearchInput;
+    private LinearLayout assetFilterButtons;
     private Button managementToggle;
     private String pendingLaunchAssetId;
     private boolean waitingForExternalReturn;
     private boolean managementExpanded = true;
+    private String assetSearchQuery = "";
+    private String assetFilterMode = "all";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -184,13 +191,21 @@ public final class MainActivity extends Activity {
         managementToggle.setText(managementExpanded ? "折叠" : "展开");
         managementBody.setVisibility(managementExpanded ? View.VISIBLE : View.GONE);
 
+        renderAssetFilterButtons();
+        List<AssetRecord> visibleAssets = visibleAssets();
+        assetResultSummary.setText("显示 " + visibleAssets.size() + " / " + assets.size()
+                + " 项，按待更新和金额优先排序。");
+
         assetList.removeAllViews();
-        for (AssetRecord asset : assets) {
+        for (AssetRecord asset : visibleAssets) {
             assetList.addView(assetCard(asset));
         }
 
-        if (assets.isEmpty()) {
-            TextView empty = text("还没有资产。先新增一项，再绑定对应 App。", 16, MUTED, Typeface.NORMAL);
+        if (visibleAssets.isEmpty()) {
+            String message = assets.isEmpty()
+                    ? "还没有资产。先新增一项，再绑定对应 App。"
+                    : "没有匹配的资产。换个关键词或筛选条件试试。";
+            TextView empty = text(message, 16, MUTED, Typeface.NORMAL);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(28), dp(18), dp(28));
             assetList.addView(empty, lp(-1, -2));
@@ -335,6 +350,35 @@ public final class MainActivity extends Activity {
         bodyParams.topMargin = dp(14);
         card.addView(managementBody, bodyParams);
 
+        assetSearchInput = input("搜索资产、机构、备注", "", InputType.TYPE_CLASS_TEXT);
+        assetSearchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                assetSearchQuery = text == null ? "" : text.toString().trim();
+                render();
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+        managementBody.addView(assetSearchInput);
+
+        assetFilterButtons = new LinearLayout(this);
+        assetFilterButtons.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams filterParams = lp(-1, -2);
+        filterParams.bottomMargin = dp(10);
+        managementBody.addView(assetFilterButtons, filterParams);
+
+        assetResultSummary = text("", 13, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams resultParams = lp(-1, -2);
+        resultParams.bottomMargin = dp(10);
+        managementBody.addView(assetResultSummary, resultParams);
+
         Button addButton = primaryButton("新增资产");
         addButton.setOnClickListener(view -> showEditDialog(null));
         LinearLayout.LayoutParams addParams = lp(-1, dp(48));
@@ -373,6 +417,93 @@ public final class MainActivity extends Activity {
             row.addView(value);
             allocationLegend.addView(row);
         }
+    }
+
+    private void renderAssetFilterButtons() {
+        assetFilterButtons.removeAllViews();
+        assetFilterButtons.addView(assetFilterButton("全部", "all"), new LinearLayout.LayoutParams(0, dp(40), 1));
+        assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
+        assetFilterButtons.addView(assetFilterButton("待更新", "stale"), new LinearLayout.LayoutParams(0, dp(40), 1));
+        assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
+        assetFilterButtons.addView(assetFilterButton("未绑定", "unbound"), new LinearLayout.LayoutParams(0, dp(40), 1));
+        assetFilterButtons.addView(new SpaceView(this, dp(8), 1));
+        assetFilterButtons.addView(assetFilterButton("负债", "debt"), new LinearLayout.LayoutParams(0, dp(40), 1));
+    }
+
+    private Button assetFilterButton(String label, String mode) {
+        Button button = secondaryButton(label);
+        if (assetFilterMode.equals(mode)) {
+            button.setTextColor(Color.WHITE);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(ACCENT);
+            bg.setCornerRadius(dp(8));
+            button.setBackground(bg);
+        }
+        button.setOnClickListener(view -> {
+            assetFilterMode = mode;
+            render();
+        });
+        return button;
+    }
+
+    private List<AssetRecord> visibleAssets() {
+        List<AssetRecord> visible = new ArrayList<>();
+        for (AssetRecord asset : assets) {
+            if (matchesAssetQuery(asset) && matchesAssetFilter(asset)) {
+                visible.add(asset);
+            }
+        }
+        Collections.sort(visible, (left, right) -> {
+            int leftPriority = assetPriority(left);
+            int rightPriority = assetPriority(right);
+            if (leftPriority != rightPriority) {
+                return Integer.compare(leftPriority, rightPriority);
+            }
+            int amountCompare = Double.compare(
+                    Math.abs(AssetMath.parseAmount(right.amount)),
+                    Math.abs(AssetMath.parseAmount(left.amount))
+            );
+            if (amountCompare != 0) {
+                return amountCompare;
+            }
+            return left.name.compareToIgnoreCase(right.name);
+        });
+        return visible;
+    }
+
+    private boolean matchesAssetQuery(AssetRecord asset) {
+        String query = assetSearchQuery.toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) {
+            return true;
+        }
+        return asset.name.toLowerCase(Locale.ROOT).contains(query)
+                || asset.category.toLowerCase(Locale.ROOT).contains(query)
+                || asset.institution.toLowerCase(Locale.ROOT).contains(query)
+                || asset.currency.toLowerCase(Locale.ROOT).contains(query)
+                || asset.note.toLowerCase(Locale.ROOT).contains(query);
+    }
+
+    private boolean matchesAssetFilter(AssetRecord asset) {
+        if ("stale".equals(assetFilterMode)) {
+            return isStale(asset);
+        }
+        if ("unbound".equals(assetFilterMode)) {
+            return asset.packageName.isEmpty() && asset.launchUri.isEmpty();
+        }
+        if ("debt".equals(assetFilterMode)) {
+            return AssetMath.isLiability(asset);
+        }
+        return true;
+    }
+
+    private int assetPriority(AssetRecord asset) {
+        if (isStale(asset)) {
+            return 0;
+        }
+        if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
+            return 1;
+        }
+        return 2;
     }
 
     private String trendSummaryText(PortfolioSummary portfolio) {
