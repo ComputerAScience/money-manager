@@ -980,11 +980,43 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        recentUpdateSummary.setText("保留最近一年更新记录，便于回看每次核对后的变化。");
+        recentUpdateSummary.setText(recentUpdateSummaryText());
         int limit = Math.min(5, updateEvents.size());
         for (int index = 0; index < limit; index += 1) {
             recentUpdateList.addView(updateEventRow(updateEvents.get(index)));
         }
+        if (updateEvents.size() > limit) {
+            TextView more = text("还有 " + (updateEvents.size() - limit) + " 条更新记录会随备份保留。", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams moreParams = lp(-1, -2);
+            moreParams.topMargin = dp(8);
+            recentUpdateList.addView(more, moreParams);
+        }
+    }
+
+    private String recentUpdateSummaryText() {
+        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
+        int count = 0;
+        double deltaInBase = 0;
+        for (AssetUpdateEvent event : updateEvents) {
+            if (event.timestamp < cutoff) {
+                continue;
+            }
+            count += 1;
+            String currency = AssetMath.cleanCurrency(event.currency);
+            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+            double previous = AssetMath.parseAmount(event.previousAmount);
+            double current = AssetMath.parseAmount(event.newAmount);
+            deltaInBase += (current - previous) * rate;
+        }
+
+        if (count == 0) {
+            return "保留最近一年更新记录；近 30 天还没有新的金额变化。";
+        }
+        if (settings.hideAmounts) {
+            return "近 30 天记录 " + count + " 次更新，金额变化已隐藏。";
+        }
+        return "近 30 天记录 " + count + " 次更新，折算净变化 "
+                + formatSignedMoney(deltaInBase, settings.baseCurrency) + "。";
     }
 
     private View updateEventRow(AssetUpdateEvent event) {
