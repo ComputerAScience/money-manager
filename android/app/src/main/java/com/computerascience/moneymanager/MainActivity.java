@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
+    private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(245, 246, 241);
     private static final int PANEL = Color.WHITE;
     private static final int INK = Color.rgb(30, 35, 32);
@@ -403,6 +404,13 @@ public final class MainActivity extends Activity {
         lines.add("最近更新：" + (updateEvents.isEmpty()
                 ? "还没有更新记录。"
                 : recentUpdateSummaryText()));
+        List<String> reasonLines = updateReasonSummaryLines(false);
+        if (!reasonLines.isEmpty()) {
+            lines.add("变化原因：");
+            for (String line : reasonLines) {
+                lines.add("- " + line);
+            }
+        }
         return joinLines(lines);
     }
 
@@ -1893,6 +1901,10 @@ public final class MainActivity extends Activity {
         }
 
         recentUpdateSummary.setText(recentUpdateSummaryText());
+        List<String> reasonLines = updateReasonSummaryLines(true);
+        for (String line : reasonLines) {
+            recentUpdateList.addView(reasonSummaryRow(line));
+        }
         int limit = Math.min(5, updateEvents.size());
         for (int index = 0; index < limit; index += 1) {
             recentUpdateList.addView(updateEventRow(updateEvents.get(index)));
@@ -1931,6 +1943,60 @@ public final class MainActivity extends Activity {
                 + formatSignedMoney(deltaInBase, settings.baseCurrency) + "。";
     }
 
+    private List<String> updateReasonSummaryLines(boolean includeEmpty) {
+        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
+        Map<String, Integer> counts = new HashMap<>();
+        Map<String, Double> deltas = new HashMap<>();
+        for (AssetUpdateEvent event : updateEvents) {
+            if (event.timestamp < cutoff) {
+                continue;
+            }
+            String reason = cleanReason(event.reason);
+            counts.put(reason, counts.getOrDefault(reason, 0) + 1);
+
+            String currency = AssetMath.cleanCurrency(event.currency);
+            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+            double previous = AssetMath.parseAmount(event.previousAmount);
+            double current = AssetMath.parseAmount(event.newAmount);
+            deltas.put(reason, deltas.getOrDefault(reason, 0.0) + (current - previous) * rate);
+        }
+
+        List<String> reasons = new ArrayList<>(counts.keySet());
+        Collections.sort(reasons, (left, right) -> {
+            int countCompare = Integer.compare(counts.getOrDefault(right, 0), counts.getOrDefault(left, 0));
+            if (countCompare != 0) {
+                return countCompare;
+            }
+            return left.compareToIgnoreCase(right);
+        });
+
+        List<String> lines = new ArrayList<>();
+        int limit = Math.min(3, reasons.size());
+        for (int index = 0; index < limit; index += 1) {
+            String reason = reasons.get(index);
+            String line = reason + " " + counts.getOrDefault(reason, 0) + " 次";
+            if (!settings.hideAmounts) {
+                line += "，折算变化 " + formatSignedMoney(deltas.getOrDefault(reason, 0.0), settings.baseCurrency);
+            }
+            lines.add(line);
+        }
+
+        if (lines.isEmpty() && includeEmpty) {
+            lines.add("近 30 天还没有可汇总的变化原因。");
+        }
+        return lines;
+    }
+
+    private View reasonSummaryRow(String line) {
+        TextView row = text("原因汇总 · " + line, 13, MUTED, Typeface.NORMAL);
+        row.setPadding(dp(12), dp(8), dp(12), dp(8));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams params = lp(-1, -2);
+        params.topMargin = dp(8);
+        row.setLayoutParams(params);
+        return row;
+    }
+
     private View updateEventRow(AssetUpdateEvent event) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
@@ -1952,6 +2018,10 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams changeParams = lp(-1, -2);
         changeParams.topMargin = dp(6);
         row.addView(text(updateEventChangeText(event), 13, MUTED, Typeface.NORMAL), changeParams);
+
+        LinearLayout.LayoutParams reasonParams = lp(-1, -2);
+        reasonParams.topMargin = dp(4);
+        row.addView(text("原因：" + cleanReason(event.reason), 12, MUTED, Typeface.NORMAL), reasonParams);
 
         if (!event.note.isEmpty()) {
             LinearLayout.LayoutParams noteParams = lp(-1, -2);
@@ -2381,6 +2451,11 @@ public final class MainActivity extends Activity {
         EditText amount = input("最新金额", asset.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         form.addView(amount);
 
+        Spinner reason = new Spinner(this);
+        reason.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, UPDATE_REASONS));
+        reason.setSelection(indexOf(UPDATE_REASONS, "余额核对"));
+        form.addView(fieldBox("变化原因", reason));
+
         EditText note = input("备注（可选）", asset.note, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         note.setMinLines(2);
         form.addView(note);
@@ -2397,14 +2472,19 @@ public final class MainActivity extends Activity {
             Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             save.setTextColor(ACCENT);
             save.setOnClickListener(button -> {
-                applyAssetUpdate(asset, clean(amount.getText().toString()), clean(note.getText().toString()));
+                applyAssetUpdate(
+                        asset,
+                        clean(amount.getText().toString()),
+                        clean(note.getText().toString()),
+                        String.valueOf(reason.getSelectedItem())
+                );
                 dialog.dismiss();
             });
 
             Button onlyTime = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
             onlyTime.setTextColor(MUTED);
             onlyTime.setOnClickListener(button -> {
-                applyAssetUpdate(asset, asset.amount, asset.note);
+                applyAssetUpdate(asset, asset.amount, asset.note, "仅更新时间");
                 dialog.dismiss();
             });
         });
@@ -2412,7 +2492,7 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
 
-    private void applyAssetUpdate(AssetRecord asset, String amount, String note) {
+    private void applyAssetUpdate(AssetRecord asset, String amount, String note, String reason) {
         String previousAmount = asset.amount;
         long now = System.currentTimeMillis();
         asset.amount = amount;
@@ -2426,6 +2506,7 @@ public final class MainActivity extends Activity {
                 asset.currency,
                 previousAmount,
                 amount,
+                cleanReason(reason),
                 note
         ));
         snapshots = store.recordSnapshot(assets, settings);
@@ -2813,6 +2894,10 @@ public final class MainActivity extends Activity {
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String cleanReason(String value) {
+        return clean(value).isEmpty() ? "余额核对" : clean(value);
     }
 
     private void toast(String message) {

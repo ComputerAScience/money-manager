@@ -197,7 +197,7 @@ final class AssetStore {
     ) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("app", "money-manager-android");
-        root.put("version", 4);
+        root.put("version", 5);
         root.put("exportedAt", System.currentTimeMillis());
 
         JSONArray assetArray = new JSONArray();

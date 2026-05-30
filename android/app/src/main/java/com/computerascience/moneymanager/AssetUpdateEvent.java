@@ -10,6 +10,7 @@ final class AssetUpdateEvent {
     final String currency;
     final String previousAmount;
     final String newAmount;
+    final String reason;
     final String note;
 
     AssetUpdateEvent(
@@ -19,6 +20,7 @@ final class AssetUpdateEvent {
             String currency,
             String previousAmount,
             String newAmount,
+            String reason,
             String note
     ) {
         this.assetId = assetId;
@@ -27,6 +29,7 @@ final class AssetUpdateEvent {
         this.currency = currency;
         this.previousAmount = previousAmount;
         this.newAmount = newAmount;
+        this.reason = cleanReason(reason);
         this.note = note;
     }
 
@@ -38,6 +41,7 @@ final class AssetUpdateEvent {
                 json.optString("currency", "CNY"),
                 json.optString("previousAmount", ""),
                 json.optString("newAmount", ""),
+                json.optString("reason", "余额核对"),
                 json.optString("note", "")
         );
     }
@@ -50,7 +54,12 @@ final class AssetUpdateEvent {
         json.put("currency", currency);
         json.put("previousAmount", previousAmount);
         json.put("newAmount", newAmount);
+        json.put("reason", reason);
         json.put("note", note);
         return json;
+    }
+
+    private static String cleanReason(String value) {
+        return value == null || value.trim().isEmpty() ? "余额核对" : value.trim();
     }
 }
