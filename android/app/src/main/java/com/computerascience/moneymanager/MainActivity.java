@@ -84,6 +84,7 @@ public final class MainActivity extends Activity {
     private TextView currencySettingsSummary;
     private TextView allocationTargetSummary;
     private TextView trendSummary;
+    private LinearLayout trendMetricsList;
     private LinearLayout trendHistoryList;
     private TextView insightSummary;
     private TextView dataHealthSummary;
@@ -214,6 +215,7 @@ public final class MainActivity extends Activity {
         List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
         trendChart.setSnapshots(trendSnapshots);
         trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
+        renderTrendMetrics(portfolio, trendSnapshots);
         renderTrendHistory(trendSnapshots);
 
         insightSummary.setText(buildInsightText(portfolio));
@@ -320,6 +322,13 @@ public final class MainActivity extends Activity {
         lines.add("更新状态：" + portfolio.staleCount + " 项待更新 / 共 " + portfolio.assetCount + " 项");
         lines.add("");
         lines.add("一年趋势：" + trendSummaryText(portfolio, trendSnapshots));
+        List<String> trendReview = trendReviewLines(portfolio, trendSnapshots);
+        if (!trendReview.isEmpty()) {
+            lines.add("趋势复盘：");
+            for (String line : trendReview) {
+                lines.add("- " + line);
+            }
+        }
 
         if (!portfolio.categories.isEmpty()) {
             lines.add("");
@@ -479,6 +488,13 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams chartParams = lp(-1, dp(190));
         chartParams.topMargin = dp(10);
         card.addView(trendChart, chartParams);
+
+        trendMetricsList = new LinearLayout(this);
+        trendMetricsList.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams metricsParams = lp(-1, -2);
+        metricsParams.topMargin = dp(10);
+        metricsParams.bottomMargin = dp(4);
+        card.addView(trendMetricsList, metricsParams);
 
         LinearLayout snapshotActions = row();
         Button snapshotButton = secondaryButton("记录今日快照");
@@ -1210,6 +1226,126 @@ public final class MainActivity extends Activity {
         return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency + " 快照，净资产变化 "
                 + formatSignedMoney(change, portfolio.baseCurrency)
                 + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
+    }
+
+    private void renderTrendMetrics(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
+        trendMetricsList.removeAllViews();
+        trendMetricsList.addView(text("趋势复盘", 13, MUTED, Typeface.BOLD));
+
+        List<TrendMetric> metrics = trendMetrics(portfolio, trendSnapshots);
+        if (metrics.isEmpty()) {
+            TextView empty = text("至少记录两次快照后，会显示近 30 天、90 天和一年的变化。", 14, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
+            emptyParams.topMargin = dp(8);
+            trendMetricsList.addView(empty, emptyParams);
+            return;
+        }
+
+        for (TrendMetric metric : metrics) {
+            trendMetricsList.addView(trendMetricRow(metric));
+        }
+    }
+
+    private List<String> trendReviewLines(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
+        List<String> lines = new ArrayList<>();
+        for (TrendMetric metric : trendMetrics(portfolio, trendSnapshots)) {
+            if (metric.complete) {
+                lines.add(metric.label + "：" + metricSummaryText(metric));
+            }
+        }
+        return lines;
+    }
+
+    private List<TrendMetric> trendMetrics(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
+        List<TrendMetric> metrics = new ArrayList<>();
+        metrics.add(trendMetric(portfolio, trendSnapshots, "近 30 天", 30));
+        metrics.add(trendMetric(portfolio, trendSnapshots, "近 90 天", 90));
+        metrics.add(trendMetric(portfolio, trendSnapshots, "近一年", 365));
+        return metrics;
+    }
+
+    private TrendMetric trendMetric(
+            PortfolioSummary portfolio,
+            List<AssetSnapshot> trendSnapshots,
+            String label,
+            int days
+    ) {
+        long cutoff = System.currentTimeMillis() - days * AssetMath.DAY_MS;
+        List<AssetSnapshot> window = new ArrayList<>();
+        for (AssetSnapshot snapshot : trendSnapshots) {
+            if (snapshot.timestamp >= cutoff) {
+                window.add(snapshot);
+            }
+        }
+
+        if (window.size() < 2) {
+            return new TrendMetric(label, window.size(), portfolio.baseCurrency);
+        }
+
+        AssetSnapshot first = window.get(0);
+        AssetSnapshot last = window.get(window.size() - 1);
+        AssetSnapshot high = first;
+        AssetSnapshot low = first;
+        for (AssetSnapshot snapshot : window) {
+            if (snapshot.netWorth > high.netWorth) {
+                high = snapshot;
+            }
+            if (snapshot.netWorth < low.netWorth) {
+                low = snapshot;
+            }
+        }
+
+        return new TrendMetric(
+                label,
+                window.size(),
+                portfolio.baseCurrency,
+                true,
+                first,
+                last,
+                high,
+                low,
+                last.netWorth - first.netWorth
+        );
+    }
+
+    private View trendMetricRow(TrendMetric metric) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        header.addView(text(metric.label, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
+        header.addView(text(metric.count + " 个快照", 12, MUTED, Typeface.BOLD));
+        row.addView(header);
+
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(6);
+        row.addView(text(metricSummaryText(metric), 13, MUTED, Typeface.NORMAL), detailParams);
+        return row;
+    }
+
+    private String metricSummaryText(TrendMetric metric) {
+        if (!metric.complete) {
+            return "快照不足，继续记录后再计算阶段变化。";
+        }
+        if (settings.hideAmounts) {
+            return "金额变化已隐藏，区间为 " + metric.first.dayKey + " 到 " + metric.last.dayKey + "。";
+        }
+
+        double ratio = Math.abs(metric.first.netWorth) < 0.0001
+                ? 0
+                : metric.change / Math.abs(metric.first.netWorth) * 100;
+        return metric.first.dayKey + " 到 " + metric.last.dayKey
+                + "，变化 " + formatSignedMoney(metric.change, metric.currency)
+                + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）"
+                + "；高点 " + metric.high.dayKey + " "
+                + formatMoney(metric.high.netWorth, metric.currency)
+                + "，低点 " + metric.low.dayKey + " "
+                + formatMoney(metric.low.netWorth, metric.currency) + "。";
     }
 
     private void renderTrendHistory(List<AssetSnapshot> trendSnapshots) {
@@ -2562,6 +2698,44 @@ public final class MainActivity extends Activity {
         AllocationTargetField(String category, EditText input) {
             this.category = category;
             this.input = input;
+        }
+    }
+
+    private static final class TrendMetric {
+        final String label;
+        final int count;
+        final String currency;
+        final boolean complete;
+        final AssetSnapshot first;
+        final AssetSnapshot last;
+        final AssetSnapshot high;
+        final AssetSnapshot low;
+        final double change;
+
+        TrendMetric(String label, int count, String currency) {
+            this(label, count, currency, false, null, null, null, null, 0);
+        }
+
+        TrendMetric(
+                String label,
+                int count,
+                String currency,
+                boolean complete,
+                AssetSnapshot first,
+                AssetSnapshot last,
+                AssetSnapshot high,
+                AssetSnapshot low,
+                double change
+        ) {
+            this.label = label;
+            this.count = count;
+            this.currency = currency;
+            this.complete = complete;
+            this.first = first;
+            this.last = last;
+            this.high = high;
+            this.low = low;
+            this.change = change;
         }
     }
 
