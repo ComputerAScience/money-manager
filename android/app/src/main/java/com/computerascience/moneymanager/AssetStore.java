@@ -18,6 +18,7 @@ final class AssetStore {
     private static final String PREFS = "money_manager_assets";
     private static final String KEY_ASSETS = "assets";
     private static final String KEY_SNAPSHOTS = "snapshots";
+    private static final String KEY_UPDATE_EVENTS = "updateEvents";
     private static final String KEY_SETTINGS = "settings";
 
     private final SharedPreferences preferences;
@@ -96,6 +97,24 @@ final class AssetStore {
         }
     }
 
+    List<AssetUpdateEvent> loadUpdateEvents() {
+        String raw = preferences.getString(KEY_UPDATE_EVENTS, "");
+        if (raw == null || raw.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            JSONArray array = new JSONArray(raw);
+            List<AssetUpdateEvent> events = new ArrayList<>();
+            for (int index = 0; index < array.length(); index += 1) {
+                events.add(AssetUpdateEvent.fromJson(array.getJSONObject(index)));
+            }
+            return pruneAndSortUpdateEvents(events);
+        } catch (JSONException error) {
+            return new ArrayList<>();
+        }
+    }
+
     List<AssetSnapshot> recordSnapshot(List<AssetRecord> assets, PortfolioSettings settings) {
         List<AssetSnapshot> snapshots = loadSnapshots();
         PortfolioSummary summary = AssetMath.summarize(assets, settings);
@@ -135,10 +154,23 @@ final class AssetStore {
         return snapshots;
     }
 
-    String exportJson(List<AssetRecord> assets, List<AssetSnapshot> snapshots, PortfolioSettings settings) throws JSONException {
+    List<AssetUpdateEvent> recordUpdateEvent(AssetUpdateEvent event) {
+        List<AssetUpdateEvent> events = loadUpdateEvents();
+        events.add(event);
+        events = pruneAndSortUpdateEvents(events);
+        saveUpdateEvents(events);
+        return events;
+    }
+
+    String exportJson(
+            List<AssetRecord> assets,
+            List<AssetSnapshot> snapshots,
+            List<AssetUpdateEvent> updateEvents,
+            PortfolioSettings settings
+    ) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("app", "money-manager-android");
-        root.put("version", 1);
+        root.put("version", 2);
         root.put("exportedAt", System.currentTimeMillis());
 
         JSONArray assetArray = new JSONArray();
@@ -152,6 +184,12 @@ final class AssetStore {
             snapshotArray.put(snapshot.toJson());
         }
         root.put("snapshots", snapshotArray);
+
+        JSONArray updateArray = new JSONArray();
+        for (AssetUpdateEvent event : updateEvents) {
+            updateArray.put(event.toJson());
+        }
+        root.put("updateEvents", updateArray);
         root.put("settings", settings.toJson());
         return root.toString(2);
     }
@@ -175,15 +213,29 @@ final class AssetStore {
                 importedSnapshots.add(AssetSnapshot.fromJson(snapshotArray.getJSONObject(index)));
             }
         }
+
+        List<AssetUpdateEvent> importedUpdateEvents = new ArrayList<>();
+        JSONArray updateArray = root.optJSONArray("updateEvents");
+        if (updateArray != null) {
+            for (int index = 0; index < updateArray.length(); index += 1) {
+                importedUpdateEvents.add(AssetUpdateEvent.fromJson(updateArray.getJSONObject(index)));
+            }
+        }
         PortfolioSettings importedSettings = root.has("settings")
                 ? PortfolioSettings.fromJson(root.getJSONObject("settings"))
                 : new PortfolioSettings();
-        return new AssetBackup(importedAssets, pruneAndSort(importedSnapshots), importedSettings);
+        return new AssetBackup(
+                importedAssets,
+                pruneAndSort(importedSnapshots),
+                pruneAndSortUpdateEvents(importedUpdateEvents),
+                importedSettings
+        );
     }
 
     void replaceAll(AssetBackup backup) {
         save(backup.assets);
         saveSnapshots(pruneAndSort(backup.snapshots));
+        saveUpdateEvents(pruneAndSortUpdateEvents(backup.updateEvents));
         saveSettings(backup.settings);
     }
 
@@ -199,6 +251,18 @@ final class AssetStore {
         preferences.edit().putString(KEY_SNAPSHOTS, array.toString()).apply();
     }
 
+    private void saveUpdateEvents(List<AssetUpdateEvent> events) {
+        JSONArray array = new JSONArray();
+        for (AssetUpdateEvent event : events) {
+            try {
+                array.put(event.toJson());
+            } catch (JSONException ignored) {
+                // Skip malformed events rather than dropping the full history.
+            }
+        }
+        preferences.edit().putString(KEY_UPDATE_EVENTS, array.toString()).apply();
+    }
+
     private List<AssetSnapshot> pruneAndSort(List<AssetSnapshot> snapshots) {
         long cutoff = System.currentTimeMillis() - 370L * AssetMath.DAY_MS;
         List<AssetSnapshot> pruned = new ArrayList<>();
@@ -208,6 +272,21 @@ final class AssetStore {
             }
         }
         Collections.sort(pruned, (left, right) -> Long.compare(left.timestamp, right.timestamp));
+        return pruned;
+    }
+
+    private List<AssetUpdateEvent> pruneAndSortUpdateEvents(List<AssetUpdateEvent> events) {
+        long cutoff = System.currentTimeMillis() - 370L * AssetMath.DAY_MS;
+        List<AssetUpdateEvent> pruned = new ArrayList<>();
+        for (AssetUpdateEvent event : events) {
+            if (event.timestamp >= cutoff) {
+                pruned.add(event);
+            }
+        }
+        Collections.sort(pruned, (left, right) -> Long.compare(right.timestamp, left.timestamp));
+        if (pruned.size() > 200) {
+            return new ArrayList<>(pruned.subList(0, 200));
+        }
         return pruned;
     }
 

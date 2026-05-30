@@ -59,11 +59,13 @@ public final class MainActivity extends Activity {
     private AssetStore store;
     private List<AssetRecord> assets = new ArrayList<>();
     private List<AssetSnapshot> snapshots = new ArrayList<>();
+    private List<AssetUpdateEvent> updateEvents = new ArrayList<>();
     private PortfolioSettings settings;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout institutionList;
     private LinearLayout updatePlanList;
+    private LinearLayout recentUpdateList;
     private LinearLayout managementBody;
     private AllocationChartView allocationChart;
     private TrendChartView trendChart;
@@ -78,6 +80,7 @@ public final class MainActivity extends Activity {
     private LinearLayout trendHistoryList;
     private TextView insightSummary;
     private TextView updatePlanSummary;
+    private TextView recentUpdateSummary;
     private TextView managementSummary;
     private TextView assetResultSummary;
     private EditText assetSearchInput;
@@ -96,6 +99,7 @@ public final class MainActivity extends Activity {
         assets = store.load();
         settings = store.loadSettings();
         snapshots = store.loadSnapshots();
+        updateEvents = store.loadUpdateEvents();
         if (snapshots.isEmpty()) {
             snapshots = store.recordSnapshot(assets, settings);
         }
@@ -157,6 +161,7 @@ public final class MainActivity extends Activity {
         root.addView(trendCard());
         root.addView(insightCard());
         root.addView(updatePlanCard());
+        root.addView(recentUpdatesCard());
         root.addView(backupCard());
         root.addView(assetManagementSection());
 
@@ -199,6 +204,7 @@ public final class MainActivity extends Activity {
 
         insightSummary.setText(buildInsightText(portfolio));
         renderUpdatePlan();
+        renderRecentUpdates();
 
         managementSummary.setText("共 " + portfolio.assetCount + " 项资产，"
                 + portfolio.staleCount + " 项需要更新，"
@@ -377,11 +383,27 @@ public final class MainActivity extends Activity {
         return card;
     }
 
+    private View recentUpdatesCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("最近更新"));
+
+        recentUpdateSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(recentUpdateSummary, summaryParams);
+
+        recentUpdateList = new LinearLayout(this);
+        recentUpdateList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(recentUpdateList, lp(-1, -2));
+        return card;
+    }
+
     private View backupCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("数据备份"));
 
-        TextView description = text("导出会保存资产、App 绑定、更新时间和趋势快照；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
+        TextView description = text("导出会保存资产、App 绑定、更新时间、趋势快照和更新记录；导入会覆盖当前本机数据。", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
         descriptionParams.topMargin = dp(8);
         descriptionParams.bottomMargin = dp(12);
@@ -951,6 +973,62 @@ public final class MainActivity extends Activity {
         return chip;
     }
 
+    private void renderRecentUpdates() {
+        recentUpdateList.removeAllViews();
+        if (updateEvents.isEmpty()) {
+            recentUpdateSummary.setText("还没有更新记录。录入一次最新金额后，这里会显示变化。");
+            return;
+        }
+
+        recentUpdateSummary.setText("保留最近一年更新记录，便于回看每次核对后的变化。");
+        int limit = Math.min(5, updateEvents.size());
+        for (int index = 0; index < limit; index += 1) {
+            recentUpdateList.addView(updateEventRow(updateEvents.get(index)));
+        }
+    }
+
+    private View updateEventRow(AssetUpdateEvent event) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(0xFFF8FAF5, LINE));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        TextView name = text(event.assetName.isEmpty() ? "未知资产" : event.assetName, 14, INK, Typeface.BOLD);
+        header.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView time = text(dateFormat.format(new Date(event.timestamp)), 12, MUTED, Typeface.NORMAL);
+        time.setGravity(Gravity.END);
+        header.addView(time);
+        row.addView(header);
+
+        LinearLayout.LayoutParams changeParams = lp(-1, -2);
+        changeParams.topMargin = dp(6);
+        row.addView(text(updateEventChangeText(event), 13, MUTED, Typeface.NORMAL), changeParams);
+
+        if (!event.note.isEmpty()) {
+            LinearLayout.LayoutParams noteParams = lp(-1, -2);
+            noteParams.topMargin = dp(4);
+            row.addView(text(event.note, 12, MUTED, Typeface.NORMAL), noteParams);
+        }
+        return row;
+    }
+
+    private String updateEventChangeText(AssetUpdateEvent event) {
+        if (settings.hideAmounts) {
+            return "金额变化已隐藏 · " + event.currency;
+        }
+        String before = event.previousAmount.isEmpty() ? "--" : formatRawAmount(event.previousAmount);
+        String after = event.newAmount.isEmpty() ? "--" : formatRawAmount(event.newAmount);
+        double previous = AssetMath.parseAmount(event.previousAmount);
+        double current = AssetMath.parseAmount(event.newAmount);
+        double delta = current - previous;
+        return before + " -> " + after + " " + event.currency
+                + "（变化 " + formatSignedRawAmount(delta) + " " + event.currency + "）";
+    }
+
     private LinearLayout card() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -1338,10 +1416,21 @@ public final class MainActivity extends Activity {
     }
 
     private void applyAssetUpdate(AssetRecord asset, String amount, String note) {
+        String previousAmount = asset.amount;
+        long now = System.currentTimeMillis();
         asset.amount = amount;
         asset.note = note;
-        asset.lastUpdatedAt = System.currentTimeMillis();
+        asset.lastUpdatedAt = now;
         store.save(assets);
+        updateEvents = store.recordUpdateEvent(new AssetUpdateEvent(
+                asset.id,
+                asset.name,
+                now,
+                asset.currency,
+                previousAmount,
+                amount,
+                note
+        ));
         snapshots = store.recordSnapshot(assets, settings);
         render();
         toast("已更新「" + asset.name + "」。");
@@ -1376,7 +1465,7 @@ public final class MainActivity extends Activity {
                 toast("无法写入备份文件。");
                 return;
             }
-            String raw = store.exportJson(assets, snapshots, settings);
+            String raw = store.exportJson(assets, snapshots, updateEvents, settings);
             output.write(raw.getBytes(StandardCharsets.UTF_8));
             toast("备份已导出。");
         } catch (Exception error) {
@@ -1402,13 +1491,15 @@ public final class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle("导入备份？")
                 .setMessage("将导入 " + backup.assets.size() + " 项资产和 "
-                        + backup.snapshots.size() + " 个趋势快照，并覆盖当前本机数据。")
+                        + backup.snapshots.size() + " 个趋势快照、"
+                        + backup.updateEvents.size() + " 条更新记录，并覆盖当前本机数据。")
                 .setNegativeButton("取消", null)
                 .setPositiveButton("导入", (dialog, which) -> {
                     store.replaceAll(backup);
                     assets = store.load();
                     settings = store.loadSettings();
                     snapshots = store.loadSnapshots();
+                    updateEvents = store.loadUpdateEvents();
                     if (snapshots.isEmpty()) {
                         snapshots = store.recordSnapshot(assets, settings);
                     }
@@ -1512,6 +1603,15 @@ public final class MainActivity extends Activity {
         return format.format(value) + " " + currency;
     }
 
+    private String formatRawAmount(String value) {
+        try {
+            DecimalFormat format = new DecimalFormat("#,##0.##");
+            return format.format(Double.parseDouble(value.replace(",", "")));
+        } catch (NumberFormatException error) {
+            return value;
+        }
+    }
+
     private String formatRate(double value) {
         DecimalFormat format = new DecimalFormat("#,##0.####");
         return format.format(value);
@@ -1527,6 +1627,12 @@ public final class MainActivity extends Activity {
     private String formatSignedMoney(double value, String currency) {
         String sign = value > 0 ? "+" : "";
         return sign + formatMoney(value, currency);
+    }
+
+    private String formatSignedRawAmount(double value) {
+        String sign = value > 0 ? "+" : "";
+        DecimalFormat format = new DecimalFormat("#,##0.##");
+        return sign + format.format(value);
     }
 
     private String joinLines(List<String> lines) {
