@@ -1497,6 +1497,7 @@ public final class MainActivity extends Activity {
         return asset.name.toLowerCase(Locale.ROOT).contains(query)
                 || asset.category.toLowerCase(Locale.ROOT).contains(query)
                 || asset.institution.toLowerCase(Locale.ROOT).contains(query)
+                || appDisplayName(asset).toLowerCase(Locale.ROOT).contains(query)
                 || asset.currency.toLowerCase(Locale.ROOT).contains(query)
                 || asset.note.toLowerCase(Locale.ROOT).contains(query);
     }
@@ -2049,7 +2050,7 @@ public final class MainActivity extends Activity {
             issues.add(missingInstitution + " 项资产缺少明确机构。");
         }
         if (missingBinding > 0) {
-            issues.add(missingBinding + " 项资产还没有绑定 App 或启动链接。");
+            issues.add(missingBinding + " 项资产还没有绑定 App。");
         }
         if (missingRate > 0) {
             issues.add(missingRate + " 项资产缺少到 " + portfolio.baseCurrency + " 的汇率。");
@@ -2444,6 +2445,13 @@ public final class MainActivity extends Activity {
         updatedParams.topMargin = dp(10);
         card.addView(updated, updatedParams);
 
+        if (!asset.packageName.isEmpty() || !asset.launchUri.isEmpty()) {
+            TextView boundApp = text("绑定 App：" + appDisplayName(asset), 13, BLUE, Typeface.BOLD);
+            LinearLayout.LayoutParams appParams = lp(-1, -2);
+            appParams.topMargin = dp(8);
+            card.addView(boundApp, appParams);
+        }
+
         if (!asset.note.isEmpty()) {
             TextView note = text(asset.note, 14, MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams noteParams = lp(-1, -2);
@@ -2521,19 +2529,33 @@ public final class MainActivity extends Activity {
         EditText cadence = input("更新周期（天）", String.valueOf(draft.updateEveryDays), InputType.TYPE_CLASS_NUMBER);
         form.addView(cadence);
 
-        EditText packageName = input("App 包名", draft.packageName, InputType.TYPE_CLASS_TEXT);
-        packageName.setHint("可手动填写，也可从已安装 App 选择");
-        form.addView(packageName);
+        String[] selectedPackageName = {draft.packageName};
+        String[] selectedAppName = {draft.appName};
+        String[] selectedLaunchUri = {draft.launchUri};
+        TextView selectedApp = text(appBindingText(selectedAppName[0], selectedPackageName[0], selectedLaunchUri[0]), 15, INK, Typeface.BOLD);
+        selectedApp.setGravity(Gravity.CENTER_VERTICAL);
+        selectedApp.setPadding(dp(14), 0, dp(14), 0);
+        selectedApp.setBackground(cardBackground(SURFACE, LINE));
+        form.addView(fieldBox("绑定 App", selectedApp));
 
-        Button chooseApp = secondaryButton("选择已安装 App");
-        chooseApp.setOnClickListener(view -> showAppPicker(packageName, institution));
+        Button chooseApp = secondaryButton(selectedPackageName[0].isEmpty() && selectedLaunchUri[0].isEmpty()
+                ? "选择 App"
+                : "更换 App");
+        chooseApp.setOnClickListener(view -> showAppPicker(selected -> {
+            selectedPackageName[0] = selected.packageName;
+            selectedAppName[0] = selected.label;
+            selectedLaunchUri[0] = "";
+            selectedApp.setText(selected.label);
+            chooseApp.setText("更换 App");
+            String institutionValue = clean(institution.getText().toString());
+            if (institutionValue.isEmpty() || institutionValue.contains("待绑定")) {
+                institution.setText(selected.label);
+            }
+            toast("已选择 " + selected.label);
+        }));
         LinearLayout.LayoutParams chooseAppParams = lp(-1, dp(44));
         chooseAppParams.bottomMargin = dp(10);
         form.addView(chooseApp, chooseAppParams);
-
-        EditText launchUri = input("启动链接（可选）", draft.launchUri, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        launchUri.setHint("例如 bankapp://home");
-        form.addView(launchUri);
 
         EditText note = input("备注", draft.note, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         note.setMinLines(2);
@@ -2571,8 +2593,9 @@ public final class MainActivity extends Activity {
                         ? "CNY"
                         : clean(currency.getText().toString()).toUpperCase(Locale.ROOT);
                 draft.updateEveryDays = everyDays;
-                draft.packageName = clean(packageName.getText().toString());
-                draft.launchUri = clean(launchUri.getText().toString());
+                draft.appName = clean(selectedAppName[0]);
+                draft.packageName = clean(selectedPackageName[0]);
+                draft.launchUri = clean(selectedLaunchUri[0]);
                 draft.note = clean(note.getText().toString());
 
                 if (creating) {
@@ -2607,15 +2630,8 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
 
-    private void showAppPicker(EditText packageNameInput, EditText institutionInput) {
-        showLaunchableAppPicker("选择已安装 App", "搜索银行、券商、钱包或包名。", selected -> {
-            packageNameInput.setText(selected.packageName);
-            String institution = clean(institutionInput.getText().toString());
-            if (institution.isEmpty() || institution.contains("待绑定")) {
-                institutionInput.setText(selected.label);
-            }
-            toast("已选择 " + selected.label);
-        });
+    private void showAppPicker(AppSelectionHandler handler) {
+        showLaunchableAppPicker("选择已安装 App", "搜索银行、券商、钱包或 App 名称。", handler);
     }
 
     private List<LaunchableApp> getLaunchableApps() {
@@ -2679,7 +2695,9 @@ public final class MainActivity extends Activity {
 
     private void showAssetAppBindingDialog(AssetRecord asset) {
         showLaunchableAppPicker("绑定并打开 App", "「" + asset.name + "」还没有绑定 App。先选择一次，以后就能一键打开。", selected -> {
+            asset.appName = selected.label;
             asset.packageName = selected.packageName;
+            asset.launchUri = "";
             if (asset.institution.isEmpty() || asset.institution.contains("待绑定")) {
                 asset.institution = selected.label;
             }
@@ -2707,7 +2725,7 @@ public final class MainActivity extends Activity {
         helperParams.bottomMargin = dp(12);
         content.addView(helper, helperParams);
 
-        EditText search = input("搜索 App 或包名", "", InputType.TYPE_CLASS_TEXT);
+        EditText search = input("搜索 App 名称", "", InputType.TYPE_CLASS_TEXT);
         content.addView(search);
 
         FrameLayout listFrame = new FrameLayout(this);
@@ -2775,7 +2793,7 @@ public final class MainActivity extends Activity {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + packageName)));
             } catch (ActivityNotFoundException ignored) {
-                toast("没有找到这个 App，请检查包名。");
+                toast("没有找到这个 App，请重新选择绑定 App。");
             }
         }
     }
@@ -3002,6 +3020,41 @@ public final class MainActivity extends Activity {
         }
         long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
         return "最后更新：" + dateFormat.format(new Date(asset.lastUpdatedAt)) + " · " + days + " 天前";
+    }
+
+    private String appDisplayName(AssetRecord asset) {
+        String text = appBindingText(asset.appName, asset.packageName, asset.launchUri);
+        return "未选择 App".equals(text) ? "未绑定 App" : text;
+    }
+
+    private String appBindingText(String appName, String packageName, String launchUri) {
+        String name = clean(appName);
+        if (!name.isEmpty()) {
+            return name;
+        }
+        String resolved = resolveAppLabel(packageName);
+        if (!resolved.isEmpty()) {
+            return resolved;
+        }
+        if (!clean(packageName).isEmpty() || !clean(launchUri).isEmpty()) {
+            return "已绑定 App";
+        }
+        return "未选择 App";
+    }
+
+    private String resolveAppLabel(String packageName) {
+        String cleanPackageName = clean(packageName);
+        if (cleanPackageName.isEmpty()) {
+            return "";
+        }
+        try {
+            PackageManager packageManager = getPackageManager();
+            return String.valueOf(packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(cleanPackageName, 0)
+            ));
+        } catch (Exception error) {
+            return "";
+        }
     }
 
     private String formatAmount(AssetRecord asset) {
@@ -3302,8 +3355,7 @@ public final class MainActivity extends Activity {
             filtered.clear();
             for (LaunchableApp app : source) {
                 if (normalized.isEmpty()
-                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)
-                        || app.packageName.toLowerCase(Locale.ROOT).contains(normalized)) {
+                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)) {
                     filtered.add(app);
                 }
             }
@@ -3353,11 +3405,10 @@ public final class MainActivity extends Activity {
             label.setSingleLine(true);
             texts.addView(label);
 
-            TextView packageName = text(app.packageName, 12, MUTED, Typeface.NORMAL);
-            packageName.setSingleLine(true);
-            LinearLayout.LayoutParams packageParams = lp(-1, -2);
-            packageParams.topMargin = dp(4);
-            texts.addView(packageName, packageParams);
+            TextView hint = text("点击选择此 App", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams hintParams = lp(-1, -2);
+            hintParams.topMargin = dp(4);
+            texts.addView(hint, hintParams);
 
             TextView chevron = text("›", 24, BLUE, Typeface.BOLD);
             chevron.setGravity(Gravity.CENTER);

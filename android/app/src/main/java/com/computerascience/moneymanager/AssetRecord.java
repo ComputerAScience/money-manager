@@ -14,6 +14,7 @@ final class AssetRecord {
     String currency;
     int updateEveryDays;
     long lastUpdatedAt;
+    String appName;
     String packageName;
     String launchUri;
     String note;
@@ -27,6 +28,7 @@ final class AssetRecord {
         currency = "CNY";
         updateEveryDays = 7;
         lastUpdatedAt = 0L;
+        appName = "";
         packageName = "";
         launchUri = "";
         note = "";
@@ -41,6 +43,7 @@ final class AssetRecord {
         asset.currency = json.optString("currency", asset.currency);
         asset.updateEveryDays = Math.max(1, json.optInt("updateEveryDays", asset.updateEveryDays));
         asset.lastUpdatedAt = json.optLong("lastUpdatedAt", asset.lastUpdatedAt);
+        asset.appName = json.optString("appName", asset.appName);
         asset.packageName = json.optString("packageName", asset.packageName);
         asset.launchUri = json.optString("launchUri", asset.launchUri);
         asset.note = json.optString("note", asset.note);
@@ -55,6 +58,7 @@ final class AssetRecord {
                 asset.currency,
                 asset.updateEveryDays,
                 asset.lastUpdatedAt,
+                asset.appName,
                 asset.packageName,
                 asset.launchUri,
                 asset.note
@@ -71,6 +75,7 @@ final class AssetRecord {
                 source.currency,
                 source.updateEveryDays,
                 source.lastUpdatedAt,
+                source.appName,
                 source.packageName,
                 source.launchUri,
                 source.note
@@ -86,6 +91,7 @@ final class AssetRecord {
             String currency,
             int updateEveryDays,
             long lastUpdatedAt,
+            String appName,
             String packageName,
             String launchUri,
             String note
@@ -98,6 +104,7 @@ final class AssetRecord {
         this.currency = currency;
         this.updateEveryDays = updateEveryDays;
         this.lastUpdatedAt = lastUpdatedAt;
+        this.appName = appName;
         this.packageName = packageName;
         this.launchUri = launchUri;
         this.note = note;
@@ -113,6 +120,7 @@ final class AssetRecord {
         json.put("currency", currency);
         json.put("updateEveryDays", updateEveryDays);
         json.put("lastUpdatedAt", lastUpdatedAt);
+        json.put("appName", appName);
         json.put("packageName", packageName);
         json.put("launchUri", launchUri);
         json.put("note", note);
