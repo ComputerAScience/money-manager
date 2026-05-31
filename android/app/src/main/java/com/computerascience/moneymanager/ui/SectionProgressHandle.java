@@ -35,7 +35,7 @@ public final class SectionProgressHandle extends FrameLayout {
         setElevation(dp(8));
         setClickable(true);
         setFocusable(true);
-        setContentDescription("拖动滚动页面，点击打开本页目录");
+        setContentDescription("拖动选择本页目录，点击打开本页目录");
 
         View rail = new View(activity);
         rail.setBackground(roundedBackground(PANEL_BORDER, Color.TRANSPARENT, 4));
@@ -66,8 +66,11 @@ public final class SectionProgressHandle extends FrameLayout {
                 }
                 return true;
             case MotionEvent.ACTION_MOVE:
-                if (Math.abs(event.getY() - downY) > dp(4)) {
+                if (!dragging && Math.abs(event.getY() - downY) > dp(4)) {
                     dragging = true;
+                    if (dragListener != null) {
+                        dragListener.onDragStart();
+                    }
                 }
                 if (dragging) {
                     dispatchDrag(event.getY());
@@ -78,7 +81,11 @@ public final class SectionProgressHandle extends FrameLayout {
                     getParent().requestDisallowInterceptTouchEvent(false);
                 }
                 if (dragging) {
-                    dispatchDrag(event.getY());
+                    float progress = progressForY(event.getY());
+                    if (dragListener != null) {
+                        dragListener.onProgress(progress);
+                        dragListener.onDragEnd(progress);
+                    }
                     dragging = false;
                     return true;
                 }
@@ -86,6 +93,9 @@ public final class SectionProgressHandle extends FrameLayout {
             case MotionEvent.ACTION_CANCEL:
                 if (getParent() != null) {
                     getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                if (dragging && dragListener != null) {
+                    dragListener.onDragCancel();
                 }
                 dragging = false;
                 return true;
@@ -120,11 +130,15 @@ public final class SectionProgressHandle extends FrameLayout {
         if (dragListener == null || getHeight() <= 0) {
             return;
         }
+        dragListener.onProgress(progressForY(y));
+    }
+
+    private float progressForY(float y) {
         int topPadding = dp(10);
         int bottomPadding = dp(10);
         int available = Math.max(1, getHeight() - topPadding - bottomPadding);
         float progress = (y - topPadding) / available;
-        dragListener.onProgress(Math.max(0f, Math.min(1f, progress)));
+        return Math.max(0f, Math.min(1f, progress));
     }
 
     private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
@@ -148,6 +162,12 @@ public final class SectionProgressHandle extends FrameLayout {
     }
 
     public interface ProgressDragListener {
+        void onDragStart();
+
         void onProgress(float progress);
+
+        void onDragEnd(float progress);
+
+        void onDragCancel();
     }
 }

@@ -10,6 +10,8 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class SectionDrawer extends LinearLayout {
@@ -24,6 +26,11 @@ public final class SectionDrawer extends LinearLayout {
 
     private final Activity activity;
     private final SelectionListener listener;
+    private final List<LinearLayout> rowViews = new ArrayList<>();
+    private final List<TextView> numberViews = new ArrayList<>();
+    private final List<TextView> labelViews = new ArrayList<>();
+    private final List<TextView> arrowViews = new ArrayList<>();
+    private int selectedIndex = -1;
 
     public SectionDrawer(Activity activity, SelectionListener listener) {
         super(activity);
@@ -37,6 +44,11 @@ public final class SectionDrawer extends LinearLayout {
 
     public void setItems(String pageTitle, Item... items) {
         removeAllViews();
+        rowViews.clear();
+        numberViews.clear();
+        labelViews.clear();
+        arrowViews.clear();
+        selectedIndex = -1;
 
         LinearLayout header = new LinearLayout(activity);
         header.setOrientation(HORIZONTAL);
@@ -59,6 +71,27 @@ public final class SectionDrawer extends LinearLayout {
 
         for (int index = 0; index < items.length; index += 1) {
             addView(itemView(items[index], index), rowParams(index));
+        }
+    }
+
+    public void setSelectedIndex(int index) {
+        selectedIndex = index;
+        for (int rowIndex = 0; rowIndex < rowViews.size(); rowIndex += 1) {
+            boolean selected = rowIndex == selectedIndex;
+            rowViews.get(rowIndex).setBackground(roundedBackground(
+                    selected ? SURFACE_ALT : ROW_SURFACE,
+                    selected ? ACCENT : PANEL_BORDER,
+                    8
+            ));
+            TextView number = numberViews.get(rowIndex);
+            number.setTextColor(selected ? Color.WHITE : ACCENT_DARK);
+            number.setBackground(roundedBackground(
+                    selected ? ACCENT : SURFACE_ALT,
+                    Color.TRANSPARENT,
+                    8
+            ));
+            labelViews.get(rowIndex).setTextColor(selected ? ACCENT_DARK : INK);
+            arrowViews.get(rowIndex).setTextColor(selected ? ACCENT_DARK : MUTED);
         }
     }
 
@@ -87,6 +120,11 @@ public final class SectionDrawer extends LinearLayout {
         TextView arrow = text("›", 18, MUTED, Typeface.BOLD);
         arrow.setGravity(Gravity.CENTER);
         row.addView(arrow, new LinearLayout.LayoutParams(dp(14), dp(28)));
+
+        rowViews.add(row);
+        numberViews.add(number);
+        labelViews.add(label);
+        arrowViews.add(arrow);
         return row;
     }
 

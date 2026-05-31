@@ -350,7 +350,27 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        sectionProgressHandle = new SectionProgressHandle(this, view -> showSectionMenu(), this::scrollToProgress);
+        sectionProgressHandle = new SectionProgressHandle(this, view -> showSectionMenu(), new SectionProgressHandle.ProgressDragListener() {
+            @Override
+            public void onDragStart() {
+                beginSectionDrag();
+            }
+
+            @Override
+            public void onProgress(float progress) {
+                updateSectionDrag(progress);
+            }
+
+            @Override
+            public void onDragEnd(float progress) {
+                finishSectionDrag(progress);
+            }
+
+            @Override
+            public void onDragCancel() {
+                cancelSectionDrag();
+            }
+        });
         FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(26), dp(124), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         progressParams.rightMargin = dp(8);
         contentFrame.addView(sectionProgressHandle, progressParams);
@@ -478,7 +498,9 @@ public final class MainActivity extends Activity {
             hideSectionDrawer();
             return;
         }
-        sectionDrawer.setItems(pageTitleText(), currentSections());
+        SectionDrawer.Item[] sections = currentSections();
+        sectionDrawer.setItems(pageTitleText(), sections);
+        sectionDrawer.setSelectedIndex(nearestSectionIndexToScroll(sections));
         sectionDrawer.setVisibility(View.VISIBLE);
     }
 
@@ -486,6 +508,82 @@ public final class MainActivity extends Activity {
         if (sectionDrawer != null) {
             sectionDrawer.setVisibility(View.GONE);
         }
+    }
+
+    private void beginSectionDrag() {
+        if (sectionDrawer == null) {
+            return;
+        }
+        SectionDrawer.Item[] sections = currentSections();
+        if (sections.length == 0) {
+            return;
+        }
+        sectionDrawer.setItems(pageTitleText(), sections);
+        sectionDrawer.setSelectedIndex(nearestSectionIndexToScroll(sections));
+        sectionDrawer.setVisibility(View.VISIBLE);
+    }
+
+    private void updateSectionDrag(float progress) {
+        if (sectionDrawer == null) {
+            return;
+        }
+        if (sectionDrawer.getVisibility() != View.VISIBLE) {
+            beginSectionDrag();
+        }
+        int index = sectionIndexForProgress(progress);
+        if (index >= 0) {
+            sectionDrawer.setSelectedIndex(index);
+        }
+    }
+
+    private void finishSectionDrag(float progress) {
+        SectionDrawer.Item[] sections = currentSections();
+        int index = sectionIndexForProgress(progress);
+        if (index < 0 || index >= sections.length) {
+            hideSectionDrawer();
+            return;
+        }
+        if (sectionDrawer != null) {
+            sectionDrawer.setSelectedIndex(index);
+        }
+        scrollToSection(sections[index].target);
+        if (sectionDrawer != null) {
+            sectionDrawer.postDelayed(this::hideSectionDrawer, 260);
+        }
+    }
+
+    private void cancelSectionDrag() {
+        hideSectionDrawer();
+    }
+
+    private int sectionIndexForProgress(float progress) {
+        SectionDrawer.Item[] sections = currentSections();
+        if (sections.length == 0) {
+            return -1;
+        }
+        if (sections.length == 1) {
+            return 0;
+        }
+        int index = Math.round(Math.max(0f, Math.min(1f, progress)) * (sections.length - 1));
+        return Math.max(0, Math.min(sections.length - 1, index));
+    }
+
+    private int nearestSectionIndexToScroll(SectionDrawer.Item[] sections) {
+        if (sections.length == 0 || mainScrollView == null) {
+            return -1;
+        }
+        int anchor = mainScrollView.getScrollY() + dp(24);
+        int bestIndex = 0;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int index = 0; index < sections.length; index += 1) {
+            int top = Math.max(0, topInsideScroll(sections[index].target) - dp(8));
+            int distance = Math.abs(top - anchor);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = index;
+            }
+        }
+        return bestIndex;
     }
 
     private void updateSectionProgress() {
