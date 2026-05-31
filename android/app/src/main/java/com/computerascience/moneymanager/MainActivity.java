@@ -350,7 +350,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        sectionProgressHandle = new SectionProgressHandle(this, view -> showSectionMenu());
+        sectionProgressHandle = new SectionProgressHandle(this, view -> showSectionMenu(), this::scrollToProgress);
         FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(26), dp(124), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         progressParams.rightMargin = dp(8);
         contentFrame.addView(sectionProgressHandle, progressParams);
@@ -496,6 +496,16 @@ public final class MainActivity extends Activity {
         int maxScroll = Math.max(0, content.getHeight() - mainScrollView.getHeight());
         float progress = maxScroll == 0 ? 0f : (float) mainScrollView.getScrollY() / maxScroll;
         sectionProgressHandle.setProgress(progress);
+    }
+
+    private void scrollToProgress(float progress) {
+        if (mainScrollView == null || mainScrollView.getChildCount() == 0) {
+            return;
+        }
+        hideSectionDrawer();
+        View content = mainScrollView.getChildAt(0);
+        int maxScroll = Math.max(0, content.getHeight() - mainScrollView.getHeight());
+        mainScrollView.scrollTo(0, Math.round(maxScroll * Math.max(0f, Math.min(1f, progress))));
     }
 
     @Override
@@ -1428,6 +1438,7 @@ public final class MainActivity extends Activity {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
+        List<AssetInstitutionGroups.Group> groups = AssetInstitutionGroups.groupByInstitution(investments, settings);
         double investmentTotal = 0;
         for (AssetRecord asset : investments) {
             String currency = AssetMath.cleanCurrency(asset.currency);
@@ -1436,15 +1447,20 @@ public final class MainActivity extends Activity {
         }
 
         investmentSummaryText.setText("投资总额 " + formatMoney(investmentTotal, settings.baseCurrency)
-                + " · " + investments.size() + " 项资产");
+                + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
 
         investmentAccountList.removeAllViews();
         if (investments.isEmpty()) {
             investmentAccountList.addView(emptyText("还没有投资资产。可在设置里把某个资产类型加入投资页。"));
             return;
         }
-        for (AssetRecord asset : investments) {
-            investmentAccountList.addView(assetCard(asset));
+        for (AssetInstitutionGroups.Group group : groups) {
+            investmentAccountList.addView(assetInstitutionGroupHeader(group, settings.baseCurrency));
+            if (!collapsedAssetGroups.contains(group.key)) {
+                for (AssetRecord asset : group.assets) {
+                    investmentAccountList.addView(assetCompactRow(asset));
+                }
+            }
         }
     }
 
@@ -3003,9 +3019,11 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，建议优先处理。");
-        for (String issue : issues) {
-            dataHealthList.addView(healthIssueRow(issue));
+        List<AssetInstitutionGroups.Group> groups = dataHealthInstitutionGroups();
+        dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，分布在 "
+                + groups.size() + " 个机构，建议优先处理。");
+        for (AssetInstitutionGroups.Group group : groups) {
+            dataHealthList.addView(healthInstitutionRow(group));
         }
     }
 
@@ -3067,6 +3085,79 @@ public final class MainActivity extends Activity {
         return row;
     }
 
+    private List<AssetInstitutionGroups.Group> dataHealthInstitutionGroups() {
+        List<AssetRecord> issueAssets = new ArrayList<>();
+        for (AssetRecord asset : assets) {
+            if (!assetHealthIssues(asset).isEmpty()) {
+                issueAssets.add(asset);
+            }
+        }
+        return AssetInstitutionGroups.groupByInstitution(issueAssets, settings);
+    }
+
+    private List<String> assetHealthIssues(AssetRecord asset) {
+        List<String> issues = new ArrayList<>();
+        if (missingAssetAmount(asset)) {
+            issues.add("缺金额");
+        } else if (invalidAssetAmount(asset)) {
+            issues.add("金额无法识别");
+        }
+        String institution = clean(asset.institution);
+        if (institution.isEmpty() || institution.contains("待绑定")) {
+            issues.add("缺机构");
+        }
+        if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
+            issues.add("未绑定 App");
+        }
+        String currency = AssetMath.cleanCurrency(asset.currency);
+        if (!settings.hasRateFor(currency)) {
+            issues.add("缺汇率");
+        }
+        if (asset.lastUpdatedAt <= 0) {
+            issues.add("从未更新");
+        } else if (isStale(asset)) {
+            issues.add("待更新");
+        }
+        return issues;
+    }
+
+    private View healthInstitutionRow(AssetInstitutionGroups.Group group) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12), dp(10), dp(12), dp(12));
+        card.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams cardParams = lp(-1, -2);
+        cardParams.topMargin = dp(8);
+        card.setLayoutParams(cardParams);
+
+        LinearLayout header = row();
+        header.addView(institutionGroupIcon(group), new LinearLayout.LayoutParams(dp(36), dp(36)));
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
+        titleParams.leftMargin = dp(10);
+        titleGroup.addView(text(group.title, 14, INK, Typeface.BOLD));
+        LinearLayout.LayoutParams metaParams = lp(-1, -2);
+        metaParams.topMargin = dp(3);
+        titleGroup.addView(text(group.assets.size() + " 项需要完善 · " + group.displayApps(), 12, MUTED, Typeface.NORMAL), metaParams);
+        header.addView(titleGroup, titleParams);
+        card.addView(header);
+
+        int limit = Math.min(3, group.assets.size());
+        for (int index = 0; index < limit; index += 1) {
+            AssetRecord asset = group.assets.get(index);
+            String detail = asset.name + " · " + joinInline(assetHealthIssues(asset));
+            card.addView(healthIssueRow(detail));
+        }
+        if (group.assets.size() > limit) {
+            TextView more = text("还有 " + (group.assets.size() - limit) + " 项可在资产页继续处理。", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams moreParams = lp(-1, -2);
+            moreParams.topMargin = dp(6);
+            card.addView(more, moreParams);
+        }
+        return card;
+    }
+
     private void renderUpdatePlan() {
         updatePlanList.removeAllViews();
         if (assets.isEmpty()) {
@@ -3088,9 +3179,21 @@ public final class MainActivity extends Activity {
 
         updatePlanSummary.setText(updatePlanSummaryText(urgentCount, soonCount));
 
-        int limit = Math.min(5, planned.size());
-        for (int index = 0; index < limit; index += 1) {
-            updatePlanList.addView(updatePlanRow(planned.get(index)));
+        int limit = Math.min(8, planned.size());
+        List<AssetRecord> topPlanned = new ArrayList<>(planned.subList(0, limit));
+        for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(topPlanned, settings)) {
+            updatePlanList.addView(assetInstitutionGroupHeader(group, settings.baseCurrency));
+            if (!collapsedAssetGroups.contains(group.key)) {
+                for (AssetRecord asset : group.assets) {
+                    updatePlanList.addView(updatePlanRow(asset));
+                }
+            }
+        }
+        if (planned.size() > limit) {
+            TextView more = text("还有 " + (planned.size() - limit) + " 项资产会按机构继续排队。", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams moreParams = lp(-1, -2);
+            moreParams.topMargin = dp(8);
+            updatePlanList.addView(more, moreParams);
         }
     }
 
@@ -4380,6 +4483,17 @@ public final class MainActivity extends Activity {
                 builder.append("\n");
             }
             builder.append(lines.get(index));
+        }
+        return builder.toString();
+    }
+
+    private String joinInline(List<String> lines) {
+        StringBuilder builder = new StringBuilder();
+        for (String line : lines) {
+            if (builder.length() > 0) {
+                builder.append(" / ");
+            }
+            builder.append(line);
         }
         return builder.toString();
     }

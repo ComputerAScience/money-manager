@@ -45,7 +45,9 @@ public final class BottomNavBar extends LinearLayout {
         setOrientation(VERTICAL);
         setBackgroundColor(PANEL);
         setElevation(dp(10));
-        setPadding(0, 0, 0, dp(6));
+        setClipChildren(false);
+        setClipToPadding(false);
+        setPadding(0, 0, 0, dp(10));
 
         addView(dividerLine(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -55,19 +57,21 @@ public final class BottomNavBar extends LinearLayout {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER);
-        row.setPadding(dp(14), dp(6), dp(14), dp(8));
+        row.setClipChildren(false);
+        row.setClipToPadding(false);
+        row.setPadding(dp(12), dp(5), dp(12), dp(10));
         addTab(row, "总览", ICON_OVERVIEW, PAGE_OVERVIEW, listener);
         addTab(row, "投资", ICON_INVESTMENT, PAGE_INVESTMENT, listener);
         addTab(row, "趋势", ICON_TREND, PAGE_TREND, listener);
         addTab(row, "资产", ICON_ASSETS, PAGE_ASSETS, listener);
         addView(row, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(68)
+                dp(76)
         ));
     }
 
     public void setBottomInset(int inset) {
-        setPadding(0, 0, 0, inset + dp(6));
+        setPadding(0, 0, 0, Math.max(dp(10), inset + dp(10)));
     }
 
     public void setSelectedPage(String page) {
@@ -91,7 +95,9 @@ public final class BottomNavBar extends LinearLayout {
         LinearLayout tab = new LinearLayout(activity);
         tab.setOrientation(VERTICAL);
         tab.setGravity(Gravity.CENTER);
-        tab.setPadding(0, dp(5), 0, dp(5));
+        tab.setClipChildren(false);
+        tab.setClipToPadding(false);
+        tab.setPadding(0, dp(4), 0, dp(6));
         tab.setContentDescription(label);
         tab.setOnClickListener(view -> listener.onSelected(page));
 
@@ -108,9 +114,10 @@ public final class BottomNavBar extends LinearLayout {
 
         TextView labelView = text(label, 12, MUTED, Typeface.NORMAL);
         labelView.setGravity(Gravity.CENTER);
-        labelView.setIncludeFontPadding(false);
+        labelView.setSingleLine(true);
+        labelView.setIncludeFontPadding(true);
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
-        labelParams.topMargin = dp(3);
+        labelParams.topMargin = dp(2);
         tab.addView(labelView, labelParams);
 
         tabs.add(new TabItem(page, tab, indicator, iconView, labelView));
