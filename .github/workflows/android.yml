@@ -88,7 +88,7 @@ jobs:
           path: android/app/money-manager-debug.p12
           key: money-manager-debug-p12-v2
 
-      - name: Build debug APK
+      - name: Build APK channels
         run: gradle :app:assembleMasterDebug :app:assembleDevDebug
 
       - name: Rename APK

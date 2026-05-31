@@ -179,6 +179,7 @@ public final class MainActivity extends Activity {
     private LinearLayout assetTrendHistoryList;
     private List<AssetRecord> assetTrendOptions = new ArrayList<>();
     private final Set<String> collapsedAssetGroups = new HashSet<>();
+    private int sectionDragIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -279,6 +280,8 @@ public final class MainActivity extends Activity {
         screen.addView(header, lp(-1, -2));
 
         contentFrame = new FrameLayout(this);
+        contentFrame.setClipChildren(false);
+        contentFrame.setClipToPadding(false);
 
         ScrollView scrollView = new ScrollView(this);
         mainScrollView = scrollView;
@@ -288,7 +291,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(42), dp(28));
+        root.setPadding(dp(18), dp(12), dp(48), dp(28));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -378,8 +381,7 @@ public final class MainActivity extends Activity {
                 cancelSectionDrag();
             }
         });
-        FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(26), dp(124), Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        progressParams.rightMargin = dp(8);
+        FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.RIGHT);
         contentFrame.addView(sectionProgressHandle, progressParams);
 
         sectionDrawer = new SectionDrawer(this, this::scrollToSection);
@@ -506,6 +508,9 @@ public final class MainActivity extends Activity {
             return;
         }
         SectionDrawer.Item[] sections = currentSections();
+        if (sectionProgressHandle != null) {
+            sectionProgressHandle.setSectionLabels(sectionLabels(sections));
+        }
         sectionDrawer.setItems(pageTitleText(), sections);
         sectionDrawer.setSelectedIndex(nearestSectionIndexToScroll(sections));
         sectionDrawer.setVisibility(View.VISIBLE);
@@ -518,28 +523,31 @@ public final class MainActivity extends Activity {
     }
 
     private void beginSectionDrag() {
-        if (sectionDrawer == null) {
-            return;
-        }
         SectionDrawer.Item[] sections = currentSections();
         if (sections.length == 0) {
             return;
         }
-        sectionDrawer.setItems(pageTitleText(), sections);
-        sectionDrawer.setSelectedIndex(nearestSectionIndexToScroll(sections));
-        sectionDrawer.setVisibility(View.VISIBLE);
+        hideSectionDrawer();
+        int index = nearestSectionIndexToScroll(sections);
+        sectionDragIndex = index;
+        if (sectionProgressHandle != null) {
+            sectionProgressHandle.setSectionLabels(sectionLabels(sections));
+            sectionProgressHandle.setActiveSection(index);
+        }
     }
 
     private void updateSectionDrag(float progress) {
-        if (sectionDrawer == null) {
+        SectionDrawer.Item[] sections = currentSections();
+        int index = sectionIndexForProgress(progress);
+        if (index < 0 || index >= sections.length) {
             return;
         }
-        if (sectionDrawer.getVisibility() != View.VISIBLE) {
-            beginSectionDrag();
+        if (sectionProgressHandle != null) {
+            sectionProgressHandle.setActiveSection(index);
         }
-        int index = sectionIndexForProgress(progress);
-        if (index >= 0) {
-            sectionDrawer.setSelectedIndex(index);
+        if (index != sectionDragIndex) {
+            sectionDragIndex = index;
+            scrollToSectionImmediate(sections[index].target);
         }
     }
 
@@ -547,20 +555,21 @@ public final class MainActivity extends Activity {
         SectionDrawer.Item[] sections = currentSections();
         int index = sectionIndexForProgress(progress);
         if (index < 0 || index >= sections.length) {
-            hideSectionDrawer();
+            sectionDragIndex = -1;
             return;
         }
-        if (sectionDrawer != null) {
-            sectionDrawer.setSelectedIndex(index);
+        sectionDragIndex = index;
+        if (sectionProgressHandle != null) {
+            sectionProgressHandle.setActiveSection(index);
         }
-        scrollToSection(sections[index].target);
-        if (sectionDrawer != null) {
-            sectionDrawer.postDelayed(this::hideSectionDrawer, 260);
-        }
+        scrollToSectionImmediate(sections[index].target);
+        sectionDragIndex = -1;
+        updateSectionProgress();
     }
 
     private void cancelSectionDrag() {
-        hideSectionDrawer();
+        sectionDragIndex = -1;
+        updateSectionProgress();
     }
 
     private int sectionIndexForProgress(float progress) {
@@ -593,8 +602,16 @@ public final class MainActivity extends Activity {
         return bestIndex;
     }
 
+    private String[] sectionLabels(SectionDrawer.Item[] sections) {
+        String[] labels = new String[sections.length];
+        for (int index = 0; index < sections.length; index += 1) {
+            labels[index] = sections[index].label;
+        }
+        return labels;
+    }
+
     private void updateSectionProgress() {
-        if (sectionProgressHandle == null || mainScrollView == null || mainScrollView.getChildCount() == 0) {
+        if (sectionDragIndex >= 0 || sectionProgressHandle == null || mainScrollView == null || mainScrollView.getChildCount() == 0) {
             return;
         }
         View content = mainScrollView.getChildAt(0);
@@ -1622,6 +1639,13 @@ public final class MainActivity extends Activity {
             return;
         }
         target.post(() -> mainScrollView.smoothScrollTo(0, Math.max(0, topInsideScroll(target) - dp(8))));
+    }
+
+    private void scrollToSectionImmediate(View target) {
+        if (mainScrollView == null || target == null) {
+            return;
+        }
+        mainScrollView.scrollTo(0, Math.max(0, topInsideScroll(target) - dp(8)));
     }
 
     private int topInsideScroll(View target) {

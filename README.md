@@ -16,8 +16,8 @@
 - 行动中心：合并待更新、数据质量、目标偏离和优先核对资产，并按机构组织
 - 汇率：启动时自动获取常用币种实时汇率，也可在设置里刷新或手动维护
 - 分享：设置里可生成 GitHub Pages 只读看板链接；数据放在链接 fragment 中，页面在浏览器本地解析
-- 设置：隐私模式、基准币种、目标比例、备份恢复、版本检查和 APK 下载；右侧进度条可拖动选择目录，也可点击展开本页目录
-- 更新：GitHub Actions 构建 debug APK，并发布到固定 Release 地址
+- 设置：隐私模式、基准币种、目标比例、备份恢复、版本检查和 APK 下载；右侧低存在感索引条可边滑边选择目录，也可点击展开本页目录
+- 更新：GitHub Actions 构建 master / dev APK，并发布到固定 Release 地址
 
 详见 [android/README.md](android/README.md)。
 
@@ -36,7 +36,7 @@ master 版和开发版使用同一个 Android 包名和同一套稳定签名，�
   <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-master-latest%2Fmoney-manager-master.apk" alt="扫码下载 Money Manager master APK" width="220" height="220">
 </a>
 
-这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
+这个 APK 适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 
 从 `0.6.7` 开始，master / dev 渠道会使用同一套稳定签名。若手机里已经安装过更早的分支构建并提示“签名不一致”，Android 不允许直接覆盖；请先在 App 设置里导出备份，再卸载旧签名版本，安装 `0.6.7` 之后导入备份。完成这一次切换后，后续 master 和 dev 之间覆盖安装会保留数据。
 
