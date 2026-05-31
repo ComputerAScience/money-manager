@@ -1,50 +1,52 @@
 # Money Manager
 
-一个可以直接部署到 GitHub Pages 的个人资产管理 Web 应用。它是纯静态页面，默认把资产数据保存在当前浏览器的 `localStorage` 中，不需要数据库、服务器或 API 密钥。
+一个原生 Android 资产更新助手。它不登录银行或券商账户，只记录每项资产、更新时间、更新周期和绑定 App；需要核对时，一键打开对应银行、券商或钱包 App，再手动保存最新余额。
 
-## 功能
+仓库根目录的 `index.html` 是 GitHub Pages 分享承接页；Android App 可以生成只读分享链接，把当前资产看板带到 Pages 页面展示。
 
-- 记录现金、存款、基金、股票、加密资产、房产、负债和其他资产
-- 按基准币种实时汇总净资产、资产总额、负债和今日浮动
-- 按类型查看资产配置，并观察现金比例、低流动性比例和最大持仓
-- 支持本地 JSON 导入、导出备份
-- 支持外汇汇率和 CoinGecko 加密资产价格的浏览器端刷新
-- 手动资产价格修改后，所有统计会即时重算
+## 当前重点
 
-## 本地使用
-
-直接用浏览器打开 `index.html` 即可。也可以在仓库目录启动一个静态服务器：
-
-```bash
-python3 -m http.server 4173
-```
-
-然后访问 `http://localhost:4173`。
-
-## 部署到 GitHub Pages
-
-1. 将代码推送到仓库的 `master` 分支。
-2. 打开仓库的 `Settings -> Pages`。
-3. 在 `Build and deployment` 中选择 `GitHub Actions`。
-4. 等待 `Deploy to GitHub Pages` 工作流完成。
-
-部署完成后，GitHub 会在 workflow 页面或 Pages 设置中显示站点地址。
-
-## 数据和隐私
-
-资产明细只保存在浏览器本地。换浏览器、清理站点数据或更换设备前，先用页面右上角的“导出”保存 JSON 备份。
-
-外部行情刷新只会请求公开行情接口：
-
-- `https://api.frankfurter.app` 用于外汇汇率
-- `https://api.coingecko.com` 用于加密资产价格
-
-股票、基金、房产和负债等资产默认采用手动价格。后续如果需要接入券商、银行或付费行情 API，可以在静态前端之外加一个带鉴权的后端服务。
-
-## Android App
-
-仓库里也包含一个原生 Android 版本，位于 `android/`。它的目标更低也更稳：记录每项资产的更新时间，并在需要更新时一键打开对应银行、券商或钱包 App。
+- 资产记录：按机构管理资产；一条资产属于一个机构，也可以绑定一个 App 作为打开入口
+- App 绑定：从已安装 App 列表选择，只显示 App 名称，不需要输入包名
+- 总览：净资产、资产总额、负债、更新状态、资产比例、机构分布和年度目标
+- 资产类型：支持自定义资产类型，并可选择哪些类型出现在投资 Tab
+- 投资：按资产类型开关汇总投资资产，并按机构分组展示
+- 兼容：旧版银行 / 券商账户明细会在升级或导入备份时自动转换为按机构管理的扁平资产，并记录本地 schema 版本
+- 趋势：总金额趋势、资产类型分布变化、单项资产趋势和历史快照
+- 行动中心：合并待更新、数据质量、目标偏离和优先核对资产，并按机构组织
+- 汇率：启动时自动获取常用币种实时汇率，也可在设置里刷新或手动维护
+- 分享：设置里可生成 GitHub Pages 只读看板链接；数据放在链接 fragment 中，页面在浏览器本地解析
+- 设置：隐私模式、基准币种、目标比例、备份恢复、版本检查和 APK 下载；右侧进度条可拖动选择目录，也可点击展开本页目录
+- 更新：GitHub Actions 构建 debug APK，并发布到固定 Release 地址
 
 详见 [android/README.md](android/README.md)。
 
-如果你只想下载安装包，不想配置 Android 开发环境，可以在 GitHub 仓库的 `Actions -> Build Android APK` 里下载 `money-manager-debug-apk` artifact。
+## 下载 APK
+
+GitHub Actions 每次构建后会更新固定 debug APK：
+
+[下载最新版 Android APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk)
+
+手机打开这个仓库首页，或用相机扫描下面二维码即可下载：
+
+<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-debug.apk" alt="扫码下载 Money Manager Android APK" width="220" height="220">
+</a>
+
+这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
+
+`0.4.1` 之后 GitHub Actions 会复用稳定 debug 签名，后续下载通常可以直接覆盖安装。若从旧签名版本更新时仍提示“签名不一致”，需要先卸载旧版再安装一次新版。
+
+## 本地开发
+
+1. 用 Android Studio 打开 `android/` 目录。
+2. 等待 Gradle 同步。
+3. 连接 Android 手机或启动模拟器。
+4. 运行 `app` 模块。
+
+命令行构建：
+
+```bash
+cd android
+gradle :app:assembleDebug
+```

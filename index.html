@@ -1,220 +1,561 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Money Manager</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Money Manager</p>
-          <h1>资产控制台</h1>
-          <p class="muted">本地优先的个人资产台账</p>
-        </div>
-        <div class="toolbar" aria-label="资产工具栏">
-          <button class="tool-button" id="refresh-market" type="button">
-            <span class="icon" data-icon="refresh" aria-hidden="true"></span>
-            刷新行情
-          </button>
-          <button class="tool-button" id="export-data" type="button">
-            <span class="icon" data-icon="download" aria-hidden="true"></span>
-            导出
-          </button>
-          <label class="tool-button file-trigger" for="import-data">
-            <span class="icon" data-icon="upload" aria-hidden="true"></span>
-            导入
-          </label>
-          <input id="import-data" type="file" accept="application/json" />
-        </div>
-      </header>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Money Manager 分享看板</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --row: #f8fafc;
+      --accent: #126b5f;
+      --accent-soft: #e8f6f2;
+      --blue: #335eaa;
+      --danger: #be4350;
+      --amber: #a67918;
+    }
 
-      <main>
-        <section class="summary-grid" aria-label="资产概览">
-          <article class="stat-card">
-            <span>净资产</span>
-            <strong id="net-worth">--</strong>
-            <small id="net-worth-sub">--</small>
-          </article>
-          <article class="stat-card">
-            <span>资产总额</span>
-            <strong id="gross-assets">--</strong>
-            <small id="gross-assets-sub">--</small>
-          </article>
-          <article class="stat-card">
-            <span>负债</span>
-            <strong id="liabilities">--</strong>
-            <small id="liabilities-sub">--</small>
-          </article>
-          <article class="stat-card">
-            <span>今日浮动</span>
-            <strong id="day-change">--</strong>
-            <small id="day-change-sub">--</small>
-          </article>
-        </section>
+    * {
+      box-sizing: border-box;
+    }
 
-        <section class="control-band" aria-label="筛选和币种">
-          <div>
-            <span class="control-label">基准币种</span>
-            <div class="segmented" id="base-currency"></div>
-          </div>
-          <label>
-            <span class="control-label">搜索</span>
-            <input id="asset-search" type="search" placeholder="资产、机构或备注" />
-          </label>
-          <label>
-            <span class="control-label">类型</span>
-            <select id="type-filter"></select>
-          </label>
-          <label>
-            <span class="control-label">流动性</span>
-            <select id="liquidity-filter"></select>
-          </label>
-        </section>
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
 
-        <section class="workspace-grid">
-          <aside class="asset-editor" aria-label="资产编辑">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Entry</p>
-                <h2 id="form-title">新增资产</h2>
-              </div>
-              <button class="icon-button" id="clear-form" type="button" title="清空表单" aria-label="清空表单">
-                <span class="icon" data-icon="x" aria-hidden="true"></span>
-              </button>
-            </div>
+    .shell {
+      width: min(1040px, 100%);
+      margin: 0 auto;
+      padding: 24px 16px 36px;
+    }
 
-            <form id="asset-form">
-              <label>
-                <span>资产名称</span>
-                <input id="asset-name" name="name" type="text" required maxlength="40" placeholder="例如：招商银行活期" />
-              </label>
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
 
-              <div class="form-pair">
-                <label>
-                  <span>类型</span>
-                  <select id="asset-type" name="type" required></select>
-                </label>
-                <label>
-                  <span>币种</span>
-                  <select id="asset-currency" name="currency" required></select>
-                </label>
-              </div>
+    .logo {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 22px;
+    }
 
-              <label>
-                <span>机构</span>
-                <input id="asset-institution" name="institution" type="text" maxlength="40" placeholder="银行、券商、钱包" />
-              </label>
+    h1, h2, p {
+      margin: 0;
+    }
 
-              <div class="form-pair">
-                <label>
-                  <span>数量</span>
-                  <input id="asset-quantity" name="quantity" type="number" min="0" step="0.000001" required />
-                </label>
-                <label>
-                  <span>现价</span>
-                  <input id="asset-price" name="price" type="number" min="0" step="0.000001" required />
-                </label>
-              </div>
+    h1 {
+      font-size: 28px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
 
-              <div class="form-pair">
-                <label>
-                  <span>成本单价</span>
-                  <input id="asset-cost" name="costBasis" type="number" min="0" step="0.000001" />
-                </label>
-                <label>
-                  <span>今日涨跌 %</span>
-                  <input id="asset-day-change" name="dayChangePct" type="number" step="0.01" />
-                </label>
-              </div>
+    .subtitle {
+      color: var(--muted);
+      margin-top: 5px;
+      font-size: 14px;
+    }
 
-              <div class="form-pair">
-                <label>
-                  <span>流动性</span>
-                  <select id="asset-liquidity" name="liquidity"></select>
-                </label>
-                <label>
-                  <span>行情源</span>
-                  <select id="asset-quote-provider" name="quoteProvider">
-                    <option value="manual">手动</option>
-                    <option value="coingecko">CoinGecko</option>
-                  </select>
-                </label>
-              </div>
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
 
-              <label>
-                <span>行情标识</span>
-                <input id="asset-symbol" name="symbol" type="text" maxlength="60" placeholder="例如：bitcoin" />
-              </label>
+    .metric, .card, .empty {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
 
-              <label>
-                <span>备注</span>
-                <textarea id="asset-note" name="note" rows="3" maxlength="140" placeholder="到期日、风险、用途"></textarea>
-              </label>
+    .metric {
+      padding: 14px;
+      min-height: 96px;
+    }
 
-              <button class="primary-button" id="save-asset" type="submit">
-                <span class="icon" data-icon="save" aria-hidden="true"></span>
-                保存资产
-              </button>
-            </form>
-          </aside>
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
 
-          <section class="asset-board" aria-label="资产列表">
-            <div class="board-header">
-              <div>
-                <p class="eyebrow">Portfolio</p>
-                <h2>资产明细</h2>
-              </div>
-              <p class="status-pill" id="market-status">等待同步</p>
-            </div>
+    .metric .value {
+      margin-top: 10px;
+      font-size: 22px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
 
-            <div class="insight-grid">
-              <div>
-                <span class="control-label">配置</span>
-                <div class="allocation">
-                  <div class="donut" id="allocation-donut" role="img" aria-label="资产配置图"></div>
-                  <div class="allocation-list" id="allocation-list"></div>
-                </div>
-              </div>
-              <div>
-                <span class="control-label">观察</span>
-                <ul class="insights" id="insights"></ul>
-              </div>
-            </div>
+    .card {
+      padding: 16px;
+      margin-bottom: 14px;
+    }
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">资产</th>
-                    <th scope="col">类型</th>
-                    <th scope="col">数量</th>
-                    <th scope="col">现价</th>
-                    <th scope="col">市值</th>
-                    <th scope="col">收益</th>
-                    <th scope="col">流动性</th>
-                    <th scope="col">操作</th>
-                  </tr>
-                </thead>
-                <tbody id="asset-table"></tbody>
-              </table>
-            </div>
-            <div class="empty-state" id="empty-state" hidden>
-              <h3>没有匹配的资产</h3>
-              <p>调整筛选条件，或新增一笔资产。</p>
-            </div>
-          </section>
-        </section>
-      </main>
-    </div>
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
 
-    <template id="icon-template">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="" />
-      </svg>
-    </template>
-    <script src="src/app.js" defer></script>
-  </body>
+    h2 {
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .bars {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(88px, 0.9fr) minmax(110px, 2fr) minmax(80px, 0.9fr);
+      align-items: center;
+      gap: 10px;
+      min-height: 30px;
+    }
+
+    .bar-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--row);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .bar-value {
+      color: var(--muted);
+      text-align: right;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .trend {
+      width: 100%;
+      height: 190px;
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--row);
+    }
+
+    .assets {
+      display: grid;
+      gap: 10px;
+    }
+
+    .asset {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--row);
+    }
+
+    .asset-name {
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .asset-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .asset-value {
+      text-align: right;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .chip.warn {
+      background: #fff6df;
+      color: var(--amber);
+    }
+
+    .empty {
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        padding: 18px 12px 28px;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .bar-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+
+      .bar-value {
+        text-align: left;
+      }
+
+      .asset {
+        grid-template-columns: 1fr;
+      }
+
+      .asset-value {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="logo" aria-hidden="true">¥</div>
+      <div>
+        <h1>Money Manager 分享看板</h1>
+        <p class="subtitle" id="subtitle">正在读取分享数据...</p>
+      </div>
+    </header>
+
+    <section class="grid" id="metrics"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>资产类型</h2>
+        <span class="hint" id="categoryHint"></span>
+      </div>
+      <div class="bars" id="categoryBars"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>机构分布</h2>
+        <span class="hint" id="institutionHint"></span>
+      </div>
+      <div class="bars" id="institutionBars"></div>
+    </section>
+
+    <section class="card" id="trendCard">
+      <div class="card-head">
+        <h2>净资产趋势</h2>
+        <span class="hint" id="trendHint"></span>
+      </div>
+      <svg class="trend" id="trend" viewBox="0 0 720 190" role="img" aria-label="净资产趋势图"></svg>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>资产明细</h2>
+        <span class="hint" id="assetHint"></span>
+      </div>
+      <div class="assets" id="assets"></div>
+    </section>
+  </main>
+
+  <script>
+    const els = {
+      subtitle: document.querySelector("#subtitle"),
+      metrics: document.querySelector("#metrics"),
+      categoryBars: document.querySelector("#categoryBars"),
+      categoryHint: document.querySelector("#categoryHint"),
+      institutionBars: document.querySelector("#institutionBars"),
+      institutionHint: document.querySelector("#institutionHint"),
+      trendCard: document.querySelector("#trendCard"),
+      trend: document.querySelector("#trend"),
+      trendHint: document.querySelector("#trendHint"),
+      assets: document.querySelector("#assets"),
+      assetHint: document.querySelector("#assetHint")
+    };
+
+    const numberFormat = new Intl.NumberFormat("zh-CN", {
+      maximumFractionDigits: 2
+    });
+
+    function readEncodedPayload() {
+      const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+      const hashParams = new URLSearchParams(hash);
+      const queryParams = new URLSearchParams(window.location.search);
+      return hashParams.get("data") || queryParams.get("data") || "";
+    }
+
+    function base64UrlToBytes(value) {
+      let input = value.replace(/-/g, "+").replace(/_/g, "/");
+      while (input.length % 4) {
+        input += "=";
+      }
+      const binary = atob(input);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    }
+
+    async function decodePayload(encoded) {
+      if (!("DecompressionStream" in window)) {
+        throw new Error("当前浏览器不支持解压分享数据，请用新版 Chrome、Edge 或 Safari 打开。");
+      }
+      const bytes = base64UrlToBytes(encoded);
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      return JSON.parse(await new Response(stream).text());
+    }
+
+    function money(value, currency, includeAmounts) {
+      if (!includeAmounts) {
+        return "金额已隐藏";
+      }
+      return `${numberFormat.format(Number(value || 0))} ${currency || ""}`.trim();
+    }
+
+    function dateText(timestamp) {
+      if (!timestamp) {
+        return "从未更新";
+      }
+      return new Intl.DateTimeFormat("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(timestamp));
+    }
+
+    function colorFromInt(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) {
+        return "#126b5f";
+      }
+      return `#${(number >>> 0).toString(16).slice(-6).padStart(6, "0")}`;
+    }
+
+    function clear(node) {
+      while (node.firstChild) {
+        node.removeChild(node.firstChild);
+      }
+    }
+
+    function textNode(tag, className, value) {
+      const node = document.createElement(tag);
+      if (className) {
+        node.className = className;
+      }
+      node.textContent = value;
+      return node;
+    }
+
+    function renderMetric(label, value) {
+      const card = document.createElement("article");
+      card.className = "metric";
+      card.appendChild(textNode("div", "label", label));
+      card.appendChild(textNode("div", "value", value));
+      els.metrics.appendChild(card);
+    }
+
+    function renderBars(items, container, valueGetter, labelGetter, colorGetter, valueLabelGetter) {
+      clear(container);
+      if (!items.length) {
+        container.appendChild(textNode("div", "empty", "暂无数据"));
+        return;
+      }
+      const max = Math.max(...items.map(valueGetter), 1);
+      items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.appendChild(textNode("div", "bar-name", labelGetter(item)));
+
+        const track = document.createElement("div");
+        track.className = "bar-track";
+        const fill = document.createElement("div");
+        fill.className = "bar-fill";
+        fill.style.width = `${Math.max(4, valueGetter(item) / max * 100)}%`;
+        fill.style.background = colorGetter(item);
+        track.appendChild(fill);
+        row.appendChild(track);
+
+        row.appendChild(textNode("div", "bar-value", valueLabelGetter(item)));
+        container.appendChild(row);
+      });
+    }
+
+    function renderTrend(payload) {
+      clear(els.trend);
+      const points = Array.isArray(payload.snapshots) ? payload.snapshots : [];
+      if (!payload.includeAmounts || points.length < 2) {
+        els.trendCard.style.display = "none";
+        return;
+      }
+      els.trendCard.style.display = "";
+      els.trendHint.textContent = `${points.length} 个快照`;
+      const values = points.map(point => Number(point.netWorth || 0));
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = Math.max(1, max - min);
+      const width = 720;
+      const height = 190;
+      const padding = 22;
+      const path = values.map((value, index) => {
+        const x = padding + index / Math.max(1, values.length - 1) * (width - padding * 2);
+        const y = height - padding - (value - min) / range * (height - padding * 2);
+        return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(" ");
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      line.setAttribute("d", path);
+      line.setAttribute("fill", "none");
+      line.setAttribute("stroke", "#126b5f");
+      line.setAttribute("stroke-width", "4");
+      line.setAttribute("stroke-linecap", "round");
+      line.setAttribute("stroke-linejoin", "round");
+      els.trend.appendChild(line);
+    }
+
+    function renderAssets(payload) {
+      clear(els.assets);
+      const assets = Array.isArray(payload.assets) ? payload.assets : [];
+      els.assetHint.textContent = `${assets.length} 项`;
+      if (!assets.length) {
+        els.assets.appendChild(textNode("div", "empty", "暂无资产明细"));
+        return;
+      }
+      assets.forEach(asset => {
+        const row = document.createElement("article");
+        row.className = "asset";
+        const copy = document.createElement("div");
+        copy.appendChild(textNode("div", "asset-name", asset.name || "未命名资产"));
+        copy.appendChild(textNode("div", "asset-meta", `${asset.institution || "未填写机构"} · ${asset.category || "未分类"} · ${dateText(asset.lastUpdatedAt)}`));
+        row.appendChild(copy);
+
+        const value = document.createElement("div");
+        value.className = "asset-value";
+        value.appendChild(textNode("div", "", money(asset.netBase, payload.baseCurrency, payload.includeAmounts)));
+        const chip = textNode("span", asset.stale ? "chip warn" : "chip", asset.stale ? "待更新" : "已更新");
+        value.appendChild(chip);
+        row.appendChild(value);
+        els.assets.appendChild(row);
+      });
+    }
+
+    function render(payload) {
+      const includeAmounts = Boolean(payload.includeAmounts);
+      const generated = payload.generatedAt ? dateText(payload.generatedAt) : "未知时间";
+      els.subtitle.textContent = `生成于 ${generated} · ${includeAmounts ? "包含金额" : "金额已隐藏"}`;
+
+      clear(els.metrics);
+      renderMetric("净资产", money(payload.totals && payload.totals.netWorth, payload.baseCurrency, includeAmounts));
+      renderMetric("总资产", money(payload.totals && payload.totals.grossAssets, payload.baseCurrency, includeAmounts));
+      renderMetric("负债", money(payload.totals && payload.totals.liabilities, payload.baseCurrency, includeAmounts));
+      renderMetric("资产数", `${payload.assetCount || 0} 项`);
+
+      const categories = Array.isArray(payload.categories) ? payload.categories : [];
+      els.categoryHint.textContent = includeAmounts ? payload.baseCurrency : "按类型展示";
+      renderBars(
+        categories,
+        els.categoryBars,
+        item => includeAmounts ? Number(item.value || 0) : 1,
+        item => item.name || "未分类",
+        item => colorFromInt(item.color),
+        item => includeAmounts ? money(item.value, payload.baseCurrency, true) : "已隐藏"
+      );
+
+      const institutions = Array.isArray(payload.institutions) ? payload.institutions : [];
+      els.institutionHint.textContent = `${institutions.length} 个机构`;
+      renderBars(
+        institutions,
+        els.institutionBars,
+        item => includeAmounts ? Number(item.value || 0) : Number(item.assetCount || 0),
+        item => item.name || "未填写机构",
+        () => "#335eaa",
+        item => includeAmounts ? money(item.value, payload.baseCurrency, true) : `${item.assetCount || 0} 项`
+      );
+
+      renderTrend(payload);
+      renderAssets(payload);
+    }
+
+    async function main() {
+      const encoded = readEncodedPayload();
+      if (!encoded) {
+        els.subtitle.textContent = "还没有分享数据。请从 Android App 的设置里生成分享链接。";
+        document.querySelector(".grid").outerHTML = "";
+        document.querySelectorAll(".card").forEach(card => card.remove());
+        const empty = document.createElement("section");
+        empty.className = "empty";
+        empty.textContent = "等待来自 Money Manager App 的分享链接。";
+        document.querySelector(".shell").appendChild(empty);
+        return;
+      }
+      try {
+        render(await decodePayload(encoded));
+      } catch (error) {
+        els.subtitle.textContent = "分享数据解析失败。";
+        document.querySelector(".grid").outerHTML = "";
+        document.querySelectorAll(".card").forEach(card => card.remove());
+        const message = document.createElement("section");
+        message.className = "empty error";
+        message.textContent = error && error.message ? error.message : "无法读取分享链接。";
+        document.querySelector(".shell").appendChild(message);
+      }
+    }
+
+    main();
+  </script>
+</body>
 </html>

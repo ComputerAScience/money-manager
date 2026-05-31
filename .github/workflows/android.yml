@@ -7,24 +7,28 @@ on:
       - codex-asset-dashboard
     paths:
       - "android/**"
+      - "tools/**"
       - ".github/workflows/android.yml"
   pull_request:
     branches:
       - master
     paths:
       - "android/**"
+      - "tools/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
-  release:
-    types:
-      - created
 
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MONEY_MANAGER_DEBUG_KEYSTORE_BASE64: ${{ secrets.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 }}
     defaults:
       run:
         working-directory: android
@@ -44,20 +48,91 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      - name: Test backup migration script
+        working-directory: .
+        run: node tools/migrate-backup-v8.test.js
+
+      - name: Cache fallback stable debug signing key
+        if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' }}
+        uses: actions/cache@v4
+        with:
+          path: android/app/money-manager-debug.p12
+          key: money-manager-debug-p12-v1
+
+      - name: Restore stable debug signing key from secret
+        run: |
+          if [ -n "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" ]; then
+            printf '%s' "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" | base64 --decode > app/money-manager-debug.p12
+          fi
+
+      - name: Generate fallback stable debug signing key
+        run: |
+          if [ ! -f app/money-manager-debug.p12 ]; then
+            keytool -genkeypair \
+              -storetype PKCS12 \
+              -keystore app/money-manager-debug.p12 \
+              -storepass money-manager \
+              -keypass money-manager \
+              -alias money-manager-debug \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Money Manager Debug,O=ComputerAScience,C=US"
+          fi
+
       - name: Build debug APK
         run: gradle :app:assembleDebug
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/money-manager-debug.apk
 
+      - name: Write update metadata
+        run: |
+          set -euo pipefail
+          tag="android-debug-latest"
+          metadata="app/build/outputs/apk/debug/version.json"
+          version_name="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)"
+          version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
+          apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/money-manager-debug.apk"
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          test -n "$version_name"
+          test -n "$version_code"
+          printf '{\n' > "$metadata"
+          printf '  "versionName": "%s",\n' "$version_name" >> "$metadata"
+          printf '  "versionCode": %s,\n' "$version_code" >> "$metadata"
+          printf '  "apkUrl": "%s",\n' "$apk_url" >> "$metadata"
+          printf '  "commit": "%s",\n' "$GITHUB_SHA" >> "$metadata"
+          printf '  "builtAt": "%s"\n' "$built_at" >> "$metadata"
+          printf '}\n' >> "$metadata"
+          cat "$metadata"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: money-manager-debug-apk
-          path: android/app/build/outputs/apk/debug/money-manager-debug.apk
+          path: |
+            android/app/build/outputs/apk/debug/money-manager-debug.apk
+            android/app/build/outputs/apk/debug/version.json
 
-      - name: Attach APK to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: android/app/build/outputs/apk/debug/money-manager-debug.apk
+      - name: Publish latest debug APK release
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="android-debug-latest"
+          apk="app/build/outputs/apk/debug/money-manager-debug.apk"
+          metadata="app/build/outputs/apk/debug/version.json"
+          test -f "$apk"
+          test -f "$metadata"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$tag" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$tag"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "Latest Android Debug APK" \
+              --notes "最新 debug APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
+              --prerelease
+          fi
+          gh release upload "$tag" "$apk" "$metadata" --clobber
