@@ -208,11 +208,12 @@ public final class MainActivity extends Activity {
 
         LinearLayout brand = row();
         brand.setGravity(Gravity.CENTER_VERTICAL);
-        TextView mark = text("M", 13, Color.WHITE, Typeface.BOLD);
-        mark.setGravity(Gravity.CENTER);
-        mark.setIncludeFontPadding(false);
-        mark.setBackground(roundedBackground(ACCENT, ACCENT_DARK, 8));
-        brand.addView(mark, new LinearLayout.LayoutParams(dp(32), dp(32)));
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(R.drawable.ic_launcher_foreground);
+        mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        mark.setPadding(dp(3), dp(3), dp(3), dp(3));
+        mark.setBackground(roundedBackground(ACCENT_DARK, ACCENT, 8));
+        brand.addView(mark, new LinearLayout.LayoutParams(dp(34), dp(34)));
 
         TextView eyebrow = label("Money Manager");
         LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
