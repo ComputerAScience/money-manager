@@ -1,7 +1,11 @@
 package com.computerascience.moneymanager.ui;
 
 import android.app.Activity;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
@@ -23,6 +27,9 @@ public final class BottomNavBar extends LinearLayout {
     private static final int PANEL_BORDER = Color.rgb(226, 232, 240);
     private static final int BLUE = Color.rgb(51, 94, 170);
     private static final int BLUE_SOFT = Color.rgb(230, 240, 255);
+    private static final String ICON_OVERVIEW = "overview";
+    private static final String ICON_TREND = "trend";
+    private static final String ICON_ASSETS = "assets";
 
     private final Activity activity;
     private final List<TabItem> tabs = new ArrayList<>();
@@ -43,13 +50,13 @@ public final class BottomNavBar extends LinearLayout {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER);
-        row.setPadding(dp(20), dp(4), dp(20), dp(6));
-        addTab(row, "总览", "◎", PAGE_OVERVIEW, listener);
-        addTab(row, "趋势", "⌁", PAGE_TREND, listener);
-        addTab(row, "资产", "▦", PAGE_ASSETS, listener);
+        row.setPadding(dp(14), dp(6), dp(14), dp(8));
+        addTab(row, "总览", ICON_OVERVIEW, PAGE_OVERVIEW, listener);
+        addTab(row, "趋势", ICON_TREND, PAGE_TREND, listener);
+        addTab(row, "资产", ICON_ASSETS, PAGE_ASSETS, listener);
         addView(row, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(64)
+                dp(68)
         ));
     }
 
@@ -60,12 +67,10 @@ public final class BottomNavBar extends LinearLayout {
     public void setSelectedPage(String page) {
         for (TabItem tab : tabs) {
             boolean active = tab.page.equals(page);
-            tab.indicator.setVisibility(active ? View.VISIBLE : View.INVISIBLE);
-            tab.icon.setTextColor(active ? BLUE : INK);
-            tab.icon.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
-            tab.icon.setBackground(active
-                    ? roundedBackground(BLUE_SOFT, Color.TRANSPARENT, 18)
-                    : roundedBackground(Color.TRANSPARENT, Color.TRANSPARENT, 18));
+            tab.container.setBackground(active
+                    ? roundedBackground(BLUE_SOFT, Color.TRANSPARENT, 16)
+                    : roundedBackground(Color.TRANSPARENT, Color.TRANSPARENT, 16));
+            tab.icon.setActive(active);
             tab.label.setTextColor(active ? BLUE : MUTED);
             tab.label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
         }
@@ -74,36 +79,32 @@ public final class BottomNavBar extends LinearLayout {
     private void addTab(
             LinearLayout row,
             String label,
-            String icon,
+            String iconKind,
             String page,
             TabSelectionListener listener
     ) {
         LinearLayout tab = new LinearLayout(activity);
         tab.setOrientation(VERTICAL);
         tab.setGravity(Gravity.CENTER);
-        tab.setPadding(0, 0, 0, 0);
+        tab.setPadding(0, dp(6), 0, dp(5));
         tab.setOnClickListener(view -> listener.onSelected(page));
 
-        View indicator = new View(activity);
-        indicator.setBackground(roundedBackground(BLUE, Color.TRANSPARENT, 2));
-        LinearLayout.LayoutParams indicatorParams = new LinearLayout.LayoutParams(dp(26), dp(3));
-        indicatorParams.bottomMargin = dp(4);
-        tab.addView(indicator, indicatorParams);
-
-        TextView iconView = text(icon, 21, INK, Typeface.NORMAL);
-        iconView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(36), dp(30));
+        TabIconView iconView = new TabIconView(activity, iconKind);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(30), dp(26));
         tab.addView(iconView, iconParams);
 
         TextView labelView = text(label, 12, MUTED, Typeface.NORMAL);
         labelView.setGravity(Gravity.CENTER);
         labelView.setIncludeFontPadding(false);
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-2, -2);
-        labelParams.topMargin = dp(2);
+        labelParams.topMargin = dp(3);
         tab.addView(labelView, labelParams);
 
-        tabs.add(new TabItem(page, indicator, iconView, labelView));
-        row.addView(tab, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1));
+        tabs.add(new TabItem(page, tab, iconView, labelView));
+        LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        tabParams.leftMargin = dp(3);
+        tabParams.rightMargin = dp(3);
+        row.addView(tab, tabParams);
     }
 
     private View dividerLine() {
@@ -139,15 +140,81 @@ public final class BottomNavBar extends LinearLayout {
 
     private static final class TabItem {
         final String page;
-        final View indicator;
-        final TextView icon;
+        final LinearLayout container;
+        final TabIconView icon;
         final TextView label;
 
-        TabItem(String page, View indicator, TextView icon, TextView label) {
+        TabItem(String page, LinearLayout container, TabIconView icon, TextView label) {
             this.page = page;
-            this.indicator = indicator;
+            this.container = container;
             this.icon = icon;
             this.label = label;
+        }
+    }
+
+    private final class TabIconView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+        private final RectF rect = new RectF();
+        private final String kind;
+        private boolean active;
+
+        TabIconView(Activity activity, String kind) {
+            super(activity);
+            this.kind = kind;
+        }
+
+        void setActive(boolean active) {
+            this.active = active;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            paint.setStrokeWidth(dp(active ? 2 : 1));
+            paint.setColor(active ? BLUE : INK);
+            if (ICON_TREND.equals(kind)) {
+                drawTrend(canvas);
+            } else if (ICON_ASSETS.equals(kind)) {
+                drawAssets(canvas);
+            } else {
+                drawOverview(canvas);
+            }
+        }
+
+        private void drawOverview(Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            rect.set(w * 0.18f, h * 0.14f, w * 0.82f, h * 0.86f);
+            canvas.drawRoundRect(rect, dp(8), dp(8), paint);
+            canvas.drawLine(w * 0.32f, h * 0.36f, w * 0.68f, h * 0.36f, paint);
+            canvas.drawLine(w * 0.32f, h * 0.56f, w * 0.54f, h * 0.56f, paint);
+        }
+
+        private void drawTrend(Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            path.reset();
+            path.moveTo(w * 0.14f, h * 0.74f);
+            path.lineTo(w * 0.34f, h * 0.56f);
+            path.lineTo(w * 0.52f, h * 0.64f);
+            path.lineTo(w * 0.78f, h * 0.30f);
+            canvas.drawPath(path, paint);
+            canvas.drawLine(w * 0.14f, h * 0.84f, w * 0.84f, h * 0.84f, paint);
+        }
+
+        private void drawAssets(Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            rect.set(w * 0.16f, h * 0.24f, w * 0.78f, h * 0.72f);
+            canvas.drawRoundRect(rect, dp(6), dp(6), paint);
+            rect.set(w * 0.28f, h * 0.36f, w * 0.88f, h * 0.84f);
+            canvas.drawRoundRect(rect, dp(6), dp(6), paint);
+            canvas.drawLine(w * 0.48f, h * 0.60f, w * 0.68f, h * 0.60f, paint);
         }
     }
 }
