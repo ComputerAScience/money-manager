@@ -52,6 +52,9 @@ public final class AssetStore {
             for (int index = 0; index < array.length(); index += 1) {
                 assets.add(AssetRecord.fromJson(array.getJSONObject(index)));
             }
+            if (migrateLegacyAccountAssets(assets)) {
+                save(assets);
+            }
             return assets;
         } catch (JSONException error) {
             return defaultAssets();
@@ -268,6 +271,7 @@ public final class AssetStore {
         for (int index = 0; index < assetArray.length(); index += 1) {
             importedAssets.add(AssetRecord.fromJson(assetArray.getJSONObject(index)));
         }
+        migrateLegacyAccountAssets(importedAssets);
 
         List<AssetSnapshot> importedSnapshots = new ArrayList<>();
         JSONArray snapshotArray = root.optJSONArray("snapshots");
@@ -300,6 +304,64 @@ public final class AssetStore {
         saveSnapshots(pruneAndSort(backup.snapshots));
         saveUpdateEvents(pruneAndSortUpdateEvents(backup.updateEvents));
         saveSettings(backup.settings);
+    }
+
+    private boolean migrateLegacyAccountAssets(List<AssetRecord> assets) {
+        boolean changed = false;
+        for (AssetRecord asset : assets) {
+            changed = migrateLegacyAccountAsset(asset) || changed;
+        }
+        return changed;
+    }
+
+    private boolean migrateLegacyAccountAsset(AssetRecord asset) {
+        boolean changed = false;
+        String category = asset.category == null ? "" : asset.category;
+        if ("银行".equals(category) || AssetCategories.BANK_DEPOSIT.equals(category)) {
+            if (!hasText(asset.bankDepositAmount)) {
+                asset.bankDepositAmount = asset.amount;
+            }
+            asset.category = AssetCategories.BANK_ACCOUNT;
+            changed = true;
+        } else if (AssetCategories.BANK_WEALTH.equals(category)) {
+            if (!hasText(asset.bankWealthAmount)) {
+                asset.bankWealthAmount = asset.amount;
+            }
+            asset.category = AssetCategories.BANK_ACCOUNT;
+            changed = true;
+        } else if ("券商".equals(category)
+                || AssetCategories.BROKER_HOLDING.equals(category)
+                || AssetCategories.STOCK_HOLDING.equals(category)) {
+            if (!hasText(asset.investmentHoldingAmount)) {
+                asset.investmentHoldingAmount = asset.amount;
+            }
+            asset.category = AssetCategories.INVESTMENT_ACCOUNT;
+            changed = true;
+        } else if (AssetCategories.BROKER_CASH.equals(category)) {
+            if (!hasText(asset.investmentCashAmount)) {
+                asset.investmentCashAmount = asset.amount;
+            }
+            asset.category = AssetCategories.INVESTMENT_ACCOUNT;
+            changed = true;
+        }
+
+        if (AssetCategories.BANK_ACCOUNT.equals(asset.category)
+                && !AssetMath.hasBankBreakdown(asset)
+                && hasText(asset.amount)) {
+            asset.bankDepositAmount = asset.amount;
+            changed = true;
+        }
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)
+                && !AssetMath.hasInvestmentBreakdown(asset)
+                && hasText(asset.amount)) {
+            asset.investmentHoldingAmount = asset.amount;
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private void saveSnapshots(List<AssetSnapshot> snapshots) {
