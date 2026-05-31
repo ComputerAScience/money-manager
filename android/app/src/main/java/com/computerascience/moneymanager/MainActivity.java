@@ -48,6 +48,7 @@ import com.computerascience.moneymanager.model.PortfolioSettings;
 import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.AllocationChartView;
 import com.computerascience.moneymanager.ui.AppPickerDialog;
+import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.TrendChartView;
 
 import java.text.DecimalFormat;
@@ -86,9 +87,9 @@ public final class MainActivity extends Activity {
     private static final int BLUE = Color.rgb(51, 94, 170);
     private static final int DANGER = Color.rgb(190, 67, 80);
     private static final int AMBER = Color.rgb(166, 121, 24);
-    private static final String PAGE_OVERVIEW = "overview";
-    private static final String PAGE_TREND = "trend";
-    private static final String PAGE_ASSETS = "assets";
+    private static final String PAGE_OVERVIEW = BottomNavBar.PAGE_OVERVIEW;
+    private static final String PAGE_TREND = BottomNavBar.PAGE_TREND;
+    private static final String PAGE_ASSETS = BottomNavBar.PAGE_ASSETS;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     private AssetStore store;
@@ -102,9 +103,7 @@ public final class MainActivity extends Activity {
     private LinearLayout overviewPage;
     private LinearLayout trendPage;
     private LinearLayout assetsPage;
-    private Button overviewTab;
-    private Button trendTab;
-    private Button assetsTab;
+    private BottomNavBar bottomNavBar;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -319,34 +318,20 @@ public final class MainActivity extends Activity {
                 1
         ));
 
-        LinearLayout bottomShell = new LinearLayout(this);
-        bottomShell.setOrientation(LinearLayout.VERTICAL);
-        bottomShell.setPadding(0, 0, 0, navigationBarHeight() + dp(6));
-        bottomShell.setBackgroundColor(PANEL);
-        bottomShell.setElevation(dp(10));
-
-        LinearLayout bottomNav = row();
-        bottomNav.setPadding(dp(12), dp(6), dp(12), 0);
-        overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
-        trendTab = bottomTabButton("趋势", PAGE_TREND);
-        assetsTab = bottomTabButton("资产", PAGE_ASSETS);
-        bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        bottomShell.addView(dividerLine(0));
-        bottomShell.addView(bottomNav, lp(-1, dp(64)));
-        screen.addView(bottomShell, lp(-1, -2));
+        bottomNavBar = new BottomNavBar(this, this::selectPage);
+        bottomNavBar.setBottomInset(navigationBarHeight());
+        screen.addView(bottomNavBar, lp(-1, -2));
         setContentView(screen);
-        applySystemBarInsets(screen, header, bottomShell);
+        applySystemBarInsets(screen, header, bottomNavBar);
         updatePageVisibility();
     }
 
-    private void applySystemBarInsets(View screen, View header, View bottomShell) {
+    private void applySystemBarInsets(View screen, View header, BottomNavBar bottomNav) {
         screen.setOnApplyWindowInsetsListener((view, insets) -> {
             int topInset = Math.max(insets.getSystemWindowInsetTop(), statusBarHeight());
             int bottomInset = Math.max(insets.getSystemWindowInsetBottom(), navigationBarHeight());
             header.setPadding(dp(18), topInset + dp(14), dp(18), dp(12));
-            bottomShell.setPadding(0, 0, 0, bottomInset + dp(6));
+            bottomNav.setBottomInset(bottomInset);
             return insets;
         });
         screen.requestApplyInsets();
@@ -400,25 +385,6 @@ public final class MainActivity extends Activity {
         return row;
     }
 
-    private Button bottomTabButton(String label, String page) {
-        Button button = secondaryButton(bottomTabIcon(page) + "\n" + label);
-        button.setTextSize(12);
-        button.setLines(2);
-        button.setLineSpacing(0, 0.95f);
-        button.setOnClickListener(view -> selectPage(page));
-        return button;
-    }
-
-    private String bottomTabIcon(String page) {
-        if (PAGE_TREND.equals(page)) {
-            return "⌁";
-        }
-        if (PAGE_ASSETS.equals(page)) {
-            return "▦";
-        }
-        return "◉";
-    }
-
     private void selectPage(String page) {
         if (currentPage.equals(page)) {
             return;
@@ -435,9 +401,9 @@ public final class MainActivity extends Activity {
         setPageVisible(trendPage, PAGE_TREND.equals(currentPage));
         setPageVisible(assetsPage, PAGE_ASSETS.equals(currentPage));
 
-        styleTab(overviewTab, PAGE_OVERVIEW.equals(currentPage));
-        styleTab(trendTab, PAGE_TREND.equals(currentPage));
-        styleTab(assetsTab, PAGE_ASSETS.equals(currentPage));
+        if (bottomNavBar != null) {
+            bottomNavBar.setSelectedPage(currentPage);
+        }
 
         if (pageTitle != null) {
             pageTitle.setText(pageTitleText());
@@ -451,19 +417,6 @@ public final class MainActivity extends Activity {
         if (page != null) {
             page.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
-    }
-
-    private void styleTab(Button button, boolean active) {
-        if (button == null) {
-            return;
-        }
-        button.setTextColor(active ? BLUE : INK);
-        button.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
-        button.setBackground(buttonBackground(
-                Color.TRANSPARENT,
-                ROW_SURFACE,
-                Color.TRANSPARENT
-        ));
     }
 
     private String pageTitleText() {

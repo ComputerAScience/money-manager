@@ -87,7 +87,7 @@ gradle :app:assembleDebug
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 
-`0.3.7` 之后会尽量保持 debug 签名稳定：GitHub Actions 会缓存默认 debug keystore，之后的自动构建通常可以直接覆盖安装。更稳的方式是把 `money-manager-debug.p12` 以 base64 写入 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`，这样即使缓存失效也会继续使用同一把签名。手机里如果已经安装过旧版本并提示“签名不一致”，需要先卸载旧 App 再安装一次新版；之后同一个固定下载地址会继续覆盖安装。
+`0.3.8` 之后会尽量保持 debug 签名稳定：GitHub Actions 会缓存默认 debug keystore，之后的自动构建通常可以直接覆盖安装。更稳的方式是把 `money-manager-debug.p12` 以 base64 写入 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`，这样即使缓存失效也会继续使用同一把签名。手机里如果已经安装过旧版本并提示“签名不一致”，需要先卸载旧 App 再安装一次新版；之后同一个固定下载地址会继续覆盖安装。
 
 App 顶部设置入口里也有“版本与更新”：可以查看当前版本、打开固定 APK 下载地址，或复制下载链接。
 
@@ -96,7 +96,7 @@ App 顶部设置入口里也有“版本与更新”：可以查看当前版本�
 - `model/`：资产、快照、更新事件、组合设置等数据模型
 - `data/`：本地存储、备份导入导出、快照维护
 - `domain/`：资产汇总、币种换算、过期判断等计算逻辑
-- `ui/`：资产分布图、趋势图和 App 选择器等界面模块
+- `ui/`：底部导航、资产分布图、趋势图和 App 选择器等界面模块
 
 ## 如何绑定 App
 
