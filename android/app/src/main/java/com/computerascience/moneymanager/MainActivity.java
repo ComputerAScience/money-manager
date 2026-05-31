@@ -2577,7 +2577,7 @@ public final class MainActivity extends Activity {
                 .setTitle("删除快照？")
                 .setMessage("确定删除 " + snapshot.dayKey + " 的 " + snapshot.baseCurrency + " 快照吗？趋势图会立刻更新。")
                 .setNegativeButton("取消", null)
-                .setPositiveButton("删除", (dialog, which) -> {
+                .setPositiveButton("删除", (ignoredDialog, which) -> {
                     snapshots = store.deleteSnapshot(snapshot.dayKey, snapshot.baseCurrency);
                     render();
                     toast("已删除趋势快照。");
@@ -3058,7 +3058,7 @@ public final class MainActivity extends Activity {
                 .setTitle("删除更新记录？")
                 .setMessage("确定删除「" + assetName + "」这条更新记录吗？这只删除历史记录，不会回滚资产金额或趋势快照。")
                 .setNegativeButton("取消", null)
-                .setPositiveButton("删除", (dialog, which) -> {
+                .setPositiveButton("删除", (ignoredDialog, which) -> {
                     updateEvents = store.deleteUpdateEvent(event.assetId, event.timestamp);
                     render();
                     toast("已删除更新记录。");
@@ -3667,7 +3667,7 @@ public final class MainActivity extends Activity {
                         + backup.snapshots.size() + " 个趋势快照、"
                         + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置，并覆盖当前本机数据。")
                 .setNegativeButton("取消", null)
-                .setPositiveButton("导入", (dialog, which) -> {
+                .setPositiveButton("导入", (ignoredDialog, which) -> {
                     store.replaceAll(backup);
                     assets = store.load();
                     settings = store.loadSettings();
