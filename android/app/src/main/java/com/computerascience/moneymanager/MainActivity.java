@@ -36,6 +36,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.computerascience.moneymanager.data.AssetStore;
+import com.computerascience.moneymanager.domain.AssetAppGroups;
 import com.computerascience.moneymanager.domain.AssetCategories;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.AssetPresets;
@@ -1314,8 +1315,8 @@ public final class MainActivity extends Activity {
         panel.setPadding(dp(12), dp(12), dp(12), dp(12));
         panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
 
-        panel.addView(text("快速新增", 13, INK, Typeface.BOLD));
-        TextView help = text("按账户记录：银行账户内填存款、理财、负债；投资账户内填持仓市值、可用现金和持股备注。", 12, MUTED, Typeface.NORMAL);
+        panel.addView(text("快速新增 App 账户", 13, INK, Typeface.BOLD));
+        TextView help = text("先选银行或券商 App，再在同一个条目下维护现金、理财、负债、持仓和可用现金。", 12, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams helpParams = lp(-1, -2);
         helpParams.topMargin = dp(4);
         panel.addView(help, helpParams);
@@ -2238,7 +2239,7 @@ public final class MainActivity extends Activity {
     }
 
     private void renderAssetGroups(List<AssetRecord> visibleAssets, PortfolioSummary portfolio) {
-        for (AssetAppGroup group : visibleAppGroups(visibleAssets)) {
+        for (AssetAppGroups.Group group : AssetAppGroups.groupByApp(visibleAssets, settings, this::appDisplayName)) {
             assetList.addView(assetAppGroupHeader(group, portfolio.baseCurrency));
             if (!collapsedAssetGroups.contains(group.key)) {
                 for (AssetRecord asset : group.assets) {
@@ -2248,112 +2249,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private List<AssetAppGroup> visibleAppGroups(List<AssetRecord> visibleAssets) {
-        Map<String, AssetAppGroup> groups = new HashMap<>();
-        for (AssetRecord asset : visibleAssets) {
-            String key = assetAppGroupKey(asset);
-            AssetAppGroup group = groups.get(key);
-            if (group == null) {
-                group = new AssetAppGroup(key, assetAppGroupTitle(asset));
-                groups.put(key, group);
-            }
-            group.assets.add(asset);
-            group.total += assetMagnitudeInBase(asset);
-            if (isStale(asset)) {
-                group.staleCount += 1;
-            }
-            if (!asset.packageName.isEmpty() || !asset.launchUri.isEmpty()) {
-                group.hasBoundApp = true;
-            }
-            addAssetKinds(group, asset);
-        }
-
-        List<AssetAppGroup> result = new ArrayList<>(groups.values());
-        Collections.sort(result, (left, right) -> {
-            if ((left.staleCount > 0) != (right.staleCount > 0)) {
-                return left.staleCount > 0 ? -1 : 1;
-            }
-            if (left.hasBoundApp != right.hasBoundApp) {
-                return left.hasBoundApp ? 1 : -1;
-            }
-            int totalCompare = Double.compare(right.total, left.total);
-            if (totalCompare != 0) {
-                return totalCompare;
-            }
-            return left.title.compareToIgnoreCase(right.title);
-        });
-        return result;
-    }
-
-    private String assetAppGroupKey(AssetRecord asset) {
-        String packageName = clean(asset.packageName);
-        if (!packageName.isEmpty()) {
-            return "pkg:" + packageName;
-        }
-        String launchUri = clean(asset.launchUri);
-        if (!launchUri.isEmpty()) {
-            return "uri:" + launchUri;
-        }
-        String institution = clean(asset.institution);
-        if (!institution.isEmpty() && !institution.contains("待绑定")) {
-            return "inst:" + institution.toLowerCase(Locale.ROOT);
-        }
-        return "unbound";
-    }
-
-    private String assetAppGroupTitle(AssetRecord asset) {
-        if (!asset.packageName.isEmpty() || !asset.launchUri.isEmpty()) {
-            return appDisplayName(asset);
-        }
-        String institution = clean(asset.institution);
-        if (!institution.isEmpty() && !institution.contains("待绑定")) {
-            return institution;
-        }
-        return "未绑定 App";
-    }
-
-    private double assetMagnitudeInBase(AssetRecord asset) {
-        String currency = AssetMath.cleanCurrency(asset.currency);
-        double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-        return assetMagnitude(asset) * rate;
-    }
-
-    private void addAssetKinds(AssetAppGroup group, AssetRecord asset) {
-        if (AssetMath.isBankAccount(asset)) {
-            addAssetKind(group, "现金");
-            if (!clean(asset.bankWealthAmount).isEmpty()) {
-                addAssetKind(group, "理财");
-            }
-            if (!clean(asset.bankDebtAmount).isEmpty()) {
-                addAssetKind(group, "负债");
-            }
-            return;
-        }
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            addAssetKind(group, "投资");
-            if (!clean(asset.investmentCashAmount).isEmpty()) {
-                addAssetKind(group, "现金");
-            }
-            return;
-        }
-        if (AssetCategories.FUND.equals(asset.category)) {
-            addAssetKind(group, "基金");
-            return;
-        }
-        if (AssetCategories.DEBT.equals(asset.category)) {
-            addAssetKind(group, "负债");
-            return;
-        }
-        addAssetKind(group, asset.category);
-    }
-
-    private void addAssetKind(AssetAppGroup group, String kind) {
-        if (!group.kinds.contains(kind)) {
-            group.kinds.add(kind);
-        }
-    }
-
-    private View assetAppGroupHeader(AssetAppGroup group, String baseCurrency) {
+    private View assetAppGroupHeader(AssetAppGroups.Group group, String baseCurrency) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
         row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
@@ -2365,10 +2261,9 @@ public final class MainActivity extends Activity {
         labelGroup.setOrientation(LinearLayout.VERTICAL);
         labelGroup.addView(text(group.title + " · " + group.assets.size() + " 项资产", 14, INK, Typeface.BOLD));
 
-        String kindText = group.kinds.isEmpty() ? "明细待完善" : joinLabels(group.kinds);
         String bindText = group.hasBoundApp ? "已绑定 App" : "未绑定 App";
         String detail = "小计 " + formatMoney(group.total, baseCurrency)
-                + " · " + kindText
+                + " · " + group.displayKinds()
                 + " · " + group.staleCount + " 项待更新"
                 + " · " + bindText;
         LinearLayout.LayoutParams detailParams = lp(-1, -2);
@@ -2387,17 +2282,6 @@ public final class MainActivity extends Activity {
         });
         row.addView(toggle, new LinearLayout.LayoutParams(dp(72), dp(38)));
         return row;
-    }
-
-    private String joinLabels(List<String> labels) {
-        StringBuilder builder = new StringBuilder();
-        for (String label : labels) {
-            if (builder.length() > 0) {
-                builder.append(" / ");
-            }
-            builder.append(label);
-        }
-        return builder.toString();
     }
 
     private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
@@ -4656,21 +4540,6 @@ public final class MainActivity extends Activity {
         AllocationTargetField(String category, EditText input) {
             this.category = category;
             this.input = input;
-        }
-    }
-
-    private static final class AssetAppGroup {
-        final String key;
-        final String title;
-        final List<AssetRecord> assets = new ArrayList<>();
-        final List<String> kinds = new ArrayList<>();
-        double total;
-        int staleCount;
-        boolean hasBoundApp;
-
-        AssetAppGroup(String key, String title) {
-            this.key = key;
-            this.title = title;
         }
     }
 

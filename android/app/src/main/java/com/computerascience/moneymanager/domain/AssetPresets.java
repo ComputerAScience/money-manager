@@ -36,7 +36,7 @@ public final class AssetPresets {
     private static List<Preset> buildQuickAddPresets() {
         List<Preset> presets = new ArrayList<>();
         presets.add(new Preset(
-                "银行账户",
+                "银行 App",
                 "银行账户",
                 AssetCategories.BANK_ACCOUNT,
                 "待绑定银行 App",
@@ -44,7 +44,7 @@ public final class AssetPresets {
                 "在一个银行账户里填写存款、理财和负债，只需要绑定一次银行 App。"
         ));
         presets.add(new Preset(
-                "投资账户",
+                "券商 App",
                 "投资账户",
                 AssetCategories.INVESTMENT_ACCOUNT,
                 "待绑定券商 App",
