@@ -1853,22 +1853,34 @@ public final class MainActivity extends Activity {
     private void renderAssetFilterButtons() {
         assetFilterButtons.removeAllViews();
 
-        LinearLayout segmented = row();
-        segmented.setGravity(Gravity.CENTER_VERTICAL);
-        segmented.setPadding(dp(3), dp(3), dp(3), dp(3));
-        segmented.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        addSegmentFilterButton(segmented, "全部", "all");
-        addSegmentFilterButton(segmented, "待更新", "stale");
-        addSegmentFilterButton(segmented, "未绑定", "unbound");
-        addSegmentFilterButton(segmented, "待完善", "issues");
-        addSegmentFilterButton(segmented, "负债", "debt");
-        assetFilterButtons.addView(segmented, lp(-1, dp(44)));
+        LinearLayout filterGroup = new LinearLayout(this);
+        filterGroup.setOrientation(LinearLayout.VERTICAL);
+        filterGroup.setPadding(dp(3), dp(3), dp(3), dp(3));
+        filterGroup.setBackground(cardBackground(PANEL, PANEL_BORDER));
+
+        LinearLayout firstRow = row();
+        firstRow.setGravity(Gravity.CENTER_VERTICAL);
+        addSegmentFilterButton(firstRow, "全部", "all");
+        addSegmentFilterButton(firstRow, "待更新", "stale");
+        addSegmentFilterButton(firstRow, "未绑定", "unbound");
+        filterGroup.addView(firstRow, lp(-1, dp(38)));
+
+        LinearLayout secondRow = row();
+        secondRow.setGravity(Gravity.CENTER_VERTICAL);
+        addSegmentFilterButton(secondRow, "待完善", "issues");
+        addSegmentFilterButton(secondRow, "负债", "debt");
+        LinearLayout.LayoutParams secondParams = lp(-1, dp(38));
+        secondParams.topMargin = dp(3);
+        filterGroup.addView(secondRow, secondParams);
+
+        assetFilterButtons.addView(filterGroup, lp(-1, dp(85)));
     }
 
     private void addSegmentFilterButton(LinearLayout row, String label, String mode) {
         boolean active = assetFilterMode.equals(mode);
         Button button = secondaryButton(label);
-        button.setTextSize(13);
+        button.setTextSize(12);
+        button.setSingleLine(true);
         button.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
         button.setTextColor(active ? Color.WHITE : MUTED);
         button.setPadding(0, 0, 0, 0);
