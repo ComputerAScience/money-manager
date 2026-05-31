@@ -3164,6 +3164,11 @@ public final class MainActivity extends Activity {
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
+        TextView categoryMark = categoryMark(asset);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(42), dp(42));
+        markParams.rightMargin = dp(12);
+        header.addView(categoryMark, markParams);
+
         LinearLayout titleGroup = new LinearLayout(this);
         titleGroup.setOrientation(LinearLayout.VERTICAL);
         header.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
@@ -3199,12 +3204,16 @@ public final class MainActivity extends Activity {
         updatedParams.topMargin = dp(10);
         card.addView(updated, updatedParams);
 
-        if (!asset.packageName.isEmpty() || !asset.launchUri.isEmpty()) {
-            TextView boundApp = text("绑定 App：" + appDisplayName(asset), 13, BLUE, Typeface.BOLD);
-            LinearLayout.LayoutParams appParams = lp(-1, -2);
-            appParams.topMargin = dp(8);
-            card.addView(boundApp, appParams);
-        }
+        boolean hasBoundApp = !asset.packageName.isEmpty() || !asset.launchUri.isEmpty();
+        TextView boundApp = text(
+                hasBoundApp ? "App · " + appDisplayName(asset) : "App · 未绑定，点击打开时选择",
+                13,
+                hasBoundApp ? BLUE : AMBER,
+                Typeface.BOLD
+        );
+        LinearLayout.LayoutParams appParams = lp(-1, -2);
+        appParams.topMargin = dp(8);
+        card.addView(boundApp, appParams);
 
         if (!asset.note.isEmpty()) {
             TextView note = text(asset.note, 14, MUTED, Typeface.NORMAL);
@@ -3220,25 +3229,43 @@ public final class MainActivity extends Activity {
         actionsParams.topMargin = dp(14);
         card.addView(actions, actionsParams);
 
-        Button launch = secondaryButton("打开 App");
+        Button launch = secondaryButton("↗ 打开");
         launch.setOnClickListener(view -> openLinkedApp(asset));
         actions.addView(launch, new LinearLayout.LayoutParams(0, dp(44), 1));
 
         SpaceView gap1 = new SpaceView(this, dp(8), 1);
         actions.addView(gap1);
 
-        Button mark = secondaryButton("已更新");
+        Button mark = secondaryButton("✓ 更新");
         mark.setOnClickListener(view -> showAssetUpdateDialog(asset));
         actions.addView(mark, new LinearLayout.LayoutParams(0, dp(44), 1));
 
         SpaceView gap2 = new SpaceView(this, dp(8), 1);
         actions.addView(gap2);
 
-        Button edit = secondaryButton("编辑");
+        Button edit = secondaryButton("✎ 编辑");
         edit.setOnClickListener(view -> showEditDialog(asset));
         actions.addView(edit, new LinearLayout.LayoutParams(0, dp(44), 1));
 
         return card;
+    }
+
+    private TextView categoryMark(AssetRecord asset) {
+        int color = AssetMath.colorForCategory(asset.category);
+        TextView mark = text(categoryIcon(asset.category), 18, color, Typeface.BOLD);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        return mark;
+    }
+
+    private String categoryIcon(String category) {
+        if ("银行".equals(category)) return "¥";
+        if ("券商".equals(category)) return "↗";
+        if ("基金".equals(category)) return "◔";
+        if ("加密资产".equals(category)) return "◇";
+        if ("房产".equals(category)) return "⌂";
+        if ("负债".equals(category)) return "!";
+        return "•";
     }
 
     private TextView statusChip(AssetRecord asset) {
