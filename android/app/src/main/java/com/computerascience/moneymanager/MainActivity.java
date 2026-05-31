@@ -19,6 +19,7 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -75,12 +76,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPOutputStream;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
     private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
+    private static final String SHARE_PAGE_URL = "https://computerascience.github.io/money-manager/";
     private static final String ADD_CATEGORY_OPTION = "新增资产类型...";
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "买入卖出", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
@@ -1216,6 +1223,16 @@ public final class MainActivity extends Activity {
         ));
 
         addSettingsSection(body, "数据");
+        body.addView(settingsActionRow(
+                "享",
+                "分享看板",
+                "生成 GitHub Pages 只读链接，别人打开即可查看当前资产概览。",
+                ACCENT,
+                view -> {
+                    dialog.dismiss();
+                    sharePortfolioPage();
+                }
+        ));
         body.addView(settingsActionRow(
                 "⇧",
                 "导出备份",
@@ -4269,6 +4286,148 @@ public final class MainActivity extends Activity {
         snapshots = store.recordSnapshot(assets, settings);
         render();
         toast("已更新「" + asset.name + "」。");
+    }
+
+    private void sharePortfolioPage() {
+        try {
+            String link = buildShareLink();
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Money Manager 资产看板");
+            shareIntent.putExtra(Intent.EXTRA_TEXT, "我的资产看板：\n" + link);
+            startActivity(Intent.createChooser(shareIntent, "分享资产看板"));
+        } catch (ActivityNotFoundException error) {
+            toast("没有找到可分享的应用。");
+        } catch (Exception error) {
+            toast("生成分享链接失败，请重试。");
+        }
+    }
+
+    private String buildShareLink() throws IOException, JSONException {
+        JSONObject payload = sharePayload();
+        byte[] compressed = gzip(payload.toString().getBytes(StandardCharsets.UTF_8));
+        String encoded = Base64.encodeToString(
+                compressed,
+                Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING
+        );
+        return SHARE_PAGE_URL + "#data=" + encoded;
+    }
+
+    private JSONObject sharePayload() throws JSONException {
+        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
+        boolean includeAmounts = !settings.hideAmounts;
+
+        JSONObject root = new JSONObject();
+        root.put("schema", "money-manager-share-v1");
+        root.put("generatedAt", System.currentTimeMillis());
+        root.put("baseCurrency", portfolio.baseCurrency);
+        root.put("includeAmounts", includeAmounts);
+        root.put("assetCount", portfolio.assetCount);
+        root.put("staleCount", portfolio.staleCount);
+
+        JSONObject totals = new JSONObject();
+        if (includeAmounts) {
+            totals.put("netWorth", portfolio.netWorth);
+            totals.put("grossAssets", portfolio.grossAssets);
+            totals.put("liabilities", portfolio.liabilities);
+        }
+        root.put("totals", totals);
+        root.put("categories", shareCategories(portfolio, includeAmounts));
+        root.put("institutions", shareInstitutions(portfolio, includeAmounts));
+        root.put("assets", shareAssets(includeAmounts));
+        root.put("snapshots", shareSnapshots(includeAmounts));
+        return root;
+    }
+
+    private JSONArray shareCategories(PortfolioSummary portfolio, boolean includeAmounts) throws JSONException {
+        JSONArray array = new JSONArray();
+        for (CategoryBreakdown category : portfolio.categories) {
+            JSONObject item = new JSONObject();
+            item.put("name", category.category);
+            item.put("color", category.color);
+            if (includeAmounts) {
+                item.put("value", category.value);
+            }
+            array.put(item);
+        }
+        return array;
+    }
+
+    private JSONArray shareInstitutions(PortfolioSummary portfolio, boolean includeAmounts) throws JSONException {
+        JSONArray array = new JSONArray();
+        for (InstitutionBreakdown institution : portfolio.institutions) {
+            JSONObject item = new JSONObject();
+            item.put("name", institution.institution);
+            item.put("assetCount", institution.assetCount);
+            if (includeAmounts) {
+                item.put("value", institution.value);
+            }
+            array.put(item);
+        }
+        return array;
+    }
+
+    private JSONArray shareAssets(boolean includeAmounts) throws JSONException {
+        List<AssetRecord> sortedAssets = new ArrayList<>(assets);
+        Collections.sort(sortedAssets, (left, right) -> Double.compare(
+                shareAssetMagnitude(right),
+                shareAssetMagnitude(left)
+        ));
+
+        JSONArray array = new JSONArray();
+        for (AssetRecord asset : sortedAssets) {
+            JSONObject item = new JSONObject();
+            item.put("name", asset.name);
+            item.put("category", asset.category);
+            item.put("institution", AssetMath.cleanInstitution(asset.institution));
+            item.put("currency", AssetMath.cleanCurrency(asset.currency));
+            item.put("lastUpdatedAt", asset.lastUpdatedAt);
+            item.put("stale", AssetMath.isStale(asset));
+            if (includeAmounts) {
+                String currency = AssetMath.cleanCurrency(asset.currency);
+                double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+                double grossBase = AssetMath.assetGrossAmount(asset) * rate;
+                double liabilityBase = AssetMath.assetLiabilityAmount(asset) * rate;
+                item.put("grossBase", grossBase);
+                item.put("liabilityBase", liabilityBase);
+                item.put("netBase", grossBase - liabilityBase);
+            }
+            array.put(item);
+        }
+        return array;
+    }
+
+    private double shareAssetMagnitude(AssetRecord asset) {
+        String currency = AssetMath.cleanCurrency(asset.currency);
+        double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+        return (AssetMath.assetGrossAmount(asset) + AssetMath.assetLiabilityAmount(asset)) * rate;
+    }
+
+    private JSONArray shareSnapshots(boolean includeAmounts) throws JSONException {
+        JSONArray array = new JSONArray();
+        if (!includeAmounts) {
+            return array;
+        }
+        int start = Math.max(0, snapshots.size() - 24);
+        for (int index = start; index < snapshots.size(); index += 1) {
+            AssetSnapshot snapshot = snapshots.get(index);
+            JSONObject item = new JSONObject();
+            item.put("dayKey", snapshot.dayKey);
+            item.put("timestamp", snapshot.timestamp);
+            item.put("netWorth", snapshot.netWorth);
+            item.put("grossAssets", snapshot.grossAssets);
+            item.put("liabilities", snapshot.liabilities);
+            array.put(item);
+        }
+        return array;
+    }
+
+    private byte[] gzip(byte[] source) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
+            gzip.write(source);
+        }
+        return output.toByteArray();
     }
 
     private void startBackupExport() {
