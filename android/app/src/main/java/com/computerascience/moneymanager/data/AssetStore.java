@@ -32,6 +32,9 @@ public final class AssetStore {
     private static final String KEY_SNAPSHOTS = "snapshots";
     private static final String KEY_UPDATE_EVENTS = "updateEvents";
     private static final String KEY_SETTINGS = "settings";
+    private static final String KEY_SCHEMA_VERSION = "schemaVersion";
+    private static final String KEY_LAST_MIGRATION_AT = "lastMigrationAt";
+    private static final int SCHEMA_VERSION = 7;
 
     private final SharedPreferences preferences;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -52,8 +55,10 @@ public final class AssetStore {
             for (int index = 0; index < array.length(); index += 1) {
                 assets.add(AssetRecord.fromJson(array.getJSONObject(index)));
             }
-            if (migrateLegacyAccountAssets(assets)) {
-                save(assets);
+            if (migrateStoredAssets(assets)) {
+                saveAssets(assets, true);
+            } else {
+                ensureStoredSchemaVersion();
             }
             return assets;
         } catch (JSONException error) {
@@ -62,6 +67,10 @@ public final class AssetStore {
     }
 
     public void save(List<AssetRecord> assets) {
+        saveAssets(assets, false);
+    }
+
+    private void saveAssets(List<AssetRecord> assets, boolean migrated) {
         JSONArray array = new JSONArray();
         for (AssetRecord asset : assets) {
             try {
@@ -70,7 +79,13 @@ public final class AssetStore {
                 // Skip malformed records rather than losing the whole list.
             }
         }
-        preferences.edit().putString(KEY_ASSETS, array.toString()).apply();
+        SharedPreferences.Editor editor = preferences.edit()
+                .putString(KEY_ASSETS, array.toString())
+                .putInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION);
+        if (migrated) {
+            editor.putLong(KEY_LAST_MIGRATION_AT, System.currentTimeMillis());
+        }
+        editor.apply();
     }
 
     public PortfolioSettings loadSettings() {
@@ -236,7 +251,8 @@ public final class AssetStore {
     ) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("app", "money-manager-android");
-        root.put("version", 6);
+        root.put("version", SCHEMA_VERSION);
+        root.put("schemaVersion", SCHEMA_VERSION);
         root.put("exportedAt", System.currentTimeMillis());
 
         JSONArray assetArray = new JSONArray();
@@ -304,6 +320,21 @@ public final class AssetStore {
         saveSnapshots(pruneAndSort(backup.snapshots));
         saveUpdateEvents(pruneAndSortUpdateEvents(backup.updateEvents));
         saveSettings(backup.settings);
+    }
+
+    private boolean migrateStoredAssets(List<AssetRecord> assets) {
+        int storedSchemaVersion = preferences.getInt(KEY_SCHEMA_VERSION, 0);
+        boolean changed = false;
+        if (storedSchemaVersion < 7) {
+            changed = migrateLegacyAccountAssets(assets);
+        }
+        return changed || storedSchemaVersion < SCHEMA_VERSION;
+    }
+
+    private void ensureStoredSchemaVersion() {
+        if (preferences.getInt(KEY_SCHEMA_VERSION, 0) != SCHEMA_VERSION) {
+            preferences.edit().putInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION).apply();
+        }
     }
 
     private boolean migrateLegacyAccountAssets(List<AssetRecord> assets) {
