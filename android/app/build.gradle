@@ -3,6 +3,9 @@ plugins {
 }
 
 def moneyManagerDebugKeystore = file("money-manager-debug.p12")
+def masterReleaseTag = "android-debug-latest"
+def devReleaseTag = "android-dev-latest"
+def repo = "ComputerAScience/money-manager"
 
 android {
     namespace "com.computerascience.moneymanager"
@@ -12,8 +15,34 @@ android {
         applicationId "com.computerascience.moneymanager"
         minSdk 23
         targetSdk 35
-        versionCode 43
-        versionName "0.6.5"
+        versionCode 44
+        versionName "0.6.6"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    flavorDimensions "channel"
+
+    productFlavors {
+        master {
+            dimension "channel"
+            manifestPlaceholders = [appLabel: "Money Manager"]
+            buildConfigField "String", "CHANNEL", "\"master\""
+            buildConfigField "String", "CHANNEL_LABEL", "\"Master\""
+            buildConfigField "String", "APK_DOWNLOAD_URL", "\"https://github.com/${repo}/releases/download/${masterReleaseTag}/money-manager-master.apk\""
+            buildConfigField "String", "UPDATE_INFO_URL", "\"https://github.com/${repo}/releases/download/${masterReleaseTag}/version.json\""
+        }
+        dev {
+            dimension "channel"
+            versionNameSuffix "-dev"
+            manifestPlaceholders = [appLabel: "Money Manager Dev"]
+            buildConfigField "String", "CHANNEL", "\"dev\""
+            buildConfigField "String", "CHANNEL_LABEL", "\"Dev\""
+            buildConfigField "String", "APK_DOWNLOAD_URL", "\"https://github.com/${repo}/releases/download/${devReleaseTag}/money-manager-dev.apk\""
+            buildConfigField "String", "UPDATE_INFO_URL", "\"https://github.com/${repo}/releases/download/${devReleaseTag}/version.json\""
+        }
     }
 
     signingConfigs {

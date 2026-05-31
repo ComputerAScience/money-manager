@@ -61,19 +61,20 @@
 
 ```bash
 cd android
-gradle :app:assembleDebug
+gradle :app:assembleMasterDebug :app:assembleDevDebug
 ```
 
 当前 Codex 环境没有 Java / Gradle / Android SDK，所以这里没有直接编译 APK。
 
 ## 不写代码，直接下载 APK
 
-这个仓库已经配置了 GitHub Actions 自动构建。最简单的方式是手机扫描仓库首页 README 里的二维码，或直接打开固定下载地址：
+这个仓库已经配置了 GitHub Actions 自动构建，并发布 master / dev 两个渠道。两个渠道使用同一个 Android 包名和同一套稳定签名，因此不能同时安装，但可以互相覆盖安装，正常情况下本机数据会保留。开发版的 App 名称会显示为 `Money Manager Dev`。
 
-[下载最新版 Android APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk)
+- [下载 master 版 APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-master.apk)
+- [下载开发版 APK](https://github.com/ComputerAScience/money-manager/releases/download/android-dev-latest/money-manager-dev.apk)
 
-<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk">
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-debug.apk" alt="扫码下载 Money Manager Android APK" width="220" height="220">
+<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-master.apk">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-master.apk" alt="扫码下载 Money Manager master APK" width="220" height="220">
 </a>
 
 如果想从构建记录里下载，也可以：
@@ -83,7 +84,7 @@ gradle :app:assembleDebug
 3. 点击 `Build Android APK`。
 4. 选择最新一次成功运行。
 5. 在页面底部 `Artifacts` 下载 `money-manager-debug-apk`。
-6. 解压后得到 `money-manager-debug.apk`，发送到 Android 手机安装。
+6. 解压后得到 `money-manager-master.apk` 和 `money-manager-dev.apk`，发送到 Android 手机安装。
 
 如果想手动重新构建：
 
@@ -93,7 +94,7 @@ gradle :app:assembleDebug
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 
-`0.4.1` 之后会尽量保持 debug 签名稳定：GitHub Actions 会优先使用 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`；如果没有配置 secret，会自动生成专用 `money-manager-debug.p12` 并缓存复用。手机里如果已经安装过旧签名版本并提示“签名不一致”，需要先卸载旧 App 再安装一次新版；之后同一个固定下载地址通常可以直接覆盖安装。
+`0.6.6` 之后会让 master / dev 复用同一套 debug 签名：GitHub Actions 会优先使用 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`；如果没有配置 secret，会在 master 分支自动生成专用 `money-manager-debug.p12` 并缓存复用，开发分支只有恢复到这套共享签名时才会发布 dev APK。手机里如果已经安装过更早的分支签名版本并提示“签名不一致”，Android 不允许直接覆盖；请先在 App 设置里导出备份，再卸载旧签名版本，安装 `0.6.6` 之后导入备份。完成这一次切换后，后续 master 和 dev 之间覆盖安装会保留数据。
 
 App 顶部设置入口里也有“版本与更新”：可以查看当前版本、读取公开 GitHub Release 里的最新版本信息、优先使用 metadata 里的 APK 下载地址，或复制下载链接。
 

@@ -85,8 +85,8 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
-    private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
-    private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
+    private static final String APK_DOWNLOAD_URL = BuildConfig.APK_DOWNLOAD_URL;
+    private static final String UPDATE_INFO_URL = BuildConfig.UPDATE_INFO_URL;
     private static final String SHARE_PAGE_URL = "https://computerascience.github.io/money-manager/";
     private static final String ADD_CATEGORY_OPTION = "新增资产类型...";
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "买入卖出", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
@@ -250,7 +250,7 @@ public final class MainActivity extends Activity {
         mark.setBackground(roundedBackground(ACCENT_DARK, ACCENT, 8));
         brand.addView(mark, new LinearLayout.LayoutParams(dp(34), dp(34)));
 
-        TextView eyebrow = label("Money Manager");
+        TextView eyebrow = label("Money Manager · " + BuildConfig.CHANNEL_LABEL);
         LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
         eyebrowParams.leftMargin = dp(10);
         brand.addView(eyebrow, eyebrowParams);

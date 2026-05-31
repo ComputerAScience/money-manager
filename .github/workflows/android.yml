@@ -52,12 +52,13 @@ jobs:
         working-directory: .
         run: node tools/migrate-backup-v8.test.js
 
-      - name: Cache fallback stable debug signing key
+      - name: Restore stable debug signing key from cache
+        id: signing-key-cache
         if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' }}
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: android/app/money-manager-debug.p12
-          key: money-manager-debug-p12-v1
+          key: money-manager-debug-p12-v2
 
       - name: Restore stable debug signing key from secret
         run: |
@@ -80,49 +81,117 @@ jobs:
               -dname "CN=Money Manager Debug,O=ComputerAScience,C=US"
           fi
 
+      - name: Save stable debug signing key to cache
+        if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' && github.ref == 'refs/heads/master' && steps.signing-key-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: android/app/money-manager-debug.p12
+          key: money-manager-debug-p12-v2
+
       - name: Build debug APK
-        run: gradle :app:assembleDebug
+        run: gradle :app:assembleMasterDebug :app:assembleDevDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/money-manager-debug.apk
+        run: |
+          set -euo pipefail
+          mkdir -p app/build/outputs/apk/release-channel
+          cp app/build/outputs/apk/master/debug/app-master-debug.apk app/build/outputs/apk/release-channel/money-manager-master.apk
+          cp app/build/outputs/apk/master/debug/app-master-debug.apk app/build/outputs/apk/release-channel/money-manager-debug.apk
+          cp app/build/outputs/apk/dev/debug/app-dev-debug.apk app/build/outputs/apk/release-channel/money-manager-dev.apk
 
       - name: Write update metadata
         run: |
           set -euo pipefail
-          tag="android-debug-latest"
-          metadata="app/build/outputs/apk/debug/version.json"
+          master_tag="android-debug-latest"
+          dev_tag="android-dev-latest"
+          output_dir="app/build/outputs/apk/release-channel"
           version_name="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)"
           version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
-          apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/money-manager-debug.apk"
           built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           test -n "$version_name"
           test -n "$version_code"
-          printf '{\n' > "$metadata"
-          printf '  "versionName": "%s",\n' "$version_name" >> "$metadata"
-          printf '  "versionCode": %s,\n' "$version_code" >> "$metadata"
-          printf '  "apkUrl": "%s",\n' "$apk_url" >> "$metadata"
-          printf '  "commit": "%s",\n' "$GITHUB_SHA" >> "$metadata"
-          printf '  "builtAt": "%s"\n' "$built_at" >> "$metadata"
-          printf '}\n' >> "$metadata"
-          cat "$metadata"
+          write_metadata() {
+            local metadata="$1"
+            local channel="$2"
+            local display_version="$3"
+            local apk_url="$4"
+            printf '{\n' > "$metadata"
+            printf '  "channel": "%s",\n' "$channel" >> "$metadata"
+            printf '  "versionName": "%s",\n' "$display_version" >> "$metadata"
+            printf '  "versionCode": %s,\n' "$version_code" >> "$metadata"
+            printf '  "apkUrl": "%s",\n' "$apk_url" >> "$metadata"
+            printf '  "commit": "%s",\n' "$GITHUB_SHA" >> "$metadata"
+            printf '  "branch": "%s",\n' "$GITHUB_REF_NAME" >> "$metadata"
+            printf '  "builtAt": "%s"\n' "$built_at" >> "$metadata"
+            printf '}\n' >> "$metadata"
+          }
+          write_metadata \
+            "$output_dir/version.json" \
+            "master" \
+            "$version_name" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${master_tag}/money-manager-master.apk"
+          write_metadata \
+            "$output_dir/dev-version.json" \
+            "dev" \
+            "${version_name}-dev" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${dev_tag}/money-manager-dev.apk"
+          cat "$output_dir/version.json"
+          cat "$output_dir/dev-version.json"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: money-manager-debug-apk
           path: |
-            android/app/build/outputs/apk/debug/money-manager-debug.apk
-            android/app/build/outputs/apk/debug/version.json
+            android/app/build/outputs/apk/release-channel/money-manager-master.apk
+            android/app/build/outputs/apk/release-channel/money-manager-debug.apk
+            android/app/build/outputs/apk/release-channel/money-manager-dev.apk
+            android/app/build/outputs/apk/release-channel/version.json
+            android/app/build/outputs/apk/release-channel/dev-version.json
 
-      - name: Publish latest debug APK release
-        if: github.event_name != 'pull_request'
+      - name: Publish latest master APK release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           tag="android-debug-latest"
-          apk="app/build/outputs/apk/debug/money-manager-debug.apk"
-          metadata="app/build/outputs/apk/debug/version.json"
+          output_dir="app/build/outputs/apk/release-channel"
+          master_apk="$output_dir/money-manager-master.apk"
+          legacy_apk="$output_dir/money-manager-debug.apk"
+          metadata="$output_dir/version.json"
+          test -f "$master_apk"
+          test -f "$legacy_apk"
+          test -f "$metadata"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$tag" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$tag"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "Latest Android Master APK" \
+              --notes "最新 master APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
+              --prerelease
+          fi
+          gh release upload "$tag" "$master_apk" "$legacy_apk" "$metadata" --clobber
+
+      - name: Publish latest dev APK release
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNING_CACHE_HIT: ${{ steps.signing-key-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/master" ] \
+            && [ -z "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" ] \
+            && [ "$SIGNING_CACHE_HIT" != "true" ]; then
+            echo "Skip dev release because this branch did not restore the shared signing key."
+            exit 0
+          fi
+          tag="android-dev-latest"
+          output_dir="app/build/outputs/apk/release-channel"
+          apk="$output_dir/money-manager-dev.apk"
+          metadata="$output_dir/dev-version.json"
           test -f "$apk"
           test -f "$metadata"
           git config user.name "github-actions[bot]"
@@ -131,8 +200,8 @@ jobs:
           git push -f origin "refs/tags/$tag"
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" \
-              --title "Latest Android Debug APK" \
-              --notes "最新 debug APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
+              --title "Latest Android Dev APK" \
+              --notes "最新 dev APK。它和 master APK 使用同一个包名和签名，因此可以互相覆盖安装并保留本机数据。" \
               --prerelease
           fi
           gh release upload "$tag" "$apk" "$metadata" --clobber
