@@ -51,7 +51,7 @@ import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.AllocationChartView;
 import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
-import com.computerascience.moneymanager.ui.SectionNavigator;
+import com.computerascience.moneymanager.ui.SectionDrawer;
 import com.computerascience.moneymanager.ui.TrendChartView;
 import com.computerascience.moneymanager.ui.UpdateDialog;
 
@@ -112,11 +112,11 @@ public final class MainActivity extends Activity {
     private LinearLayout assetsPage;
     private FrameLayout contentFrame;
     private BottomNavBar bottomNavBar;
-    private LinearLayout sectionDrawer;
-    private SectionNavigator.Item[] overviewSections;
-    private SectionNavigator.Item[] investmentSections;
-    private SectionNavigator.Item[] trendSections;
-    private SectionNavigator.Item[] assetSections;
+    private SectionDrawer sectionDrawer;
+    private SectionDrawer.Item[] overviewSections;
+    private SectionDrawer.Item[] investmentSections;
+    private SectionDrawer.Item[] trendSections;
+    private SectionDrawer.Item[] assetSections;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -296,13 +296,13 @@ public final class MainActivity extends Activity {
         View institution = institutionCard();
         View netWorthGoal = netWorthGoalCard();
         View actionCenter = actionCenterCard();
-        overviewSections = new SectionNavigator.Item[]{
-                new SectionNavigator.Item("总资产概览", overviewSummary),
-                new SectionNavigator.Item("资产比例", allocation),
-                new SectionNavigator.Item("目标比例", allocationTarget),
-                new SectionNavigator.Item("机构分布", institution),
-                new SectionNavigator.Item("年度目标", netWorthGoal),
-                new SectionNavigator.Item("行动中心", actionCenter)
+        overviewSections = new SectionDrawer.Item[]{
+                new SectionDrawer.Item("总资产概览", overviewSummary),
+                new SectionDrawer.Item("资产比例", allocation),
+                new SectionDrawer.Item("目标比例", allocationTarget),
+                new SectionDrawer.Item("机构分布", institution),
+                new SectionDrawer.Item("年度目标", netWorthGoal),
+                new SectionDrawer.Item("行动中心", actionCenter)
         };
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
@@ -315,9 +315,9 @@ public final class MainActivity extends Activity {
         investmentPage = page();
         View investmentSummary = investmentSummaryCard();
         View investmentAccounts = investmentAccountsCard();
-        investmentSections = new SectionNavigator.Item[]{
-                new SectionNavigator.Item("投资总览", investmentSummary),
-                new SectionNavigator.Item("投资账户", investmentAccounts)
+        investmentSections = new SectionDrawer.Item[]{
+                new SectionDrawer.Item("投资总览", investmentSummary),
+                new SectionDrawer.Item("投资账户", investmentAccounts)
         };
         investmentPage.addView(investmentSummary);
         investmentPage.addView(investmentAccounts);
@@ -327,10 +327,10 @@ public final class MainActivity extends Activity {
         View totalTrend = trendCard();
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
-        trendSections = new SectionNavigator.Item[]{
-                new SectionNavigator.Item("一年趋势", totalTrend),
-                new SectionNavigator.Item("分布变化", distributionTrend),
-                new SectionNavigator.Item("单项资产", assetTrend)
+        trendSections = new SectionDrawer.Item[]{
+                new SectionDrawer.Item("一年趋势", totalTrend),
+                new SectionDrawer.Item("分布变化", distributionTrend),
+                new SectionDrawer.Item("单项资产", assetTrend)
         };
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
@@ -340,9 +340,9 @@ public final class MainActivity extends Activity {
         assetsPage = page();
         View assetManagement = assetManagementSection();
         View recentUpdates = recentUpdatesCard();
-        assetSections = new SectionNavigator.Item[]{
-                new SectionNavigator.Item("资产管理", assetManagement),
-                new SectionNavigator.Item("最近更新", recentUpdates)
+        assetSections = new SectionDrawer.Item[]{
+                new SectionDrawer.Item("资产管理", assetManagement),
+                new SectionDrawer.Item("最近更新", recentUpdates)
         };
         assetsPage.addView(assetManagement);
         assetsPage.addView(recentUpdates);
@@ -352,9 +352,9 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        sectionDrawer = sectionDrawer();
+        sectionDrawer = new SectionDrawer(this, this::scrollToSection);
         sectionDrawer.setVisibility(View.GONE);
-        FrameLayout.LayoutParams drawerParams = new FrameLayout.LayoutParams(dp(188), -2, Gravity.RIGHT | Gravity.TOP);
+        FrameLayout.LayoutParams drawerParams = new FrameLayout.LayoutParams(dp(216), -2, Gravity.RIGHT | Gravity.TOP);
         drawerParams.topMargin = dp(12);
         drawerParams.rightMargin = dp(10);
         contentFrame.addView(sectionDrawer, drawerParams);
@@ -453,17 +453,17 @@ public final class MainActivity extends Activity {
         return "净资产、资产分布、年度目标和需要处理的提醒。";
     }
 
-    private SectionNavigator.Item[] currentSections() {
+    private SectionDrawer.Item[] currentSections() {
         if (PAGE_INVESTMENT.equals(currentPage)) {
-            return investmentSections == null ? new SectionNavigator.Item[0] : investmentSections;
+            return investmentSections == null ? new SectionDrawer.Item[0] : investmentSections;
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return trendSections == null ? new SectionNavigator.Item[0] : trendSections;
+            return trendSections == null ? new SectionDrawer.Item[0] : trendSections;
         }
         if (PAGE_ASSETS.equals(currentPage)) {
-            return assetSections == null ? new SectionNavigator.Item[0] : assetSections;
+            return assetSections == null ? new SectionDrawer.Item[0] : assetSections;
         }
-        return overviewSections == null ? new SectionNavigator.Item[0] : overviewSections;
+        return overviewSections == null ? new SectionDrawer.Item[0] : overviewSections;
     }
 
     private void showSectionMenu() {
@@ -474,51 +474,13 @@ public final class MainActivity extends Activity {
             hideSectionDrawer();
             return;
         }
-        renderSectionDrawer();
+        sectionDrawer.setItems(pageTitleText(), currentSections());
         sectionDrawer.setVisibility(View.VISIBLE);
     }
 
     private void hideSectionDrawer() {
         if (sectionDrawer != null) {
             sectionDrawer.setVisibility(View.GONE);
-        }
-    }
-
-    private LinearLayout sectionDrawer() {
-        LinearLayout drawer = new LinearLayout(this);
-        drawer.setOrientation(LinearLayout.VERTICAL);
-        drawer.setPadding(dp(10), dp(10), dp(10), dp(10));
-        drawer.setBackground(roundedBackground(PANEL, PANEL_BORDER, 12));
-        drawer.setElevation(dp(10));
-        return drawer;
-    }
-
-    private void renderSectionDrawer() {
-        sectionDrawer.removeAllViews();
-        SectionNavigator.Item[] sections = currentSections();
-        LinearLayout header = row();
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(text("本页目录", 12, MUTED, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
-        TextView close = text("×", 18, MUTED, Typeface.BOLD);
-        close.setGravity(Gravity.CENTER);
-        close.setOnClickListener(view -> hideSectionDrawer());
-        header.addView(close, new LinearLayout.LayoutParams(dp(30), dp(30)));
-        sectionDrawer.addView(header);
-
-        for (int index = 0; index < sections.length; index += 1) {
-            SectionNavigator.Item item = sections[index];
-            TextView button = text(String.format(Locale.getDefault(), "%02d  %s", index + 1, item.label), 13, INK, Typeface.BOLD);
-            button.setGravity(Gravity.CENTER_VERTICAL);
-            button.setSingleLine(true);
-            button.setPadding(dp(10), 0, dp(10), 0);
-            button.setBackground(buttonBackground(ROW_SURFACE, SURFACE_ALT, PANEL_BORDER));
-            button.setOnClickListener(view -> {
-                hideSectionDrawer();
-                scrollToSection(item.target);
-            });
-            LinearLayout.LayoutParams params = lp(-1, dp(40));
-            params.topMargin = dp(8);
-            sectionDrawer.addView(button, params);
         }
     }
 
