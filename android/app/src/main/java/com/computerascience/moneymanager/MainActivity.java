@@ -2243,7 +2243,7 @@ public final class MainActivity extends Activity {
             assetList.addView(assetAppGroupHeader(group, portfolio.baseCurrency));
             if (!collapsedAssetGroups.contains(group.key)) {
                 for (AssetRecord asset : group.assets) {
-                    assetList.addView(assetCard(asset));
+                    assetList.addView(assetCompactRow(asset));
                 }
             }
         }
@@ -3365,6 +3365,95 @@ public final class MainActivity extends Activity {
         return card;
     }
 
+    private View assetCompactRow(AssetRecord asset) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.VERTICAL);
+        item.setPadding(dp(12), dp(12), dp(12), dp(10));
+        item.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        LinearLayout.LayoutParams itemParams = lp(-1, -2);
+        itemParams.bottomMargin = dp(8);
+        item.setLayoutParams(itemParams);
+
+        LinearLayout top = row();
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        item.addView(top);
+
+        TextView mark = categoryMark(asset);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(34), dp(34));
+        markParams.rightMargin = dp(10);
+        top.addView(mark, markParams);
+
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        top.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView name = text(asset.name, 15, INK, Typeface.BOLD);
+        name.setSingleLine(true);
+        titleGroup.addView(name);
+
+        TextView meta = text(asset.category + " · 每 " + asset.updateEveryDays + " 天", 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams metaParams = lp(-1, -2);
+        metaParams.topMargin = dp(3);
+        titleGroup.addView(meta, metaParams);
+
+        TextView status = statusChip(asset);
+        top.addView(status);
+
+        LinearLayout valueRow = row();
+        LinearLayout.LayoutParams valueParams = lp(-1, -2);
+        valueParams.topMargin = dp(8);
+        item.addView(valueRow, valueParams);
+
+        TextView amount = text(formatAmount(asset), 18, INK, Typeface.BOLD);
+        amount.setSingleLine(true);
+        valueRow.addView(amount, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView updated = text(shortUpdatedText(asset), 12, MUTED, Typeface.BOLD);
+        updated.setGravity(Gravity.RIGHT);
+        valueRow.addView(updated);
+
+        List<String> details = assetBreakdownLines(asset);
+        if (!details.isEmpty()) {
+            TextView breakdown = text(joinLines(details), 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams breakdownParams = lp(-1, -2);
+            breakdownParams.topMargin = dp(6);
+            item.addView(breakdown, breakdownParams);
+        }
+
+        if (!asset.note.isEmpty()) {
+            TextView note = text(asset.note, 12, MUTED, Typeface.NORMAL);
+            note.setMaxLines(2);
+            LinearLayout.LayoutParams noteParams = lp(-1, -2);
+            noteParams.topMargin = dp(5);
+            item.addView(note, noteParams);
+        }
+
+        LinearLayout actions = row();
+        LinearLayout.LayoutParams actionsParams = lp(-1, dp(36));
+        actionsParams.topMargin = dp(10);
+        item.addView(actions, actionsParams);
+
+        Button launch = secondaryButton("打开");
+        launch.setTextSize(12);
+        launch.setOnClickListener(view -> openLinkedApp(asset));
+        actions.addView(launch, new LinearLayout.LayoutParams(0, dp(36), 1));
+
+        actions.addView(new SpaceView(this, dp(8), 1));
+
+        Button markUpdated = secondaryButton("更新");
+        markUpdated.setTextSize(12);
+        markUpdated.setOnClickListener(view -> showAssetUpdateDialog(asset));
+        actions.addView(markUpdated, new LinearLayout.LayoutParams(0, dp(36), 1));
+
+        actions.addView(new SpaceView(this, dp(8), 1));
+
+        Button edit = secondaryButton("编辑");
+        edit.setTextSize(12);
+        edit.setOnClickListener(view -> showEditDialog(asset));
+        actions.addView(edit, new LinearLayout.LayoutParams(0, dp(36), 1));
+        return item;
+    }
+
     private TextView categoryMark(AssetRecord asset) {
         int color = AssetMath.colorForCategory(asset.category);
         TextView mark = text(categoryIcon(asset.category), 18, color, Typeface.BOLD);
@@ -4043,6 +4132,14 @@ public final class MainActivity extends Activity {
         }
         long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
         return "最后更新：" + dateFormat.format(new Date(asset.lastUpdatedAt)) + " · " + days + " 天前";
+    }
+
+    private String shortUpdatedText(AssetRecord asset) {
+        if (asset.lastUpdatedAt <= 0) {
+            return "从未更新";
+        }
+        long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
+        return days == 0 ? "今天更新" : days + " 天前";
     }
 
     private String appDisplayName(AssetRecord asset) {
