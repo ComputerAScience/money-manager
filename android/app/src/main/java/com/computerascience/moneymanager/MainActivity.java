@@ -3613,10 +3613,13 @@ public final class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
+        form.setPadding(pad, dp(6), pad, dp(6));
+
+        form.addView(assetUpdateHeader(asset));
 
         TextView description = text("核对「" + asset.name + "」后，可直接录入最新金额。保存后会更新时间并记录今日总资产快照。", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.topMargin = dp(12);
         descriptionParams.bottomMargin = dp(12);
         form.addView(description, descriptionParams);
 
@@ -3633,9 +3636,15 @@ public final class MainActivity extends Activity {
         note.setMinLines(2);
         form.addView(note);
 
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("更新资产")
-                .setView(form)
+                .setView(scroll)
                 .setNegativeButton("取消", null)
                 .setNeutralButton("仅更新时间", null)
                 .setPositiveButton("保存更新", null)
@@ -3663,6 +3672,45 @@ public final class MainActivity extends Activity {
         });
 
         showStyledDialog(dialog);
+    }
+
+    private View assetUpdateHeader(AssetRecord asset) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+
+        LinearLayout top = row();
+        TextView mark = categoryMark(asset);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        markParams.rightMargin = dp(12);
+        top.addView(mark, markParams);
+
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        titleGroup.addView(text(asset.name, 15, INK, Typeface.BOLD));
+
+        String institution = asset.institution.isEmpty() ? "未填写机构" : asset.institution;
+        TextView meta = text(asset.category + " · " + institution, 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams metaParams = lp(-1, -2);
+        metaParams.topMargin = dp(4);
+        titleGroup.addView(meta, metaParams);
+        top.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
+        top.addView(statusChip(asset));
+        panel.addView(top);
+
+        LinearLayout detail = row();
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(12);
+        panel.addView(detail, detailParams);
+
+        TextView amount = text(formatAmount(asset), 18, INK, Typeface.BOLD);
+        detail.addView(amount, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView updated = text(lastUpdatedText(asset), 12, MUTED, Typeface.BOLD);
+        updated.setGravity(Gravity.RIGHT);
+        detail.addView(updated, new LinearLayout.LayoutParams(0, -2, 1));
+        return panel;
     }
 
     private void applyAssetUpdate(AssetRecord asset, String amount, String note, String reason) {
