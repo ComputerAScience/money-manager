@@ -8,11 +8,8 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
@@ -28,13 +25,11 @@ import android.view.ViewParent;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -42,6 +37,7 @@ import android.widget.Toast;
 
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetMath;
+import com.computerascience.moneymanager.domain.ExchangeRateClient;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -51,9 +47,8 @@ import com.computerascience.moneymanager.model.InstitutionBreakdown;
 import com.computerascience.moneymanager.model.PortfolioSettings;
 import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.AllocationChartView;
+import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.TrendChartView;
-
-import org.json.JSONObject;
 
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -70,8 +65,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
@@ -1785,77 +1778,12 @@ public final class MainActivity extends Activity {
 
         new Thread(() -> {
             try {
-                Map<String, Double> rates = fetchRatesToBase(base);
+                Map<String, Double> rates = ExchangeRateClient.fetchRatesToBase(base);
                 runOnUiThread(() -> successHandler.onSuccess(rates));
             } catch (Exception error) {
                 runOnUiThread(() -> failureHandler.onFailure("实时汇率获取失败，请稍后重试。"));
             }
         }).start();
-    }
-
-    private Map<String, Double> fetchRatesToBase(String baseCurrency) throws Exception {
-        String targets = realtimeRateTargets();
-        URL url = new URL("https://api.frankfurter.dev/v1/latest?base=USD&symbols=" + targets);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        try {
-            connection.setConnectTimeout(8000);
-            connection.setReadTimeout(8000);
-            connection.setUseCaches(false);
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("User-Agent", "MoneyManagerAndroid/0.2.8");
-            int status = connection.getResponseCode();
-            if (status != HttpURLConnection.HTTP_OK) {
-                throw new IOException("FX HTTP " + status);
-            }
-
-            String raw;
-            try (InputStream input = connection.getInputStream()) {
-                raw = readUtf8(input);
-            }
-            return parseRatesToBase(raw, baseCurrency);
-        } finally {
-            connection.disconnect();
-        }
-    }
-
-    private Map<String, Double> parseRatesToBase(String raw, String baseCurrency) throws Exception {
-        JSONObject json = new JSONObject(raw);
-        JSONObject rates = json.getJSONObject("rates");
-        Map<String, Double> usdToCurrency = new HashMap<>();
-        usdToCurrency.put("USD", 1.0);
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            if (!"USD".equals(currency) && rates.has(currency)) {
-                double value = rates.optDouble(currency, 0);
-                if (value > 0) {
-                    usdToCurrency.put(currency, value);
-                }
-            }
-        }
-
-        Double usdToBase = usdToCurrency.get(baseCurrency);
-        if (usdToBase == null || usdToBase <= 0) {
-            throw new IOException("Missing base rate");
-        }
-
-        Map<String, Double> ratesToBase = new HashMap<>();
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            Double usdToTarget = usdToCurrency.get(currency);
-            if (usdToTarget != null && usdToTarget > 0) {
-                ratesToBase.put(currency, currency.equals(baseCurrency) ? 1.0 : usdToBase / usdToTarget);
-            }
-        }
-        return ratesToBase;
-    }
-
-    private String realtimeRateTargets() {
-        List<String> targets = new ArrayList<>();
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            if (!"USD".equals(currency)) {
-                targets.add(currency);
-            }
-        }
-        return joinComma(targets);
     }
 
     private boolean isCommonCurrency(String currency) {
@@ -3286,7 +3214,9 @@ public final class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
+        form.setPadding(pad, dp(6), pad, dp(6));
+
+        form.addView(assetEditHeader(draft, creating));
 
         EditText name = input("资产名称", draft.name, InputType.TYPE_CLASS_TEXT);
         form.addView(name);
@@ -3344,7 +3274,10 @@ public final class MainActivity extends Activity {
         form.addView(note);
 
         ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
+        scroll.addView(form, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(creating ? "新增资产" : "编辑资产")
@@ -3415,33 +3348,41 @@ public final class MainActivity extends Activity {
         showStyledDialog(dialog);
     }
 
-    private void showAppPicker(AppSelectionHandler handler) {
-        showLaunchableAppPicker("选择已安装 App", "搜索银行、券商、钱包或 App 名称。", handler);
+    private View assetEditHeader(AssetRecord asset, boolean creating) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.HORIZONTAL);
+        panel.setGravity(Gravity.CENTER_VERTICAL);
+        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams panelParams = lp(-1, -2);
+        panelParams.bottomMargin = dp(12);
+        panel.setLayoutParams(panelParams);
+
+        TextView mark = creating ? text("+", 20, ACCENT, Typeface.BOLD) : categoryMark(asset);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        markParams.rightMargin = dp(12);
+        panel.addView(mark, markParams);
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        String title = creating ? "新增资产" : asset.name;
+        copy.addView(text(title, 15, INK, Typeface.BOLD));
+
+        String description = creating
+                ? "记录金额、周期和要打开的 App。"
+                : asset.category + " · " + (asset.institution.isEmpty() ? "未填写机构" : asset.institution);
+        TextView detail = text(description, 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(4);
+        copy.addView(detail, detailParams);
+        panel.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
+        return panel;
     }
 
-    private List<LaunchableApp> getLaunchableApps() {
-        PackageManager packageManager = getPackageManager();
-        Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
-        launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        List<ResolveInfo> resolvedApps = packageManager.queryIntentActivities(launcherIntent, 0);
-        List<LaunchableApp> apps = new ArrayList<>();
-        Set<String> seenPackages = new HashSet<>();
-        for (ResolveInfo resolvedApp : resolvedApps) {
-            String packageName = resolvedApp.activityInfo == null ? "" : resolvedApp.activityInfo.packageName;
-            if (packageName == null
-                    || packageName.isEmpty()
-                    || packageName.equals(getPackageName())
-                    || seenPackages.contains(packageName)) {
-                continue;
-            }
-            seenPackages.add(packageName);
-            CharSequence label = resolvedApp.loadLabel(packageManager);
-            String appLabel = label == null ? packageName : label.toString();
-            Drawable icon = resolvedApp.loadIcon(packageManager);
-            apps.add(new LaunchableApp(appLabel, packageName, icon));
-        }
-        Collections.sort(apps, (left, right) -> left.label.compareToIgnoreCase(right.label));
-        return apps;
+    private void showAppPicker(AppPickerDialog.SelectionHandler handler) {
+        AppPickerDialog.show(this, "选择已安装 App", "搜索银行、券商、钱包或 App 名称。", handler);
     }
 
     private void openLinkedApp(AssetRecord asset) {
@@ -3479,7 +3420,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showAssetAppBindingDialog(AssetRecord asset) {
-        showLaunchableAppPicker("绑定并打开 App", "「" + asset.name + "」还没有绑定 App。先选择一次，以后就能一键打开。", selected -> {
+        AppPickerDialog.show(this, "绑定并打开 App", "「" + asset.name + "」还没有绑定 App。先选择一次，以后就能一键打开。", selected -> {
             asset.appName = selected.label;
             asset.packageName = selected.packageName;
             asset.launchUri = "";
@@ -3491,106 +3432,6 @@ public final class MainActivity extends Activity {
             toast("已绑定 " + selected.label + "。");
             openLinkedApp(asset);
         });
-    }
-
-    private void showLaunchableAppPicker(String title, String helperText, AppSelectionHandler handler) {
-        List<LaunchableApp> apps = getLaunchableApps();
-        if (apps.isEmpty()) {
-            toast("没有找到可启动的 App。");
-            return;
-        }
-
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        content.setPadding(pad, dp(6), pad, dp(4));
-
-        TextView helper = text(helperText, 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams helperParams = lp(-1, -2);
-        helperParams.bottomMargin = dp(8);
-        content.addView(helper, helperParams);
-
-        TextView countLabel = text(appPickerCountText(apps.size(), apps.size()), 12, MUTED, Typeface.BOLD);
-        LinearLayout.LayoutParams countParams = lp(-1, -2);
-        countParams.bottomMargin = dp(10);
-        content.addView(countLabel, countParams);
-
-        EditText search = input("搜索 App 名称或包名", "", InputType.TYPE_CLASS_TEXT);
-        content.addView(search);
-
-        FrameLayout listFrame = new FrameLayout(this);
-        listFrame.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        listFrame.setPadding(dp(6), dp(6), dp(6), dp(6));
-        LinearLayout.LayoutParams frameParams = lp(-1, appPickerListHeight());
-        listFrame.setLayoutParams(frameParams);
-
-        ListView list = new ListView(this);
-        list.setDivider(new ColorDrawable(Color.TRANSPARENT));
-        list.setDividerHeight(dp(8));
-        list.setPadding(0, 0, 0, 0);
-        list.setCacheColorHint(Color.TRANSPARENT);
-        list.setSelector(new ColorDrawable(Color.TRANSPARENT));
-        LaunchableAppAdapter adapter = new LaunchableAppAdapter(apps);
-        list.setAdapter(adapter);
-        listFrame.addView(list, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-
-        TextView empty = text("没有匹配的 App", 14, MUTED, Typeface.BOLD);
-        empty.setGravity(Gravity.CENTER);
-        empty.setVisibility(View.GONE);
-        listFrame.addView(empty, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        list.setEmptyView(empty);
-        content.addView(listFrame);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(content)
-                .setNegativeButton("取消", null)
-                .create();
-        list.setOnItemClickListener((parent, view, position, id) -> {
-            LaunchableApp selected = adapter.getItem(position);
-            handler.onSelected(selected);
-            dialog.dismiss();
-        });
-        search.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence text, int start, int before, int count) {
-                int matches = adapter.filter(text == null ? "" : text.toString());
-                updateAppPickerCount(apps.size(), matches, countLabel);
-            }
-
-            @Override
-            public void afterTextChanged(Editable editable) {
-            }
-        });
-        dialog.setOnShowListener(view -> {
-            Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-            if (cancel != null) {
-                cancel.setTextColor(MUTED);
-            }
-        });
-        showStyledDialog(dialog);
-    }
-
-    private String appPickerCountText(int total, int matches) {
-        if (matches == total) {
-            return total + " 个可绑定 App";
-        }
-        return "匹配 " + matches + " / " + total + " 个 App";
-    }
-
-    private void updateAppPickerCount(int total, int matches, TextView count) {
-        count.setText(appPickerCountText(total, matches));
-        count.setTextColor(matches == 0 ? DANGER : MUTED);
     }
 
     private void openMarket(String packageName) {
@@ -4002,17 +3843,6 @@ public final class MainActivity extends Activity {
         return builder.toString();
     }
 
-    private String joinComma(List<String> values) {
-        StringBuilder builder = new StringBuilder();
-        for (int index = 0; index < values.size(); index += 1) {
-            if (index > 0) {
-                builder.append(",");
-            }
-            builder.append(values.get(index));
-        }
-        return builder.toString();
-    }
-
     private String backupDate() {
         return new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
     }
@@ -4244,11 +4074,6 @@ public final class MainActivity extends Activity {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
     }
 
-    private int appPickerListHeight() {
-        int screenHeight = getResources().getDisplayMetrics().heightPixels;
-        return Math.min(dp(380), Math.max(dp(220), screenHeight - dp(320)));
-    }
-
     private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{android.R.attr.state_pressed}, roundedBackground(pressedFill, border, 8));
@@ -4343,106 +4168,12 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private interface AppSelectionHandler {
-        void onSelected(LaunchableApp app);
-    }
-
     private interface RateSuccessHandler {
         void onSuccess(Map<String, Double> rates);
     }
 
     private interface RateFailureHandler {
         void onFailure(String message);
-    }
-
-    private final class LaunchableAppAdapter extends BaseAdapter {
-        private final List<LaunchableApp> source;
-        private final List<LaunchableApp> filtered = new ArrayList<>();
-
-        LaunchableAppAdapter(List<LaunchableApp> apps) {
-            source = apps;
-            filtered.addAll(apps);
-        }
-
-        int filter(String query) {
-            String normalized = clean(query).toLowerCase(Locale.ROOT);
-            filtered.clear();
-            for (LaunchableApp app : source) {
-                if (normalized.isEmpty()
-                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)
-                        || app.packageName.toLowerCase(Locale.ROOT).contains(normalized)) {
-                    filtered.add(app);
-                }
-            }
-            notifyDataSetChanged();
-            return filtered.size();
-        }
-
-        @Override
-        public int getCount() {
-            return filtered.size();
-        }
-
-        @Override
-        public LaunchableApp getItem(int position) {
-            return filtered.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            LaunchableApp app = getItem(position);
-            LinearLayout row = new LinearLayout(MainActivity.this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(12), dp(10), dp(12), dp(10));
-            row.setMinimumHeight(dp(66));
-            row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
-
-            ImageView icon = new ImageView(MainActivity.this);
-            icon.setImageDrawable(app.icon);
-            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            GradientDrawable iconBg = roundedBackground(SURFACE_ALT, PANEL_BORDER, 8);
-            icon.setBackground(iconBg);
-            icon.setPadding(dp(6), dp(6), dp(6), dp(6));
-            row.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
-
-            LinearLayout texts = new LinearLayout(MainActivity.this);
-            texts.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, -2, 1);
-            textParams.leftMargin = dp(12);
-            row.addView(texts, textParams);
-
-            TextView label = text(app.label, 15, INK, Typeface.BOLD);
-            label.setSingleLine(true);
-            texts.addView(label);
-
-            TextView hint = text("点击绑定", 12, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams hintParams = lp(-1, -2);
-            hintParams.topMargin = dp(4);
-            texts.addView(hint, hintParams);
-
-            TextView chevron = text("›", 24, BLUE, Typeface.BOLD);
-            chevron.setGravity(Gravity.CENTER);
-            row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(42)));
-            return row;
-        }
-    }
-
-    private static final class LaunchableApp {
-        final String label;
-        final String packageName;
-        final Drawable icon;
-
-        LaunchableApp(String label, String packageName, Drawable icon) {
-            this.label = label;
-            this.packageName = packageName;
-            this.icon = icon;
-        }
     }
 
     private static final class CurrencyRateField {
