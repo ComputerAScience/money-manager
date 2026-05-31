@@ -38,6 +38,7 @@ import android.widget.Toast;
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.ExchangeRateClient;
+import com.computerascience.moneymanager.domain.UpdateClient;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -49,6 +50,7 @@ import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.AllocationChartView;
 import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
+import com.computerascience.moneymanager.ui.SectionNavigator;
 import com.computerascience.moneymanager.ui.TrendChartView;
 
 import java.text.DecimalFormat;
@@ -72,7 +74,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
-    private static final String APK_RELEASE_URL = "https://github.com/ComputerAScience/money-manager/releases/tag/android-debug-latest";
+    private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
@@ -273,12 +275,12 @@ public final class MainActivity extends Activity {
         View netWorthGoal = netWorthGoalCard();
         View actionCenter = actionCenterCard();
         overviewPage.addView(sectionNav(
-                new NavItem("总资产概览", "◎", overviewSummary),
-                new NavItem("资产比例", "◔", allocation),
-                new NavItem("目标比例", "⌖", allocationTarget),
-                new NavItem("机构分布", "▤", institution),
-                new NavItem("年度目标", "↗", netWorthGoal),
-                new NavItem("行动中心", "!", actionCenter)
+                new SectionNavigator.Item("总资产概览", "◎", overviewSummary),
+                new SectionNavigator.Item("资产比例", "◔", allocation),
+                new SectionNavigator.Item("目标比例", "⌖", allocationTarget),
+                new SectionNavigator.Item("机构分布", "▤", institution),
+                new SectionNavigator.Item("年度目标", "↗", netWorthGoal),
+                new SectionNavigator.Item("行动中心", "!", actionCenter)
         ));
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
@@ -293,9 +295,9 @@ public final class MainActivity extends Activity {
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
         trendPage.addView(sectionNav(
-                new NavItem("一年趋势", "⌁", totalTrend),
-                new NavItem("分布变化", "◫", distributionTrend),
-                new NavItem("单项资产", "▱", assetTrend)
+                new SectionNavigator.Item("一年趋势", "⌁", totalTrend),
+                new SectionNavigator.Item("分布变化", "◫", distributionTrend),
+                new SectionNavigator.Item("单项资产", "▱", assetTrend)
         ));
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
@@ -306,8 +308,8 @@ public final class MainActivity extends Activity {
         View assetManagement = assetManagementSection();
         View recentUpdates = recentUpdatesCard();
         assetsPage.addView(sectionNav(
-                new NavItem("资产管理", "▦", assetManagement),
-                new NavItem("最近更新", "↻", recentUpdates)
+                new SectionNavigator.Item("资产管理", "▦", assetManagement),
+                new SectionNavigator.Item("最近更新", "↻", recentUpdates)
         ));
         assetsPage.addView(assetManagement);
         assetsPage.addView(recentUpdates);
@@ -345,45 +347,8 @@ public final class MainActivity extends Activity {
         return page;
     }
 
-    private View sectionNav(NavItem... items) {
-        LinearLayout nav = card();
-        nav.setPadding(dp(14), dp(14), dp(14), dp(10));
-        nav.setElevation(dp(1));
-        nav.addView(sectionTitle("本页导航"));
-        for (int index = 0; index < items.length; index += 1) {
-            NavItem item = items[index];
-            nav.addView(navRow(item));
-            if (index < items.length - 1) {
-                nav.addView(dividerLine(dp(54)));
-            }
-        }
-        return nav;
-    }
-
-    private View navRow(NavItem item) {
-        LinearLayout row = row();
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(4), dp(7), dp(4), dp(7));
-        row.setBackground(buttonBackground(PANEL, ROW_SURFACE, Color.TRANSPARENT));
-        LinearLayout.LayoutParams params = lp(-1, dp(50));
-        row.setLayoutParams(params);
-
-        TextView icon = text(item.icon, 18, ACCENT, Typeface.BOLD);
-        icon.setGravity(Gravity.CENTER);
-        icon.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        row.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
-
-        TextView label = text(item.label, 15, INK, Typeface.BOLD);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1);
-        labelParams.leftMargin = dp(14);
-        row.addView(label, labelParams);
-
-        TextView arrow = text("›", 22, MUTED, Typeface.BOLD);
-        arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(32)));
-
-        row.setOnClickListener(view -> scrollToSection(item.target));
-        return row;
+    private View sectionNav(SectionNavigator.Item... items) {
+        return new SectionNavigator(this, this::scrollToSection, items);
     }
 
     private void selectPage(String page) {
@@ -1058,9 +1023,9 @@ public final class MainActivity extends Activity {
 
         addSettingsSection(body, "版本与更新");
         body.addView(settingsActionRow(
-                "↗",
-                "更新与下载",
-                "当前版本 " + appVersionLabel() + "，打开 GitHub 发布页或 APK。",
+                "↻",
+                "检查更新",
+                "当前版本 " + appVersionLabel() + "，读取远端最新版本。",
                 ACCENT,
                 view -> {
                     dialog.dismiss();
@@ -1070,7 +1035,7 @@ public final class MainActivity extends Activity {
         body.addView(settingsActionRow(
                 "↓",
                 "直接下载 APK",
-                "私有仓库需要手机浏览器已登录 GitHub。",
+                "打开固定下载地址，适合网络检查失败时使用。",
                 BLUE,
                 view -> {
                     dialog.dismiss();
@@ -1097,13 +1062,12 @@ public final class MainActivity extends Activity {
         int pad = dp(18);
         body.setPadding(pad, dp(8), pad, dp(4));
 
-        TextView status = text("当前版本 " + appVersionLabel()
-                + "\n这个仓库是 private，App 不能直接读取 GitHub 登录态。请用已登录 GitHub 的浏览器打开发布页或下载 APK。", 14, INK, Typeface.BOLD);
+        TextView status = text("当前版本 " + appVersionLabel() + "\n正在检查最新版本…", 14, INK, Typeface.BOLD);
         status.setPadding(dp(14), dp(12), dp(14), dp(12));
         status.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         body.addView(status, lp(-1, -2));
 
-        TextView note = text("如果浏览器提示无权限，先登录能访问这个仓库的 GitHub 账号。如果从旧安装包升级时提示签名不一致，先卸载旧版再安装一次新版。", 12, MUTED, Typeface.NORMAL);
+        TextView note = text("如果从旧安装包升级时提示签名不一致，先卸载旧版再安装一次新版；之后同一个固定下载地址通常可以直接覆盖安装。", 12, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams noteParams = lp(-1, -2);
         noteParams.topMargin = dp(10);
         body.addView(note, noteParams);
@@ -1113,9 +1077,10 @@ public final class MainActivity extends Activity {
                 .setView(body)
                 .setNegativeButton("关闭", null)
                 .setNeutralButton("复制链接", (view, which) -> copyApkDownloadLink())
-                .setPositiveButton("打开发布页", (view, which) -> openReleasePage())
+                .setPositiveButton("下载 APK", (view, which) -> openApkDownload())
                 .create();
         showStyledDialog(dialog);
+        fetchLatestUpdateInfo(status);
     }
 
     private void addSettingsSection(LinearLayout body, String title) {
@@ -1181,12 +1146,36 @@ public final class MainActivity extends Activity {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? info.getLongVersionCode() : info.versionCode;
     }
 
-    private void openReleasePage() {
+    private long appVersionCode() {
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(APK_RELEASE_URL)));
-        } catch (ActivityNotFoundException error) {
-            openApkDownload();
+            return packageVersionCode(getPackageManager().getPackageInfo(getPackageName(), 0));
+        } catch (PackageManager.NameNotFoundException error) {
+            return 0;
         }
+    }
+
+    private void fetchLatestUpdateInfo(TextView status) {
+        new Thread(() -> {
+            try {
+                UpdateClient.UpdateInfo update = UpdateClient.fetchLatest(UPDATE_INFO_URL);
+                runOnUiThread(() -> status.setText(updateStatusText(update)));
+            } catch (Exception error) {
+                runOnUiThread(() -> status.setText("当前版本 " + appVersionLabel()
+                        + "\n暂时读取不到远端版本信息。你仍然可以直接下载固定 APK。"));
+            }
+        }).start();
+    }
+
+    private String updateStatusText(UpdateClient.UpdateInfo update) {
+        String latest = update.versionCode > 0 ? update.displayVersion() : "--";
+        String state = update.isNewerThan(appVersionCode())
+                ? "发现新版本，可以下载更新。"
+                : "当前已是最新版本，必要时也可以重新下载安装包。";
+        String builtAt = update.builtAt.isEmpty() ? "" : "\n构建时间 " + update.builtAt;
+        return "当前版本 " + appVersionLabel()
+                + "\n最新版本 " + latest
+                + "\n" + state
+                + builtAt;
     }
 
     private void openApkDownload() {
@@ -4161,18 +4150,6 @@ public final class MainActivity extends Activity {
         SpaceView(Activity activity, int width, int height) {
             super(activity);
             setLayoutParams(new LinearLayout.LayoutParams(width, height));
-        }
-    }
-
-    private static final class NavItem {
-        final String label;
-        final String icon;
-        final View target;
-
-        NavItem(String label, String icon, View target) {
-            this.label = label;
-            this.icon = icon;
-            this.target = target;
         }
     }
 
