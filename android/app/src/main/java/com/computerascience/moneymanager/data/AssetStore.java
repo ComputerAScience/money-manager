@@ -17,6 +17,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +35,7 @@ public final class AssetStore {
     private static final String KEY_SETTINGS = "settings";
     private static final String KEY_SCHEMA_VERSION = "schemaVersion";
     private static final String KEY_LAST_MIGRATION_AT = "lastMigrationAt";
-    private static final int SCHEMA_VERSION = 7;
+    private static final int SCHEMA_VERSION = 8;
 
     private final SharedPreferences preferences;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -289,7 +290,7 @@ public final class AssetStore {
         for (int index = 0; index < assetArray.length(); index += 1) {
             importedAssets.add(AssetRecord.fromJson(assetArray.getJSONObject(index)));
         }
-        boolean migratedLegacyAssets = migrateLegacyAccountAssets(importedAssets);
+        boolean migratedLegacyAssets = migrateImportedAssets(importedAssets);
 
         List<AssetSnapshot> importedSnapshots = new ArrayList<>();
         JSONArray snapshotArray = root.optJSONArray("snapshots");
@@ -333,6 +334,9 @@ public final class AssetStore {
         if (storedSchemaVersion < 7) {
             changed = migrateLegacyAccountAssets(assets);
         }
+        if (storedSchemaVersion < 8) {
+            changed = migrateAccountDetailsToInstitutionAssets(assets) || changed;
+        }
         return changed || storedSchemaVersion < SCHEMA_VERSION;
     }
 
@@ -348,6 +352,12 @@ public final class AssetStore {
             changed = migrateLegacyAccountAsset(asset) || changed;
         }
         return changed;
+    }
+
+    private boolean migrateImportedAssets(List<AssetRecord> assets) {
+        boolean legacyChanged = migrateLegacyAccountAssets(assets);
+        boolean detailChanged = migrateAccountDetailsToInstitutionAssets(assets);
+        return legacyChanged || detailChanged;
     }
 
     private boolean migrateLegacyAccountAsset(AssetRecord asset) {
@@ -394,6 +404,116 @@ public final class AssetStore {
             changed = true;
         }
         return changed;
+    }
+
+    private boolean migrateAccountDetailsToInstitutionAssets(List<AssetRecord> assets) {
+        boolean changed = false;
+        List<AssetRecord> generatedAssets = new ArrayList<>();
+        for (AssetRecord asset : assets) {
+            changed = normalizeInstitution(asset) || changed;
+            if (AssetCategories.BANK_ACCOUNT.equals(asset.category)) {
+                changed = flattenBankAccount(asset, generatedAssets) || changed;
+            } else if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
+                changed = flattenInvestmentAccount(asset) || changed;
+            }
+        }
+        if (!generatedAssets.isEmpty()) {
+            assets.addAll(generatedAssets);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean normalizeInstitution(AssetRecord asset) {
+        String institution = asset.institution == null ? "" : asset.institution.trim();
+        if (!institution.contains("待绑定")) {
+            return false;
+        }
+        asset.institution = hasText(asset.appName) ? asset.appName.trim() : "";
+        return true;
+    }
+
+    private boolean flattenBankAccount(AssetRecord asset, List<AssetRecord> generatedAssets) {
+        boolean hasBreakdown = AssetMath.hasBankBreakdown(asset);
+        if (!hasBreakdown) {
+            return false;
+        }
+
+        double deposit = positiveAmount(asset.bankDepositAmount);
+        double wealth = positiveAmount(asset.bankWealthAmount);
+        double debt = positiveAmount(asset.bankDebtAmount);
+        double gross = deposit + wealth;
+        if (gross > 0 || !hasText(asset.amount)) {
+            asset.amount = formatStoredAmount(gross);
+        }
+        if (debt > 0) {
+            generatedAssets.add(derivedDebtAsset(asset, debt));
+        }
+        asset.bankDepositAmount = "";
+        asset.bankWealthAmount = "";
+        asset.bankDebtAmount = "";
+        return true;
+    }
+
+    private boolean flattenInvestmentAccount(AssetRecord asset) {
+        boolean hasBreakdown = AssetMath.hasInvestmentBreakdown(asset) || hasText(asset.investmentPositions);
+        if (!hasBreakdown) {
+            return false;
+        }
+
+        double holding = positiveAmount(asset.investmentHoldingAmount);
+        double cash = positiveAmount(asset.investmentCashAmount);
+        double total = holding + cash;
+        if (total > 0 || !hasText(asset.amount)) {
+            asset.amount = formatStoredAmount(total);
+        }
+        if (hasText(asset.investmentPositions)) {
+            asset.note = appendNote(asset.note, "旧版持股备注：" + asset.investmentPositions.trim());
+        }
+        asset.investmentHoldingAmount = "";
+        asset.investmentCashAmount = "";
+        asset.investmentPositions = "";
+        return true;
+    }
+
+    private AssetRecord derivedDebtAsset(AssetRecord source, double debtAmount) {
+        AssetRecord debt = new AssetRecord();
+        String sourceName = hasText(source.name) ? source.name.trim() : "银行账户";
+        debt.name = sourceName + "负债";
+        debt.category = AssetCategories.DEBT;
+        debt.institution = source.institution;
+        debt.amount = formatStoredAmount(debtAmount);
+        debt.currency = source.currency;
+        debt.updateEveryDays = source.updateEveryDays;
+        debt.lastUpdatedAt = source.lastUpdatedAt;
+        debt.appName = source.appName;
+        debt.packageName = source.packageName;
+        debt.launchUri = source.launchUri;
+        debt.note = appendNote(source.note, "由旧版银行账户负债明细迁移生成。");
+        return debt;
+    }
+
+    private double positiveAmount(String raw) {
+        return Math.abs(AssetMath.parseAmount(raw));
+    }
+
+    private String formatStoredAmount(double value) {
+        return new DecimalFormat("0.##").format(Math.max(0, value));
+    }
+
+    private String appendNote(String note, String addition) {
+        String base = note == null ? "" : note.trim();
+        String extra = addition == null ? "" : addition.trim();
+        if (extra.isEmpty()) {
+            return base;
+        }
+        if (base.isEmpty()) {
+            return extra;
+        }
+        if (base.contains(extra)) {
+            return base;
+        }
+        return base + "\n" + extra;
     }
 
     private boolean hasText(String value) {
@@ -467,26 +587,21 @@ public final class AssetStore {
         AssetRecord bank = new AssetRecord();
         bank.name = "银行账户";
         bank.category = AssetCategories.BANK_ACCOUNT;
-        bank.institution = "待绑定银行 App";
+        bank.institution = "";
         bank.amount = "0";
         bank.currency = "CNY";
         bank.updateEveryDays = 7;
-        bank.bankDepositAmount = "0";
-        bank.bankWealthAmount = "0";
-        bank.bankDebtAmount = "0";
-        bank.note = "在一个条目里记录存款、理财和负债，只绑定一次银行 App。";
+        bank.note = "按机构管理账户；需要打开银行 App 时，在这条资产上绑定对应 App。";
         assets.add(bank);
 
         AssetRecord investment = new AssetRecord();
         investment.name = "投资账户";
         investment.category = AssetCategories.INVESTMENT_ACCOUNT;
-        investment.institution = "待绑定券商 App";
+        investment.institution = "";
         investment.amount = "0";
         investment.currency = "CNY";
         investment.updateEveryDays = 1;
-        investment.investmentHoldingAmount = "0";
-        investment.investmentCashAmount = "0";
-        investment.note = "记录持仓市值、可用现金和持股备注，只绑定一次券商 App。";
+        investment.note = "按机构记录投资账户总额；持仓明细可以放在备注里，App 只作为打开入口。";
         assets.add(investment);
 
         return assets;

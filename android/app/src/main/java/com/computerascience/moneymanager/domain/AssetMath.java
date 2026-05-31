@@ -51,7 +51,7 @@ public final class AssetMath {
                 addTotal(categoryTotals, AssetCategories.DEBT, liabilityAmount);
             } else if (AssetCategories.isLegacyBankCategory(asset.category)) {
                 addTotal(categoryTotals, AssetCategories.BANK_ACCOUNT, grossAmount);
-            } else if (isInvestmentAsset(asset)) {
+            } else if (AssetCategories.isLegacyInvestmentCategory(asset.category)) {
                 addTotal(categoryTotals, AssetCategories.INVESTMENT_ACCOUNT, grossAmount);
             } else if (isLiability(asset)) {
                 addTotal(categoryTotals, AssetCategories.DEBT, liabilityAmount);
@@ -134,20 +134,16 @@ public final class AssetMath {
             return 0;
         }
         if (isBankAccount(asset)) {
-            double deposit = componentAmount(asset.bankDepositAmount);
-            double wealth = componentAmount(asset.bankWealthAmount);
-            if (!hasBankBreakdown(asset)) {
+            if (hasText(asset.amount)) {
                 return componentAmount(asset.amount);
             }
-            return deposit + wealth;
+            return componentAmount(asset.bankDepositAmount) + componentAmount(asset.bankWealthAmount);
         }
         if (AssetCategories.isInvestmentAccount(asset.category)) {
-            double holding = componentAmount(asset.investmentHoldingAmount);
-            double cash = componentAmount(asset.investmentCashAmount);
-            if (!hasInvestmentBreakdown(asset)) {
+            if (hasText(asset.amount)) {
                 return componentAmount(asset.amount);
             }
-            return holding + cash;
+            return componentAmount(asset.investmentHoldingAmount) + componentAmount(asset.investmentCashAmount);
         }
         if (isLiability(asset)) {
             return 0;
@@ -160,7 +156,7 @@ public final class AssetMath {
             return 0;
         }
         if (isBankAccount(asset)) {
-            return componentAmount(asset.bankDebtAmount);
+            return hasText(asset.amount) ? 0 : componentAmount(asset.bankDebtAmount);
         }
         if (isLiability(asset)) {
             return componentAmount(asset.amount);

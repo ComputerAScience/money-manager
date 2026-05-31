@@ -27,6 +27,7 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -37,8 +38,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.computerascience.moneymanager.data.AssetStore;
-import com.computerascience.moneymanager.domain.AssetAppGroups;
 import com.computerascience.moneymanager.domain.AssetCategories;
+import com.computerascience.moneymanager.domain.AssetInstitutionGroups;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.AssetPresets;
 import com.computerascience.moneymanager.domain.ExchangeRateClient;
@@ -80,7 +81,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
     private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
-    private static final String[] CATEGORIES = AssetCategories.ALL;
+    private static final String ADD_CATEGORY_OPTION = "新增资产类型...";
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "买入卖出", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
     private static final int PANEL = Color.WHITE;
@@ -314,7 +315,7 @@ public final class MainActivity extends Activity {
         View investmentAccounts = investmentAccountsCard();
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
-                new SectionDrawer.Item("投资账户", investmentAccounts)
+                new SectionDrawer.Item("投资资产", investmentAccounts)
         };
         investmentPage.addView(investmentSummary);
         investmentPage.addView(investmentAccounts);
@@ -445,7 +446,7 @@ public final class MainActivity extends Activity {
 
     private String pageSubtitleText() {
         if (PAGE_INVESTMENT.equals(currentPage)) {
-            return "把券商持仓和空闲资金放在一个账户里单独维护。";
+            return "由资产类型决定哪些条目进入投资页，可在设置里调整。";
         }
         if (PAGE_TREND.equals(currentPage)) {
             return "记录总资产快照，查看总额、分布和单项资产变化。";
@@ -597,7 +598,7 @@ public final class MainActivity extends Activity {
 
         renderAssetFilterButtons();
         List<AssetRecord> visibleAssets = visibleAssets();
-        assetResultSummary.setText("按 App / 机构分组显示 " + visibleAssets.size() + " / " + assets.size()
+        assetResultSummary.setText("按机构分组显示 " + visibleAssets.size() + " / " + assets.size()
                 + " 项，当前筛选：" + assetFilterLabel() + "。");
 
         assetList.removeAllViews();
@@ -1095,6 +1096,16 @@ public final class MainActivity extends Activity {
                     showCurrencySettingsDialog();
                 }
         ));
+        body.addView(settingsActionRow(
+                "类",
+                "资产类型",
+                "新增自定义类型，并选择哪些类型进入投资页。",
+                BLUE,
+                view -> {
+                    dialog.dismiss();
+                    showCategorySettingsDialog();
+                }
+        ));
 
         addSettingsSection(body, "数据");
         body.addView(settingsActionRow(
@@ -1316,8 +1327,8 @@ public final class MainActivity extends Activity {
         panel.setPadding(dp(12), dp(12), dp(12), dp(12));
         panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
 
-        panel.addView(text("快速新增 App 账户", 13, INK, Typeface.BOLD));
-        TextView help = text("先选银行或券商 App，再在同一个条目下维护现金、理财、负债、持仓和可用现金。", 12, MUTED, Typeface.NORMAL);
+        panel.addView(text("快速新增资产", 13, INK, Typeface.BOLD));
+        TextView help = text("先按机构建资产条目；App 只是核对时的一键打开入口，同一机构下可以有多个 App。", 12, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams helpParams = lp(-1, -2);
         helpParams.topMargin = dp(4);
         panel.addView(help, helpParams);
@@ -1360,6 +1371,8 @@ public final class MainActivity extends Activity {
     private void showCreateInvestmentAccount() {
         for (AssetPresets.Preset preset : AssetPresets.quickAddPresets()) {
             if (AssetCategories.INVESTMENT_ACCOUNT.equals(preset.category)) {
+                settings.setInvestmentCategory(preset.category, true);
+                store.saveSettings(settings);
                 showCreatePreset(preset);
                 return;
             }
@@ -1380,13 +1393,13 @@ public final class MainActivity extends Activity {
         titleGroup.addView(investmentSummaryText, summaryParams);
         header.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button addButton = primaryButton("新增投资账户");
+        Button addButton = primaryButton("新增投资资产");
         addButton.setTextSize(13);
         addButton.setOnClickListener(view -> showCreateInvestmentAccount());
         header.addView(addButton, new LinearLayout.LayoutParams(dp(124), dp(42)));
         card.addView(header);
 
-        TextView help = text("一个投资账户可以同时填持仓市值、可用现金和持股备注，避免同一个券商 App 绑定多次。", 13, MUTED, Typeface.NORMAL);
+        TextView help = text("投资页由资产类型开关控制。需要新增“美股、港股、期权”等类型时，可在设置里维护。", 13, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams helpParams = lp(-1, -2);
         helpParams.topMargin = dp(12);
         card.addView(help, helpParams);
@@ -1395,7 +1408,7 @@ public final class MainActivity extends Activity {
 
     private View investmentAccountsCard() {
         LinearLayout card = card();
-        card.addView(sectionTitle("投资账户"));
+        card.addView(sectionTitle("投资资产"));
         investmentAccountList = new LinearLayout(this);
         investmentAccountList.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams listParams = lp(-1, -2);
@@ -1409,22 +1422,19 @@ public final class MainActivity extends Activity {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
-        double holdingTotal = 0;
-        double cashTotal = 0;
+        double investmentTotal = 0;
         for (AssetRecord asset : investments) {
             String currency = AssetMath.cleanCurrency(asset.currency);
             double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-            holdingTotal += AssetMath.investmentHoldingAmount(asset) * rate;
-            cashTotal += AssetMath.investmentCashAmount(asset) * rate;
+            investmentTotal += AssetMath.assetGrossAmount(asset) * rate;
         }
 
-        investmentSummaryText.setText("持仓市值 " + formatMoney(holdingTotal, settings.baseCurrency)
-                + " · 可用现金 " + formatMoney(cashTotal, settings.baseCurrency)
-                + " · " + investments.size() + " 个账户");
+        investmentSummaryText.setText("投资总额 " + formatMoney(investmentTotal, settings.baseCurrency)
+                + " · " + investments.size() + " 项资产");
 
         investmentAccountList.removeAllViews();
         if (investments.isEmpty()) {
-            investmentAccountList.addView(emptyText("还没有投资账户。先新增一个，把券商持仓和现金放在同一个条目里。"));
+            investmentAccountList.addView(emptyText("还没有投资资产。可在设置里把某个资产类型加入投资页。"));
             return;
         }
         for (AssetRecord asset : investments) {
@@ -1443,7 +1453,7 @@ public final class MainActivity extends Activity {
     private List<AssetRecord> investmentAssets() {
         List<AssetRecord> investments = new ArrayList<>();
         for (AssetRecord asset : assets) {
-            if (AssetMath.isInvestmentAsset(asset)) {
+            if (settings.isInvestmentCategory(asset.category)) {
                 investments.add(asset);
             }
         }
@@ -1994,7 +2004,7 @@ public final class MainActivity extends Activity {
         form.addView(description, descriptionParams);
 
         List<AllocationTargetField> targetFields = new ArrayList<>();
-        for (String category : CATEGORIES) {
+        for (String category : categoryOptionList("", false)) {
             double current = draft.targetForCategory(category);
             EditText targetInput = input(
                     category + " 目标占比（%）",
@@ -2062,6 +2072,130 @@ public final class MainActivity extends Activity {
         });
 
         showStyledDialog(dialog);
+    }
+
+    private void showCategorySettingsDialog() {
+        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        form.setPadding(pad, dp(6), pad, 0);
+
+        TextView description = text("资产类型会出现在新增资产、资产比例和目标比例里；勾选“投资页”的类型会单独汇总到投资 Tab。", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.bottomMargin = dp(12);
+        form.addView(description, descriptionParams);
+
+        List<CategorySettingField> categoryFields = new ArrayList<>();
+        for (String category : categoryOptionList("", false)) {
+            CheckBox investment = styledCheckBox("投资页", draft.isInvestmentCategory(category));
+            categoryFields.add(new CategorySettingField(category, investment));
+            form.addView(categorySettingRow(category, investment));
+        }
+
+        TextView addTitle = label("新增类型");
+        LinearLayout.LayoutParams addTitleParams = lp(-1, -2);
+        addTitleParams.topMargin = dp(10);
+        addTitleParams.bottomMargin = dp(8);
+        form.addView(addTitle, addTitleParams);
+
+        EditText newCategory = input("例如：美股、港股、期权、保险", "", InputType.TYPE_CLASS_TEXT);
+        form.addView(newCategory);
+        CheckBox newCategoryInvestment = styledCheckBox("添加后显示在投资页", false);
+        LinearLayout.LayoutParams newInvestmentParams = lp(-1, -2);
+        newInvestmentParams.bottomMargin = dp(8);
+        form.addView(newCategoryInvestment, newInvestmentParams);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("资产类型")
+                .setView(scroll)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", null)
+                .create();
+
+        dialog.setOnShowListener(view -> {
+            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            save.setTextColor(ACCENT);
+            save.setOnClickListener(button -> {
+                draft.clearInvestmentCategories();
+                for (CategorySettingField field : categoryFields) {
+                    draft.setInvestmentCategory(field.category, field.investment.isChecked());
+                }
+
+                String addedCategory = clean(newCategory.getText().toString());
+                if (!addedCategory.isEmpty()) {
+                    if (ADD_CATEGORY_OPTION.equals(addedCategory)) {
+                        toast("资产类型名称不能使用系统选项名称。");
+                        return;
+                    }
+                    draft.addCustomCategory(addedCategory);
+                    draft.setInvestmentCategory(addedCategory, newCategoryInvestment.isChecked());
+                }
+
+                settings = draft;
+                store.saveSettings(settings);
+                snapshots = store.recordSnapshot(assets, settings);
+                render();
+                toast("资产类型已保存。");
+                dialog.dismiss();
+            });
+        });
+
+        showStyledDialog(dialog);
+    }
+
+    private View categorySettingRow(String category, CheckBox investment) {
+        LinearLayout row = row();
+        row.setPadding(dp(12), dp(9), dp(8), dp(9));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.bottomMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        TextView mark = text(categoryIcon(category), 15, AssetMath.colorForCategory(category), Typeface.BOLD);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        row.addView(mark, new LinearLayout.LayoutParams(dp(34), dp(34)));
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.addView(text(category, 14, INK, Typeface.BOLD));
+        TextView origin = text(categoryOriginText(category), 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams originParams = lp(-1, -2);
+        originParams.topMargin = dp(3);
+        copy.addView(origin, originParams);
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, -2, 1);
+        copyParams.leftMargin = dp(10);
+        row.addView(copy, copyParams);
+
+        row.addView(investment, new LinearLayout.LayoutParams(dp(92), dp(40)));
+        return row;
+    }
+
+    private CheckBox styledCheckBox(String label, boolean checked) {
+        CheckBox checkbox = new CheckBox(this);
+        checkbox.setText(label);
+        checkbox.setTextSize(13);
+        checkbox.setTextColor(INK);
+        checkbox.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        checkbox.setButtonTintList(android.content.res.ColorStateList.valueOf(ACCENT));
+        checkbox.setChecked(checked);
+        checkbox.setGravity(Gravity.CENTER_VERTICAL);
+        checkbox.setPadding(0, 0, 0, 0);
+        return checkbox;
+    }
+
+    private String categoryOriginText(String category) {
+        if (isDefaultAssetCategory(category)) {
+            return "内置类型";
+        }
+        if (settings.customCategories.contains(category)) {
+            return "自定义类型";
+        }
+        return "已在资产中使用";
     }
 
     private void renderAssetFilterButtons() {
@@ -2208,40 +2342,17 @@ public final class MainActivity extends Activity {
     }
 
     private boolean missingAssetAmount(AssetRecord asset) {
-        if (AssetMath.isBankAccount(asset)) {
-            return clean(asset.bankDepositAmount).isEmpty()
-                    && clean(asset.bankWealthAmount).isEmpty()
-                    && clean(asset.bankDebtAmount).isEmpty();
-        }
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return clean(asset.investmentHoldingAmount).isEmpty()
-                    && clean(asset.investmentCashAmount).isEmpty();
-        }
         return clean(asset.amount).isEmpty();
     }
 
     private boolean invalidAssetAmount(AssetRecord asset) {
-        if (AssetMath.isBankAccount(asset)) {
-            return invalidOptionalAmount(asset.bankDepositAmount)
-                    || invalidOptionalAmount(asset.bankWealthAmount)
-                    || invalidOptionalAmount(asset.bankDebtAmount);
-        }
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return invalidOptionalAmount(asset.investmentHoldingAmount)
-                    || invalidOptionalAmount(asset.investmentCashAmount);
-        }
         String amount = clean(asset.amount);
         return !amount.isEmpty() && parseNumber(amount) == null;
     }
 
-    private boolean invalidOptionalAmount(String amount) {
-        String value = clean(amount);
-        return !value.isEmpty() && parseNumber(value) == null;
-    }
-
     private void renderAssetGroups(List<AssetRecord> visibleAssets, PortfolioSummary portfolio) {
-        for (AssetAppGroups.Group group : AssetAppGroups.groupByApp(visibleAssets, settings, this::appDisplayName)) {
-            assetList.addView(assetAppGroupHeader(group, portfolio.baseCurrency));
+        for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(visibleAssets, settings)) {
+            assetList.addView(assetInstitutionGroupHeader(group, portfolio.baseCurrency));
             if (!collapsedAssetGroups.contains(group.key)) {
                 for (AssetRecord asset : group.assets) {
                     assetList.addView(assetCompactRow(asset));
@@ -2250,7 +2361,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private View assetAppGroupHeader(AssetAppGroups.Group group, String baseCurrency) {
+    private View assetInstitutionGroupHeader(AssetInstitutionGroups.Group group, String baseCurrency) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
         row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
@@ -2258,7 +2369,7 @@ public final class MainActivity extends Activity {
         rowParams.bottomMargin = dp(8);
         row.setLayoutParams(rowParams);
 
-        row.addView(appGroupIcon(group), new LinearLayout.LayoutParams(dp(40), dp(40)));
+        row.addView(institutionGroupIcon(group), new LinearLayout.LayoutParams(dp(40), dp(40)));
 
         LinearLayout labelGroup = new LinearLayout(this);
         labelGroup.setOrientation(LinearLayout.VERTICAL);
@@ -2266,11 +2377,10 @@ public final class MainActivity extends Activity {
         labelParams.leftMargin = dp(10);
         labelGroup.addView(text(group.title + " · " + group.assets.size() + " 项资产", 14, INK, Typeface.BOLD));
 
-        String bindText = group.hasBoundApp ? "已绑定 App" : "未绑定 App";
         String detail = "小计 " + formatMoney(group.total, baseCurrency)
                 + " · " + group.displayKinds()
                 + " · " + group.staleCount + " 项待更新"
-                + " · " + bindText;
+                + " · " + group.displayApps();
         LinearLayout.LayoutParams detailParams = lp(-1, -2);
         detailParams.topMargin = dp(4);
         labelGroup.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
@@ -2289,8 +2399,8 @@ public final class MainActivity extends Activity {
         return row;
     }
 
-    private View appGroupIcon(AssetAppGroups.Group group) {
-        Drawable icon = resolveAppIcon(group.packageName);
+    private View institutionGroupIcon(AssetInstitutionGroups.Group group) {
+        Drawable icon = resolveAppIcon(group.primaryPackageName());
         if (icon != null) {
             ImageView image = new ImageView(this);
             image.setImageDrawable(icon);
@@ -2300,7 +2410,7 @@ public final class MainActivity extends Activity {
             return image;
         }
 
-        TextView fallback = text(group.hasBoundApp ? "App" : "未", 12, group.hasBoundApp ? ACCENT : AMBER, Typeface.BOLD);
+        TextView fallback = text(group.hasBoundApp() ? "机构" : "未", 12, group.hasBoundApp() ? ACCENT : AMBER, Typeface.BOLD);
         fallback.setGravity(Gravity.CENTER);
         fallback.setBackground(roundedBackground(SURFACE_ALT, PANEL_BORDER, 8));
         return fallback;
@@ -3496,7 +3606,8 @@ public final class MainActivity extends Activity {
         if (AssetCategories.CRYPTO.equals(category)) return "◇";
         if (AssetCategories.REAL_ESTATE.equals(category)) return "⌂";
         if (AssetCategories.DEBT.equals(category)) return "!";
-        return "•";
+        String cleaned = clean(category);
+        return cleaned.isEmpty() ? "•" : cleaned.substring(0, 1);
     }
 
     private TextView statusChip(AssetRecord asset) {
@@ -3563,7 +3674,7 @@ public final class MainActivity extends Activity {
         form.addView(chooseApp, chooseAppParams);
 
         form.addView(fieldBox("机构", institution));
-        TextView institutionHelp = text("用 App 作为一级入口；同一个银行或券商只需要建一个账户条目，再在下面维护不同资产明细。", 12, MUTED, Typeface.NORMAL);
+        TextView institutionHelp = text("机构是主要管理粒度；一条资产属于某个机构，App 只是核对时打开的入口。", 12, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams institutionHelpParams = lp(-1, -2);
         institutionHelpParams.bottomMargin = dp(10);
         form.addView(institutionHelp, institutionHelpParams);
@@ -3573,7 +3684,25 @@ public final class MainActivity extends Activity {
         category.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, categoryOptions));
         styleSpinner(category);
         category.setSelection(indexOf(categoryOptions, draft.category));
-        form.addView(fieldBox("资产明细类型", category));
+        form.addView(fieldBox("资产类型", category));
+
+        EditText customCategory = input("新增资产类型", "", InputType.TYPE_CLASS_TEXT);
+        form.addView(customCategory);
+        CheckBox customCategoryInvestment = styledCheckBox("在投资 Tab 显示这个类型", false);
+        LinearLayout.LayoutParams customInvestmentParams = lp(-1, -2);
+        customInvestmentParams.bottomMargin = dp(10);
+        form.addView(customCategoryInvestment, customInvestmentParams);
+        updateCustomCategoryFields(String.valueOf(category.getSelectedItem()), customCategory, customCategoryInvestment);
+        category.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                updateCustomCategoryFields(String.valueOf(category.getSelectedItem()), customCategory, customCategoryInvestment);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
 
         LinearLayout amountRow = row();
         EditText amount = input("金额", draft.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -3583,37 +3712,6 @@ public final class MainActivity extends Activity {
         amountRow.addView(new SpaceView(this, dp(8), 1));
         amountRow.addView(fieldBox("币种", currency), new LinearLayout.LayoutParams(0, -2, 0.62f));
         form.addView(amountRow);
-
-        LinearLayout bankFields = structuredFieldsPanel("银行账户明细", "存款和理财会计入资产，负债会扣减净资产。");
-        EditText bankDeposit = input("存款", draft.bankDepositAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText bankWealth = input("理财", draft.bankWealthAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText bankDebt = input("负债", draft.bankDebtAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        bankFields.addView(fieldBox("现金 / 存款", bankDeposit));
-        bankFields.addView(fieldBox("理财", bankWealth));
-        bankFields.addView(fieldBox("负债", bankDebt));
-        form.addView(bankFields);
-
-        LinearLayout investmentFields = structuredFieldsPanel("投资账户明细", "持仓市值和可用现金会合计为投资账户金额；具体持股写在备注区。");
-        EditText investmentHolding = input("持仓市值", draft.investmentHoldingAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText investmentCash = input("可用现金", draft.investmentCashAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText investmentPositions = input("持股备注", draft.investmentPositions, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        investmentPositions.setMinLines(2);
-        investmentFields.addView(fieldBox("持仓市值", investmentHolding));
-        investmentFields.addView(fieldBox("可用现金", investmentCash));
-        investmentFields.addView(fieldBox("持股备注", investmentPositions, dp(86)));
-        form.addView(investmentFields);
-
-        updateEditAmountFields(String.valueOf(category.getSelectedItem()), amountBox, bankFields, investmentFields);
-        category.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                updateEditAmountFields(String.valueOf(category.getSelectedItem()), amountBox, bankFields, investmentFields);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
 
         EditText cadence = input("更新周期（天）", String.valueOf(draft.updateEveryDays), InputType.TYPE_CLASS_NUMBER);
         form.addView(cadence);
@@ -3648,17 +3746,33 @@ public final class MainActivity extends Activity {
                     return;
                 }
 
+                String selectedCategory = String.valueOf(category.getSelectedItem());
+                if (ADD_CATEGORY_OPTION.equals(selectedCategory)) {
+                    selectedCategory = clean(customCategory.getText().toString());
+                    if (selectedCategory.isEmpty()) {
+                        toast("请输入新的资产类型。");
+                        return;
+                    }
+                    if (ADD_CATEGORY_OPTION.equals(selectedCategory)) {
+                        toast("资产类型名称不能使用系统选项名称。");
+                        return;
+                    }
+                    settings.addCustomCategory(selectedCategory);
+                    settings.setInvestmentCategory(selectedCategory, customCategoryInvestment.isChecked());
+                    store.saveSettings(settings);
+                }
+
                 int everyDays = parsePositiveInt(cadence.getText().toString(), 7);
                 draft.name = assetName;
-                draft.category = String.valueOf(category.getSelectedItem());
+                draft.category = selectedCategory;
                 draft.institution = clean(institution.getText().toString());
-                draft.bankDepositAmount = clean(bankDeposit.getText().toString());
-                draft.bankWealthAmount = clean(bankWealth.getText().toString());
-                draft.bankDebtAmount = clean(bankDebt.getText().toString());
-                draft.investmentHoldingAmount = clean(investmentHolding.getText().toString());
-                draft.investmentCashAmount = clean(investmentCash.getText().toString());
-                draft.investmentPositions = clean(investmentPositions.getText().toString());
-                draft.amount = normalizedAmountForCategory(draft, clean(amount.getText().toString()));
+                draft.bankDepositAmount = "";
+                draft.bankWealthAmount = "";
+                draft.bankDebtAmount = "";
+                draft.investmentHoldingAmount = "";
+                draft.investmentCashAmount = "";
+                draft.investmentPositions = "";
+                draft.amount = clean(amount.getText().toString());
                 draft.currency = String.valueOf(currency.getSelectedItem());
                 draft.updateEveryDays = everyDays;
                 draft.appName = clean(selectedAppName[0]);
@@ -3703,39 +3817,10 @@ public final class MainActivity extends Activity {
         showStyledDialog(dialog);
     }
 
-    private LinearLayout structuredFieldsPanel(String title, String helpText) {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(12), dp(12), dp(12), dp(8));
-        panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.bottomMargin = dp(10);
-        panel.setLayoutParams(params);
-        panel.addView(text(title, 13, INK, Typeface.BOLD));
-        TextView help = text(helpText, 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams helpParams = lp(-1, -2);
-        helpParams.topMargin = dp(4);
-        helpParams.bottomMargin = dp(8);
-        panel.addView(help, helpParams);
-        return panel;
-    }
-
-    private void updateEditAmountFields(String category, View amountView, View bankFields, View investmentFields) {
-        boolean bank = AssetCategories.BANK_ACCOUNT.equals(category);
-        boolean investment = AssetCategories.INVESTMENT_ACCOUNT.equals(category);
-        amountView.setVisibility(bank || investment ? View.GONE : View.VISIBLE);
-        bankFields.setVisibility(bank ? View.VISIBLE : View.GONE);
-        investmentFields.setVisibility(investment ? View.VISIBLE : View.GONE);
-    }
-
-    private String normalizedAmountForCategory(AssetRecord asset, String rawAmount) {
-        if (AssetMath.isBankAccount(asset)) {
-            return formatInputNumber(AssetMath.assetNetAmount(asset));
-        }
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return formatInputNumber(AssetMath.assetGrossAmount(asset));
-        }
-        return rawAmount;
+    private void updateCustomCategoryFields(String selectedCategory, View customCategory, View investmentToggle) {
+        boolean adding = ADD_CATEGORY_OPTION.equals(selectedCategory);
+        customCategory.setVisibility(adding ? View.VISIBLE : View.GONE);
+        investmentToggle.setVisibility(adding ? View.VISIBLE : View.GONE);
     }
 
     private View assetEditHeader(AssetRecord asset, boolean creating) {
@@ -3848,9 +3933,7 @@ public final class MainActivity extends Activity {
 
         form.addView(assetUpdateHeader(asset));
 
-        String updateDescription = (AssetMath.isBankAccount(asset) || AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category))
-                ? "核对「" + asset.name + "」后，更新下面的子金额。保存后会更新时间并记录今日总资产快照。"
-                : "核对「" + asset.name + "」后，可直接录入最新金额。保存后会更新时间并记录今日总资产快照。";
+        String updateDescription = "核对「" + asset.name + "」后，录入这个机构资产的最新总金额。保存后会更新时间并记录今日总资产快照。";
         TextView description = text(updateDescription, 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
         descriptionParams.topMargin = dp(12);
@@ -3859,26 +3942,6 @@ public final class MainActivity extends Activity {
 
         EditText amount = input("最新金额", asset.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         form.addView(amount);
-
-        LinearLayout bankFields = structuredFieldsPanel("银行账户明细", "核对银行 App 后更新存款、理财和负债。");
-        EditText bankDeposit = input("存款", asset.bankDepositAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText bankWealth = input("理财", asset.bankWealthAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText bankDebt = input("负债", asset.bankDebtAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        bankFields.addView(fieldBox("现金 / 存款", bankDeposit));
-        bankFields.addView(fieldBox("理财", bankWealth));
-        bankFields.addView(fieldBox("负债", bankDebt));
-        form.addView(bankFields);
-
-        LinearLayout investmentFields = structuredFieldsPanel("投资账户明细", "核对券商 App 后更新持仓市值、可用现金和持股备注。");
-        EditText investmentHolding = input("持仓市值", asset.investmentHoldingAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText investmentCash = input("可用现金", asset.investmentCashAmount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        EditText investmentPositions = input("持股备注", asset.investmentPositions, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        investmentPositions.setMinLines(2);
-        investmentFields.addView(fieldBox("持仓市值", investmentHolding));
-        investmentFields.addView(fieldBox("可用现金", investmentCash));
-        investmentFields.addView(fieldBox("持股备注", investmentPositions, dp(86)));
-        form.addView(investmentFields);
-        updateEditAmountFields(asset.category, amount, bankFields, investmentFields);
 
         Spinner reason = new Spinner(this);
         reason.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, UPDATE_REASONS));
@@ -3908,27 +3971,18 @@ public final class MainActivity extends Activity {
             Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             save.setTextColor(ACCENT);
             save.setOnClickListener(button -> {
-                if (AssetMath.isBankAccount(asset) || AssetCategories.isInvestmentAccount(asset.category)) {
-                    asset.bankDepositAmount = clean(bankDeposit.getText().toString());
-                    asset.bankWealthAmount = clean(bankWealth.getText().toString());
-                    asset.bankDebtAmount = clean(bankDebt.getText().toString());
-                    asset.investmentHoldingAmount = clean(investmentHolding.getText().toString());
-                    asset.investmentCashAmount = clean(investmentCash.getText().toString());
-                    asset.investmentPositions = clean(investmentPositions.getText().toString());
-                    applyAssetUpdate(
-                            asset,
-                            normalizedAmountForCategory(asset, clean(amount.getText().toString())),
-                            clean(note.getText().toString()),
-                            String.valueOf(reason.getSelectedItem())
-                    );
-                } else {
-                    applyAssetUpdate(
-                            asset,
-                            clean(amount.getText().toString()),
-                            clean(note.getText().toString()),
-                            String.valueOf(reason.getSelectedItem())
-                    );
-                }
+                asset.bankDepositAmount = "";
+                asset.bankWealthAmount = "";
+                asset.bankDebtAmount = "";
+                asset.investmentHoldingAmount = "";
+                asset.investmentCashAmount = "";
+                asset.investmentPositions = "";
+                applyAssetUpdate(
+                        asset,
+                        clean(amount.getText().toString()),
+                        clean(note.getText().toString()),
+                        String.valueOf(reason.getSelectedItem())
+                );
                 dialog.dismiss();
             });
 
@@ -4083,7 +4137,7 @@ public final class MainActivity extends Activity {
                 + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置。");
         lines.add("备份版本：" + backupVersionText(backup));
         if (backup.migratedLegacyAssets) {
-            lines.add("检测到旧版银行 / 券商资产结构，导入时已自动映射到账户明细字段。");
+            lines.add("检测到旧版银行 / 券商资产结构，导入时已自动转换为按机构管理的扁平资产。");
         }
         lines.add("导入会覆盖当前本机数据。");
         return joinLines(lines);
@@ -4237,12 +4291,6 @@ public final class MainActivity extends Activity {
         if (settings.hideAmounts) {
             return "•••• " + asset.currency;
         }
-        if (AssetMath.isBankAccount(asset)) {
-            return "净值 " + formatRawAmount(formatInputNumber(AssetMath.assetNetAmount(asset))) + " " + asset.currency;
-        }
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return "总额 " + formatRawAmount(formatInputNumber(AssetMath.assetGrossAmount(asset))) + " " + asset.currency;
-        }
         if (asset.amount.isEmpty()) {
             return "-- " + asset.currency;
         }
@@ -4262,17 +4310,6 @@ public final class MainActivity extends Activity {
         List<String> lines = new ArrayList<>();
         if (settings.hideAmounts) {
             return lines;
-        }
-        if (AssetMath.isBankAccount(asset)) {
-            lines.add("存款 " + formatRawAmount(formatInputNumber(Math.abs(AssetMath.parseAmount(asset.bankDepositAmount)))) + " " + asset.currency);
-            lines.add("理财 " + formatRawAmount(formatInputNumber(Math.abs(AssetMath.parseAmount(asset.bankWealthAmount)))) + " " + asset.currency
-                    + " · 负债 " + formatRawAmount(formatInputNumber(Math.abs(AssetMath.parseAmount(asset.bankDebtAmount)))) + " " + asset.currency);
-        } else if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            lines.add("持仓市值 " + formatRawAmount(formatInputNumber(AssetMath.investmentHoldingAmount(asset))) + " " + asset.currency
-                    + " · 可用现金 " + formatRawAmount(formatInputNumber(AssetMath.investmentCashAmount(asset))) + " " + asset.currency);
-            if (!asset.investmentPositions.isEmpty()) {
-                lines.add("持股：" + asset.investmentPositions);
-            }
         }
         return lines;
     }
@@ -4447,13 +4484,44 @@ public final class MainActivity extends Activity {
     }
 
     private String[] categoryOptions(String selectedCategory) {
-        List<String> options = new ArrayList<>();
-        Collections.addAll(options, CATEGORIES);
-        String selected = clean(selectedCategory);
-        if (!selected.isEmpty() && !options.contains(selected)) {
-            options.add(selected);
-        }
+        List<String> options = categoryOptionList(selectedCategory, true);
         return options.toArray(new String[0]);
+    }
+
+    private List<String> categoryOptionList(String selectedCategory, boolean includeAddOption) {
+        List<String> options = new ArrayList<>();
+        for (String category : AssetCategories.ALL) {
+            addCategoryOption(options, category);
+        }
+        if (settings != null) {
+            for (String category : settings.customCategories) {
+                addCategoryOption(options, category);
+            }
+        }
+        for (AssetRecord asset : assets) {
+            addCategoryOption(options, asset.category);
+        }
+        addCategoryOption(options, selectedCategory);
+        if (includeAddOption) {
+            options.add(ADD_CATEGORY_OPTION);
+        }
+        return options;
+    }
+
+    private void addCategoryOption(List<String> options, String category) {
+        String cleaned = clean(category);
+        if (!cleaned.isEmpty() && !ADD_CATEGORY_OPTION.equals(cleaned) && !options.contains(cleaned)) {
+            options.add(cleaned);
+        }
+    }
+
+    private boolean isDefaultAssetCategory(String category) {
+        for (String option : AssetCategories.ALL) {
+            if (option.equals(category)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private LinearLayout row() {
@@ -4693,6 +4761,16 @@ public final class MainActivity extends Activity {
         AllocationTargetField(String category, EditText input) {
             this.category = category;
             this.input = input;
+        }
+    }
+
+    private static final class CategorySettingField {
+        final String category;
+        final CheckBox investment;
+
+        CategorySettingField(String category, CheckBox investment) {
+            this.category = category;
+            this.investment = investment;
         }
     }
 

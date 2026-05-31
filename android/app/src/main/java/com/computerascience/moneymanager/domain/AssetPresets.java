@@ -22,40 +22,32 @@ public final class AssetPresets {
         asset.currency = currency == null || currency.trim().isEmpty() ? "CNY" : currency.trim().toUpperCase();
         asset.updateEveryDays = preset.updateEveryDays;
         asset.note = preset.note;
-        if (AssetCategories.BANK_ACCOUNT.equals(preset.category)) {
-            asset.bankDepositAmount = "0";
-            asset.bankWealthAmount = "0";
-            asset.bankDebtAmount = "0";
-        } else if (AssetCategories.INVESTMENT_ACCOUNT.equals(preset.category)) {
-            asset.investmentHoldingAmount = "0";
-            asset.investmentCashAmount = "0";
-        }
         return asset;
     }
 
     private static List<Preset> buildQuickAddPresets() {
         List<Preset> presets = new ArrayList<>();
         presets.add(new Preset(
-                "银行 App",
+                "银行账户",
                 "银行账户",
                 AssetCategories.BANK_ACCOUNT,
-                "待绑定银行 App",
+                "",
                 7,
-                "在一个银行账户里填写存款、理财和负债，只需要绑定一次银行 App。"
+                "按机构记录银行账户总额，需要核对时打开绑定的银行 App。"
         ));
         presets.add(new Preset(
-                "券商 App",
+                "投资账户",
                 "投资账户",
                 AssetCategories.INVESTMENT_ACCOUNT,
-                "待绑定券商 App",
+                "",
                 1,
-                "填写持仓市值、可用现金和持股备注，只需要绑定一次券商 App。"
+                "按机构记录投资账户总额；持仓明细可写在备注里。"
         ));
         presets.add(new Preset(
                 "负债",
                 "其他负债",
                 AssetCategories.DEBT,
-                "待绑定 App",
+                "",
                 30,
                 "记录不属于某个银行账户的借款或应付款，金额填正数。"
         ));
