@@ -79,17 +79,17 @@ public final class AppPickerDialog {
         countParams.bottomMargin = dp(10);
         content.addView(countLabel, countParams);
 
-        EditText search = input("搜索 App 名称或包名", "", InputType.TYPE_CLASS_TEXT);
+        EditText search = input("搜索 App 名称", "", InputType.TYPE_CLASS_TEXT);
         content.addView(search);
 
         FrameLayout listFrame = new FrameLayout(activity);
         listFrame.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        listFrame.setPadding(dp(6), dp(6), dp(6), dp(6));
+        listFrame.setPadding(0, 0, 0, 0);
         listFrame.setLayoutParams(lp(-1, appPickerListHeight()));
 
         ListView list = new ListView(activity);
-        list.setDivider(new ColorDrawable(Color.TRANSPARENT));
-        list.setDividerHeight(dp(8));
+        list.setDivider(new ColorDrawable(PANEL_BORDER));
+        list.setDividerHeight(dp(1));
         list.setPadding(0, 0, 0, 0);
         list.setCacheColorHint(Color.TRANSPARENT);
         list.setSelector(new ColorDrawable(Color.TRANSPARENT));
@@ -310,12 +310,12 @@ public final class AppPickerDialog {
             LinearLayout row = new LinearLayout(activity);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(12), dp(10), dp(12), dp(10));
-            row.setMinimumHeight(dp(66));
-            row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
+            row.setPadding(dp(14), dp(8), dp(12), dp(8));
+            row.setMinimumHeight(dp(58));
+            row.setBackground(buttonBackground(PANEL, ROW_SURFACE, Color.TRANSPARENT));
             row.setLayoutParams(new AbsListView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
+                    dp(58)
             ));
 
             ImageView icon = new ImageView(activity);
@@ -323,7 +323,7 @@ public final class AppPickerDialog {
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
             icon.setBackground(roundedBackground(SURFACE_ALT, PANEL_BORDER, 8));
             icon.setPadding(dp(6), dp(6), dp(6), dp(6));
-            row.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
+            row.addView(icon, new LinearLayout.LayoutParams(dp(38), dp(38)));
 
             LinearLayout texts = new LinearLayout(activity);
             texts.setOrientation(LinearLayout.VERTICAL);
@@ -335,14 +335,9 @@ public final class AppPickerDialog {
             label.setSingleLine(true);
             texts.addView(label);
 
-            TextView hint = text("点击绑定", 12, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams hintParams = lp(-1, -2);
-            hintParams.topMargin = dp(4);
-            texts.addView(hint, hintParams);
-
-            TextView chevron = text("›", 24, BLUE, Typeface.BOLD);
+            TextView chevron = text("›", 22, BLUE, Typeface.BOLD);
             chevron.setGravity(Gravity.CENTER);
-            row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(42)));
+            row.addView(chevron, new LinearLayout.LayoutParams(dp(20), dp(38)));
             return row;
         }
     }
