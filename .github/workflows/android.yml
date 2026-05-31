@@ -61,11 +61,30 @@ jobs:
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/money-manager-debug.apk
 
+      - name: Write update metadata
+        run: |
+          tag="android-debug-latest"
+          version_name="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)"
+          version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
+          apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/money-manager-debug.apk"
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          cat > app/build/outputs/apk/debug/version.json <<EOF
+          {
+            "versionName": "${version_name}",
+            "versionCode": ${version_code},
+            "apkUrl": "${apk_url}",
+            "commit": "${GITHUB_SHA}",
+            "builtAt": "${built_at}"
+          }
+          EOF
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: money-manager-debug-apk
-          path: android/app/build/outputs/apk/debug/money-manager-debug.apk
+          path: |
+            android/app/build/outputs/apk/debug/money-manager-debug.apk
+            android/app/build/outputs/apk/debug/version.json
 
       - name: Publish latest debug APK release
         if: github.event_name != 'pull_request'
@@ -85,3 +104,4 @@ jobs:
               --prerelease
           fi
           gh release upload "$tag" "$apk" --clobber
+          gh release upload "$tag" app/build/outputs/apk/debug/version.json --clobber
