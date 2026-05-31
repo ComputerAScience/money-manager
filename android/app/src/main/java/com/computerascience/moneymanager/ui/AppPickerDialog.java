@@ -18,6 +18,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -312,6 +313,10 @@ public final class AppPickerDialog {
             row.setPadding(dp(12), dp(10), dp(12), dp(10));
             row.setMinimumHeight(dp(66));
             row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
+            row.setLayoutParams(new AbsListView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
 
             ImageView icon = new ImageView(activity);
             icon.setImageDrawable(app.icon);

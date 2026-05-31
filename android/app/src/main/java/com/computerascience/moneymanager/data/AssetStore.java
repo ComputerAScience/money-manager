@@ -367,7 +367,7 @@ public final class AssetStore {
 
         AssetRecord bank = new AssetRecord();
         bank.name = "银行卡余额";
-        bank.category = "银行";
+        bank.category = "银行存款";
         bank.institution = "待绑定银行 App";
         bank.amount = "0";
         bank.currency = "CNY";
@@ -376,14 +376,24 @@ public final class AssetStore {
         assets.add(bank);
 
         AssetRecord broker = new AssetRecord();
-        broker.name = "证券账户";
-        broker.category = "券商";
+        broker.name = "证券持仓";
+        broker.category = "券商持仓";
         broker.institution = "待绑定券商 App";
         broker.amount = "0";
         broker.currency = "CNY";
         broker.updateEveryDays = 1;
         broker.note = "每日交易后打开券商 App 核对持仓并记录快照。";
         assets.add(broker);
+
+        AssetRecord brokerCash = new AssetRecord();
+        brokerCash.name = "券商现金";
+        brokerCash.category = "券商现金";
+        brokerCash.institution = "待绑定券商 App";
+        brokerCash.amount = "0";
+        brokerCash.currency = "CNY";
+        brokerCash.updateEveryDays = 1;
+        brokerCash.note = "记录券商账户里的可用资金，和持仓分开看。";
+        assets.add(brokerCash);
 
         return assets;
     }

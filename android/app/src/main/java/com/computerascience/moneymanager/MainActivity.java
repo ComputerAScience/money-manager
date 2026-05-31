@@ -50,6 +50,7 @@ import com.computerascience.moneymanager.ui.AllocationChartView;
 import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.SectionNavigator;
+import com.computerascience.moneymanager.ui.SideSectionRail;
 import com.computerascience.moneymanager.ui.TrendChartView;
 import com.computerascience.moneymanager.ui.UpdateDialog;
 
@@ -75,7 +76,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
     private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
-    private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
+    private static final String[] CATEGORIES = {"银行存款", "银行理财", "券商持仓", "券商现金", "基金", "加密资产", "房产", "负债", "其他"};
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
     private static final int PANEL = Color.WHITE;
@@ -107,6 +108,10 @@ public final class MainActivity extends Activity {
     private LinearLayout trendPage;
     private LinearLayout assetsPage;
     private BottomNavBar bottomNavBar;
+    private SideSectionRail sideSectionRail;
+    private SectionNavigator.Item[] overviewSections;
+    private SectionNavigator.Item[] trendSections;
+    private SectionNavigator.Item[] assetSections;
     private LinearLayout assetList;
     private LinearLayout allocationLegend;
     private LinearLayout allocationTargetList;
@@ -254,6 +259,8 @@ public final class MainActivity extends Activity {
 
         screen.addView(header, lp(-1, -2));
 
+        FrameLayout contentFrame = new FrameLayout(this);
+
         ScrollView scrollView = new ScrollView(this);
         mainScrollView = scrollView;
         scrollView.setFillViewport(true);
@@ -261,7 +268,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(18), dp(28));
+        root.setPadding(dp(18), dp(12), dp(68), dp(28));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -274,14 +281,14 @@ public final class MainActivity extends Activity {
         View institution = institutionCard();
         View netWorthGoal = netWorthGoalCard();
         View actionCenter = actionCenterCard();
-        overviewPage.addView(sectionNav(
+        overviewSections = new SectionNavigator.Item[]{
                 new SectionNavigator.Item("总资产概览", overviewSummary),
                 new SectionNavigator.Item("资产比例", allocation),
                 new SectionNavigator.Item("目标比例", allocationTarget),
                 new SectionNavigator.Item("机构分布", institution),
                 new SectionNavigator.Item("年度目标", netWorthGoal),
                 new SectionNavigator.Item("行动中心", actionCenter)
-        ));
+        };
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
         overviewPage.addView(allocationTarget);
@@ -294,11 +301,11 @@ public final class MainActivity extends Activity {
         View totalTrend = trendCard();
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
-        trendPage.addView(sectionNav(
+        trendSections = new SectionNavigator.Item[]{
                 new SectionNavigator.Item("一年趋势", totalTrend),
                 new SectionNavigator.Item("分布变化", distributionTrend),
                 new SectionNavigator.Item("单项资产", assetTrend)
-        ));
+        };
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
         trendPage.addView(assetTrend);
@@ -307,15 +314,25 @@ public final class MainActivity extends Activity {
         assetsPage = page();
         View assetManagement = assetManagementSection();
         View recentUpdates = recentUpdatesCard();
-        assetsPage.addView(sectionNav(
+        assetSections = new SectionNavigator.Item[]{
                 new SectionNavigator.Item("资产管理", assetManagement),
                 new SectionNavigator.Item("最近更新", recentUpdates)
-        ));
+        };
         assetsPage.addView(assetManagement);
         assetsPage.addView(recentUpdates);
         root.addView(assetsPage);
 
-        screen.addView(scrollView, new LinearLayout.LayoutParams(
+        contentFrame.addView(scrollView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        sideSectionRail = new SideSectionRail(this, this::scrollToSection);
+        FrameLayout.LayoutParams railParams = new FrameLayout.LayoutParams(dp(46), -2, Gravity.RIGHT | Gravity.TOP);
+        railParams.topMargin = dp(12);
+        railParams.rightMargin = dp(8);
+        contentFrame.addView(sideSectionRail, railParams);
+
+        screen.addView(contentFrame, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1
@@ -347,10 +364,6 @@ public final class MainActivity extends Activity {
         return page;
     }
 
-    private View sectionNav(SectionNavigator.Item... items) {
-        return new SectionNavigator(this, this::scrollToSection, items);
-    }
-
     private void selectPage(String page) {
         if (currentPage.equals(page)) {
             return;
@@ -376,6 +389,9 @@ public final class MainActivity extends Activity {
         }
         if (pageSubtitle != null) {
             pageSubtitle.setText(pageSubtitleText());
+        }
+        if (sideSectionRail != null) {
+            sideSectionRail.setItems(currentSections());
         }
     }
 
@@ -403,6 +419,16 @@ public final class MainActivity extends Activity {
             return "新增、筛选、绑定、核对资产，并回看最近更新。";
         }
         return "净资产、资产分布、年度目标和需要处理的提醒。";
+    }
+
+    private SectionNavigator.Item[] currentSections() {
+        if (PAGE_TREND.equals(currentPage)) {
+            return trendSections == null ? new SectionNavigator.Item[0] : trendSections;
+        }
+        if (PAGE_ASSETS.equals(currentPage)) {
+            return assetSections == null ? new SectionNavigator.Item[0] : assetSections;
+        }
+        return overviewSections == null ? new SectionNavigator.Item[0] : overviewSections;
     }
 
     @Override
@@ -3127,9 +3153,11 @@ public final class MainActivity extends Activity {
     }
 
     private String categoryIcon(String category) {
-        if ("银行".equals(category)) return "¥";
-        if ("券商".equals(category)) return "↗";
-        if ("基金".equals(category)) return "◔";
+        if ("银行".equals(category) || "银行存款".equals(category)) return "¥";
+        if ("银行理财".equals(category)) return "%";
+        if ("券商".equals(category) || "券商持仓".equals(category)) return "↗";
+        if ("券商现金".equals(category)) return "$";
+        if ("基金".equals(category)) return "%";
         if ("加密资产".equals(category)) return "◇";
         if ("房产".equals(category)) return "⌂";
         if ("负债".equals(category)) return "!";
@@ -3162,13 +3190,18 @@ public final class MainActivity extends Activity {
         form.addView(name);
 
         Spinner category = new Spinner(this);
-        category.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, CATEGORIES));
+        String[] categoryOptions = categoryOptions(draft.category);
+        category.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, categoryOptions));
         styleSpinner(category);
-        category.setSelection(indexOf(CATEGORIES, draft.category));
+        category.setSelection(indexOf(categoryOptions, draft.category));
         form.addView(fieldBox("类型", category));
 
         EditText institution = input("机构", draft.institution, InputType.TYPE_CLASS_TEXT);
         form.addView(institution);
+        TextView institutionHelp = text("同一个机构可以建多条资产：比如银行存款、银行理财、信用卡负债；券商可分持仓和现金。", 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams institutionHelpParams = lp(-1, -2);
+        institutionHelpParams.bottomMargin = dp(10);
+        form.addView(institutionHelp, institutionHelpParams);
 
         LinearLayout amountRow = row();
         EditText amount = input("金额", draft.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -3882,6 +3915,16 @@ public final class MainActivity extends Activity {
             options.add(selected);
         }
         return options;
+    }
+
+    private String[] categoryOptions(String selectedCategory) {
+        List<String> options = new ArrayList<>();
+        Collections.addAll(options, CATEGORIES);
+        String selected = clean(selectedCategory);
+        if (!selected.isEmpty() && !options.contains(selected)) {
+            options.add(selected);
+        }
+        return options.toArray(new String[0]);
     }
 
     private LinearLayout row() {

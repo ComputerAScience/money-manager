@@ -154,8 +154,10 @@ public final class AssetMath {
     }
 
     public static int colorForCategory(String category) {
-        if ("银行".equals(category)) return 0xFF126B5F;
-        if ("券商".equals(category)) return 0xFF335EAA;
+        if ("银行".equals(category) || "银行存款".equals(category)) return 0xFF126B5F;
+        if ("银行理财".equals(category)) return 0xFF3B7F91;
+        if ("券商".equals(category) || "券商持仓".equals(category)) return 0xFF335EAA;
+        if ("券商现金".equals(category)) return 0xFF5B6F94;
         if ("基金".equals(category)) return 0xFF3B7F91;
         if ("加密资产".equals(category)) return 0xFFB85C2F;
         if ("房产".equals(category)) return 0xFF72518A;
