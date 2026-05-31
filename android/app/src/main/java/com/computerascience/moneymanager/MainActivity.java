@@ -3483,12 +3483,12 @@ public final class MainActivity extends Activity {
         helperParams.bottomMargin = dp(8);
         content.addView(helper, helperParams);
 
-        TextView count = text(apps.size() + " 个可绑定 App", 12, MUTED, Typeface.BOLD);
+        TextView countLabel = text(appPickerCountText(apps.size(), apps.size()), 12, MUTED, Typeface.BOLD);
         LinearLayout.LayoutParams countParams = lp(-1, -2);
         countParams.bottomMargin = dp(10);
-        content.addView(count, countParams);
+        content.addView(countLabel, countParams);
 
-        EditText search = input("搜索 App 名称", "", InputType.TYPE_CLASS_TEXT);
+        EditText search = input("搜索 App 名称或包名", "", InputType.TYPE_CLASS_TEXT);
         content.addView(search);
 
         FrameLayout listFrame = new FrameLayout(this);
@@ -3537,7 +3537,8 @@ public final class MainActivity extends Activity {
 
             @Override
             public void onTextChanged(CharSequence text, int start, int before, int count) {
-                adapter.filter(text == null ? "" : text.toString());
+                int matches = adapter.filter(text == null ? "" : text.toString());
+                updateAppPickerCount(apps.size(), matches, countLabel);
             }
 
             @Override
@@ -3551,6 +3552,18 @@ public final class MainActivity extends Activity {
             }
         });
         showStyledDialog(dialog);
+    }
+
+    private String appPickerCountText(int total, int matches) {
+        if (matches == total) {
+            return total + " 个可绑定 App";
+        }
+        return "匹配 " + matches + " / " + total + " 个 App";
+    }
+
+    private void updateAppPickerCount(int total, int matches, TextView count) {
+        count.setText(appPickerCountText(total, matches));
+        count.setTextColor(matches == 0 ? DANGER : MUTED);
     }
 
     private void openMarket(String packageName) {
@@ -4276,16 +4289,18 @@ public final class MainActivity extends Activity {
             filtered.addAll(apps);
         }
 
-        void filter(String query) {
+        int filter(String query) {
             String normalized = clean(query).toLowerCase(Locale.ROOT);
             filtered.clear();
             for (LaunchableApp app : source) {
                 if (normalized.isEmpty()
-                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)) {
+                        || app.label.toLowerCase(Locale.ROOT).contains(normalized)
+                        || app.packageName.toLowerCase(Locale.ROOT).contains(normalized)) {
                     filtered.add(app);
                 }
             }
             notifyDataSetChanged();
+            return filtered.size();
         }
 
         @Override
