@@ -7,12 +7,14 @@ on:
       - codex-asset-dashboard
     paths:
       - "android/**"
+      - "tools/**"
       - ".github/workflows/android.yml"
   pull_request:
     branches:
       - master
     paths:
       - "android/**"
+      - "tools/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
@@ -45,6 +47,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
+
+      - name: Test backup migration script
+        working-directory: .
+        run: node tools/migrate-backup-v8.test.js
 
       - name: Cache fallback stable debug signing key
         if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' }}

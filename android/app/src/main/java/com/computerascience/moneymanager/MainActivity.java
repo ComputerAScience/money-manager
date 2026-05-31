@@ -1403,6 +1403,12 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams helpParams = lp(-1, -2);
         helpParams.topMargin = dp(12);
         card.addView(help, helpParams);
+
+        Button categoryButton = secondaryButton("管理投资类型");
+        categoryButton.setOnClickListener(view -> showCategorySettingsDialog());
+        LinearLayout.LayoutParams categoryParams = lp(-1, dp(42));
+        categoryParams.topMargin = dp(10);
+        card.addView(categoryButton, categoryParams);
         return card;
     }
 
