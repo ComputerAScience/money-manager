@@ -32,6 +32,12 @@ public final class AssetAppGroups {
             if (hasBoundApp(asset)) {
                 group.hasBoundApp = true;
             }
+            if (group.packageName.isEmpty() && !clean(asset.packageName).isEmpty()) {
+                group.packageName = clean(asset.packageName);
+            }
+            if (group.launchUri.isEmpty() && !clean(asset.launchUri).isEmpty()) {
+                group.launchUri = clean(asset.launchUri);
+            }
             addKinds(group, asset);
         }
 
@@ -144,6 +150,8 @@ public final class AssetAppGroups {
         public final String title;
         public final List<AssetRecord> assets = new ArrayList<>();
         public final List<String> kinds = new ArrayList<>();
+        public String packageName = "";
+        public String launchUri = "";
         public double total;
         public int staleCount;
         public boolean hasBoundApp;

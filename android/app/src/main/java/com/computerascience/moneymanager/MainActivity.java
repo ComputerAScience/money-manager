@@ -10,6 +10,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
@@ -2257,8 +2258,12 @@ public final class MainActivity extends Activity {
         rowParams.bottomMargin = dp(8);
         row.setLayoutParams(rowParams);
 
+        row.addView(appGroupIcon(group), new LinearLayout.LayoutParams(dp(40), dp(40)));
+
         LinearLayout labelGroup = new LinearLayout(this);
         labelGroup.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1);
+        labelParams.leftMargin = dp(10);
         labelGroup.addView(text(group.title + " · " + group.assets.size() + " 项资产", 14, INK, Typeface.BOLD));
 
         String bindText = group.hasBoundApp ? "已绑定 App" : "未绑定 App";
@@ -2269,7 +2274,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams detailParams = lp(-1, -2);
         detailParams.topMargin = dp(4);
         labelGroup.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
-        row.addView(labelGroup, new LinearLayout.LayoutParams(0, -2, 1));
+        row.addView(labelGroup, labelParams);
 
         Button toggle = secondaryButton(collapsedAssetGroups.contains(group.key) ? "展开" : "折叠");
         toggle.setOnClickListener(view -> {
@@ -2282,6 +2287,23 @@ public final class MainActivity extends Activity {
         });
         row.addView(toggle, new LinearLayout.LayoutParams(dp(72), dp(38)));
         return row;
+    }
+
+    private View appGroupIcon(AssetAppGroups.Group group) {
+        Drawable icon = resolveAppIcon(group.packageName);
+        if (icon != null) {
+            ImageView image = new ImageView(this);
+            image.setImageDrawable(icon);
+            image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            image.setPadding(dp(5), dp(5), dp(5), dp(5));
+            image.setBackground(roundedBackground(PANEL, PANEL_BORDER, 8));
+            return image;
+        }
+
+        TextView fallback = text(group.hasBoundApp ? "App" : "未", 12, group.hasBoundApp ? ACCENT : AMBER, Typeface.BOLD);
+        fallback.setGravity(Gravity.CENTER);
+        fallback.setBackground(roundedBackground(SURFACE_ALT, PANEL_BORDER, 8));
+        return fallback;
     }
 
     private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
@@ -4174,6 +4196,19 @@ public final class MainActivity extends Activity {
             ));
         } catch (Exception error) {
             return "";
+        }
+    }
+
+    private Drawable resolveAppIcon(String packageName) {
+        String cleanPackageName = clean(packageName);
+        if (cleanPackageName.isEmpty()) {
+            return null;
+        }
+        try {
+            PackageManager packageManager = getPackageManager();
+            return packageManager.getApplicationIcon(cleanPackageName);
+        } catch (Exception error) {
+            return null;
         }
     }
 
