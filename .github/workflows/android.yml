@@ -96,13 +96,12 @@ jobs:
           set -euo pipefail
           mkdir -p app/build/outputs/apk/release-channel
           cp app/build/outputs/apk/master/debug/app-master-debug.apk app/build/outputs/apk/release-channel/money-manager-master.apk
-          cp app/build/outputs/apk/master/debug/app-master-debug.apk app/build/outputs/apk/release-channel/money-manager-debug.apk
           cp app/build/outputs/apk/dev/debug/app-dev-debug.apk app/build/outputs/apk/release-channel/money-manager-dev.apk
 
       - name: Write update metadata
         run: |
           set -euo pipefail
-          master_tag="android-debug-latest"
+          master_tag="android-master-latest"
           dev_tag="android-dev-latest"
           output_dir="app/build/outputs/apk/release-channel"
           version_name="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)"
@@ -141,10 +140,9 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: money-manager-debug-apk
+          name: money-manager-apks
           path: |
             android/app/build/outputs/apk/release-channel/money-manager-master.apk
-            android/app/build/outputs/apk/release-channel/money-manager-debug.apk
             android/app/build/outputs/apk/release-channel/money-manager-dev.apk
             android/app/build/outputs/apk/release-channel/version.json
             android/app/build/outputs/apk/release-channel/dev-version.json
@@ -155,13 +153,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          tag="android-debug-latest"
+          tag="android-master-latest"
           output_dir="app/build/outputs/apk/release-channel"
           master_apk="$output_dir/money-manager-master.apk"
-          legacy_apk="$output_dir/money-manager-debug.apk"
           metadata="$output_dir/version.json"
           test -f "$master_apk"
-          test -f "$legacy_apk"
           test -f "$metadata"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -173,7 +169,18 @@ jobs:
               --notes "最新 master APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
               --prerelease
           fi
-          gh release upload "$tag" "$master_apk" "$legacy_apk" "$metadata" --clobber
+          gh release upload "$tag" "$master_apk" "$metadata" --clobber
+
+      - name: Delete old debug APK release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          old_tag="android-debug-latest"
+          if gh release view "$old_tag" >/dev/null 2>&1; then
+            gh release delete "$old_tag" --yes --cleanup-tag
+          fi
 
       - name: Publish latest dev APK release
         if: github.event_name != 'pull_request'

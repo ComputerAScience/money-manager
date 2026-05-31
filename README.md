@@ -25,20 +25,20 @@
 
 GitHub Actions 会发布两个 APK 渠道：
 
-- [下载 master 版 APK](https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-master.apk)
+- [下载 master 版 APK](https://github.com/ComputerAScience/money-manager/releases/download/android-master-latest/money-manager-master.apk)
 - [下载开发版 APK](https://github.com/ComputerAScience/money-manager/releases/download/android-dev-latest/money-manager-dev.apk)
 
 master 版和开发版使用同一个 Android 包名和同一套稳定签名，因此不能同时安装，但可以互相覆盖安装，正常情况下本机数据会保留。开发版的 App 名称会显示为 `Money Manager Dev`，用于区分当前装的是哪个渠道。
 
 手机打开这个仓库首页，或用相机扫描下面二维码下载 master 版：
 
-<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-master.apk">
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-debug-latest%2Fmoney-manager-master.apk" alt="扫码下载 Money Manager master APK" width="220" height="220">
+<a href="https://github.com/ComputerAScience/money-manager/releases/download/android-master-latest/money-manager-master.apk">
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=12&amp;data=https%3A%2F%2Fgithub.com%2FComputerAScience%2Fmoney-manager%2Freleases%2Fdownload%2Fandroid-master-latest%2Fmoney-manager-master.apk" alt="扫码下载 Money Manager master APK" width="220" height="220">
 </a>
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 
-从 `0.6.6` 开始，master / dev 渠道会使用同一套稳定 debug 签名。若手机里已经安装过更早的分支构建并提示“签名不一致”，Android 不允许直接覆盖；请先在 App 设置里导出备份，再卸载旧签名版本，安装 `0.6.6` 之后导入备份。完成这一次切换后，后续 master 和 dev 之间覆盖安装会保留数据。
+从 `0.6.7` 开始，master / dev 渠道会使用同一套稳定签名。若手机里已经安装过更早的分支构建并提示“签名不一致”，Android 不允许直接覆盖；请先在 App 设置里导出备份，再卸载旧签名版本，安装 `0.6.7` 之后导入备份。完成这一次切换后，后续 master 和 dev 之间覆盖安装会保留数据。
 
 ## 本地开发
 

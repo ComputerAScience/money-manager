@@ -3,7 +3,7 @@ plugins {
 }
 
 def moneyManagerDebugKeystore = file("money-manager-debug.p12")
-def masterReleaseTag = "android-debug-latest"
+def masterReleaseTag = "android-master-latest"
 def devReleaseTag = "android-dev-latest"
 def repo = "ComputerAScience/money-manager"
 
@@ -15,8 +15,8 @@ android {
         applicationId "com.computerascience.moneymanager"
         minSdk 23
         targetSdk 35
-        versionCode 44
-        versionName "0.6.6"
+        versionCode 45
+        versionName "0.6.7"
     }
 
     buildFeatures {
