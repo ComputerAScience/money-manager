@@ -116,6 +116,18 @@ public final class AssetMath {
         return days >= asset.updateEveryDays;
     }
 
+    public static int daysUntilDue(AssetRecord asset, long now) {
+        if (asset.lastUpdatedAt <= 0) {
+            return -10_000;
+        }
+        long dueAt = asset.lastUpdatedAt + asset.updateEveryDays * DAY_MS;
+        long remaining = dueAt - now;
+        if (remaining <= 0) {
+            return (int) (remaining / DAY_MS);
+        }
+        return (int) Math.ceil(remaining / (double) DAY_MS);
+    }
+
     public static boolean isLiability(AssetRecord asset) {
         return AssetCategories.DEBT.equals(asset.category);
     }

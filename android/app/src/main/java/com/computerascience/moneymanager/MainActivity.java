@@ -1,6 +1,5 @@
 package com.computerascience.moneymanager;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
@@ -12,19 +11,16 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
-import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -36,14 +32,18 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.computerascience.moneymanager.data.AssetStore;
+import com.computerascience.moneymanager.domain.AllocationAnalytics;
 import com.computerascience.moneymanager.domain.AssetCategories;
+import com.computerascience.moneymanager.domain.AssetFilters;
 import com.computerascience.moneymanager.domain.AssetInstitutionGroups;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.AssetPresets;
+import com.computerascience.moneymanager.domain.DataHealth;
 import com.computerascience.moneymanager.domain.ExchangeRateClient;
+import com.computerascience.moneymanager.domain.InvestmentAnalytics;
+import com.computerascience.moneymanager.domain.TrendAnalytics;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -57,135 +57,31 @@ import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.SectionDrawer;
 import com.computerascience.moneymanager.ui.SectionProgressHandle;
+import com.computerascience.moneymanager.ui.SpaceView;
 import com.computerascience.moneymanager.ui.TrendChartView;
 import com.computerascience.moneymanager.ui.UpdateDialog;
 
-import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.zip.GZIPOutputStream;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-public final class MainActivity extends Activity {
+public final class MainActivity extends MoneyManagerActivity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = BuildConfig.APK_DOWNLOAD_URL;
     private static final String UPDATE_INFO_URL = BuildConfig.UPDATE_INFO_URL;
     private static final String SHARE_PAGE_URL = "https://computerascience.github.io/money-manager/";
-    private static final String ADD_CATEGORY_OPTION = "新增资产类型...";
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "买入卖出", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
-    private static final int BG = Color.rgb(247, 248, 250);
-    private static final int PANEL = Color.WHITE;
-    private static final int INK = Color.rgb(31, 41, 55);
-    private static final int MUTED = Color.rgb(100, 116, 139);
-    private static final int PANEL_BORDER = Color.rgb(226, 232, 240);
-    private static final int ROW_SURFACE = Color.rgb(248, 250, 252);
-    private static final int ACCENT = Color.rgb(18, 107, 95);
-    private static final int ACCENT_DARK = Color.rgb(9, 75, 67);
-    private static final int SURFACE = Color.rgb(249, 251, 252);
-    private static final int SURFACE_ALT = Color.rgb(232, 246, 242);
-    private static final int BLUE = Color.rgb(51, 94, 170);
-    private static final int DANGER = Color.rgb(190, 67, 80);
-    private static final int AMBER = Color.rgb(166, 121, 24);
     private static final String PAGE_OVERVIEW = BottomNavBar.PAGE_OVERVIEW;
     private static final String PAGE_INVESTMENT = BottomNavBar.PAGE_INVESTMENT;
     private static final String PAGE_TREND = BottomNavBar.PAGE_TREND;
     private static final String PAGE_ASSETS = BottomNavBar.PAGE_ASSETS;
 
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
-    private AssetStore store;
-    private List<AssetRecord> assets = new ArrayList<>();
-    private List<AssetSnapshot> snapshots = new ArrayList<>();
-    private List<AssetUpdateEvent> updateEvents = new ArrayList<>();
-    private PortfolioSettings settings;
-    private ScrollView mainScrollView;
-    private TextView pageTitle;
-    private TextView pageSubtitle;
-    private LinearLayout overviewPage;
-    private LinearLayout investmentPage;
-    private LinearLayout trendPage;
-    private LinearLayout assetsPage;
-    private FrameLayout contentFrame;
-    private BottomNavBar bottomNavBar;
-    private SectionDrawer sectionDrawer;
-    private SectionProgressHandle sectionProgressHandle;
-    private SectionDrawer.Item[] overviewSections;
-    private SectionDrawer.Item[] investmentSections;
-    private SectionDrawer.Item[] trendSections;
-    private SectionDrawer.Item[] assetSections;
-    private LinearLayout assetList;
-    private LinearLayout allocationLegend;
-    private LinearLayout allocationTargetList;
-    private LinearLayout institutionList;
-    private LinearLayout updatePlanList;
-    private LinearLayout recentUpdateList;
-    private LinearLayout managementBody;
-    private AllocationChartView allocationChart;
-    private TrendChartView trendChart;
-    private TextView netWorthValue;
-    private TextView grossAssetsValue;
-    private TextView liabilitiesValue;
-    private TextView freshnessValue;
-    private Button privacyToggle;
-    private TextView currencyNote;
-    private TextView netWorthGoalSummary;
-    private TextView currencySettingsSummary;
-    private TextView allocationTargetSummary;
-    private TextView trendSummary;
-    private LinearLayout trendMetricsList;
-    private LinearLayout trendHistoryList;
-    private TextView distributionTrendSummary;
-    private LinearLayout distributionTrendList;
-    private TextView insightSummary;
-    private TextView dataHealthSummary;
-    private LinearLayout dataHealthList;
-    private TextView updatePlanSummary;
-    private TextView recentUpdateSummary;
-    private TextView investmentSummaryText;
-    private TextView investmentStructureSummary;
-    private LinearLayout investmentStructureList;
-    private TextView investmentInstitutionSummary;
-    private LinearLayout investmentInstitutionList;
-    private TextView investmentPlanSummary;
-    private LinearLayout investmentPlanList;
-    private LinearLayout investmentAccountList;
-    private TextView managementSummary;
-    private TextView assetResultSummary;
-    private View assetManagementCard;
-    private EditText assetSearchInput;
-    private LinearLayout assetFilterButtons;
-    private Button managementToggle;
-    private String pendingLaunchAssetId;
-    private boolean waitingForExternalReturn;
-    private boolean managementExpanded = true;
-    private String assetSearchQuery = "";
-    private String assetFilterMode = "all";
     private String currentPage = PAGE_OVERVIEW;
-    private boolean suppressAssetTrendSelection;
-    private String selectedTrendAssetId = "";
-    private Spinner assetTrendSpinner;
-    private TrendChartView assetTrendChart;
-    private TextView assetTrendSummary;
-    private LinearLayout assetTrendHistoryList;
-    private List<AssetRecord> assetTrendOptions = new ArrayList<>();
-    private final Set<String> collapsedAssetGroups = new HashSet<>();
-    private int sectionDragIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -727,7 +623,7 @@ public final class MainActivity extends Activity {
         renderInstitutionList(portfolio);
         renderInvestmentPage();
 
-        List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
+        List<AssetSnapshot> trendSnapshots = TrendAnalytics.snapshotsForBase(snapshots, portfolio.baseCurrency);
         trendChart.setSnapshots(trendSnapshots);
         trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
         renderTrendMetrics(portfolio, trendSnapshots);
@@ -747,9 +643,15 @@ public final class MainActivity extends Activity {
         managementBody.setVisibility(managementExpanded ? View.VISIBLE : View.GONE);
 
         renderAssetFilterButtons();
-        List<AssetRecord> visibleAssets = visibleAssets();
+        List<AssetRecord> visibleAssets = AssetFilters.visibleAssets(
+                assets,
+                settings,
+                assetSearchQuery,
+                assetFilterMode,
+                this::appDisplayName
+        );
         assetResultSummary.setText("按机构分组显示 " + visibleAssets.size() + " / " + assets.size()
-                + " 项，当前筛选：" + assetFilterLabel() + "。");
+                + " 项，当前筛选：" + AssetFilters.label(assetFilterMode) + "。");
 
         assetList.removeAllViews();
         if (visibleAssets.isEmpty()) {
@@ -829,7 +731,7 @@ public final class MainActivity extends Activity {
 
     private void copyAssetSummary() {
         PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
-        List<AssetSnapshot> trendSnapshots = snapshotsForBase(portfolio.baseCurrency);
+        List<AssetSnapshot> trendSnapshots = TrendAnalytics.snapshotsForBase(snapshots, portfolio.baseCurrency);
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard == null) {
             toast("无法访问剪贴板。");
@@ -877,13 +779,13 @@ public final class MainActivity extends Activity {
         }
 
         if (settings.hasAllocationTargets()) {
-            List<AllocationDrift> drifts = allocationDrifts(portfolio);
+            List<AllocationAnalytics.Drift> drifts = AllocationAnalytics.drifts(portfolio, settings);
             if (!drifts.isEmpty()) {
                 lines.add("");
                 lines.add("目标比例提醒");
                 int limit = Math.min(3, drifts.size());
                 for (int index = 0; index < limit; index += 1) {
-                    AllocationDrift drift = drifts.get(index);
+                    AllocationAnalytics.Drift drift = drifts.get(index);
                     double gap = drift.targetPercent - drift.currentPercent;
                     String status = Math.abs(gap) < 0.5
                             ? "接近目标"
@@ -1222,163 +1124,22 @@ public final class MainActivity extends Activity {
     }
 
     private void showSettingsMenu() {
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        body.setPadding(pad, dp(8), pad, dp(6));
-
-        ScrollView scrollBody = new ScrollView(this);
-        scrollBody.addView(body, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("设置")
-                .setView(scrollBody)
-                .setNegativeButton("关闭", null)
-                .create();
-
-        addSettingsSection(body, "偏好");
-        body.addView(settingsActionRow(
-                "¥",
-                "基准币种与汇率",
+        new SettingsMenuController(this).show(
                 currencySettingsText(),
-                ACCENT,
-                view -> {
-                    dialog.dismiss();
-                    showCurrencySettingsDialog();
-                }
-        ));
-        body.addView(settingsActionRow(
-                "类",
-                "资产类型",
-                "新增自定义类型，并选择哪些类型进入投资页。",
-                BLUE,
-                view -> {
-                    dialog.dismiss();
-                    showCategorySettingsDialog();
-                }
-        ));
-
-        addSettingsSection(body, "数据");
-        body.addView(settingsActionRow(
-                "享",
-                "分享看板",
-                "生成 GitHub Pages 只读链接，别人打开即可查看当前资产概览。",
-                ACCENT,
-                view -> {
-                    dialog.dismiss();
-                    sharePortfolioPage();
-                }
-        ));
-        body.addView(settingsActionRow(
-                "⇧",
-                "导出备份",
-                "保存资产、App 绑定、趋势快照、更新记录和设置。",
-                BLUE,
-                view -> {
-                    dialog.dismiss();
-                    startBackupExport();
-                }
-        ));
-        body.addView(settingsActionRow(
-                "⇩",
-                "导入备份",
-                "用备份文件覆盖当前本机数据。",
-                AMBER,
-                view -> {
-                    dialog.dismiss();
-                    startBackupImport();
-                }
-        ));
-
-        addSettingsSection(body, "版本与更新");
-        body.addView(settingsActionRow(
-                "↻",
-                "检查更新",
-                "当前版本 " + appVersionLabel() + "，读取远端最新版本。",
-                ACCENT,
-                view -> {
-                    dialog.dismiss();
-                    showUpdateDialog();
-                }
-        ));
-        body.addView(settingsActionRow(
-                "↓",
-                "直接下载 APK",
-                "打开固定下载地址，适合网络检查失败时使用。",
-                BLUE,
-                view -> {
-                    dialog.dismiss();
-                    openApkDownload();
-                }
-        ));
-        body.addView(settingsActionRow(
-                "⛓",
-                "复制下载链接",
-                "把最新 APK 地址复制到剪贴板。",
-                MUTED,
-                view -> {
-                    dialog.dismiss();
-                    copyApkDownloadLink();
-                }
-        ));
-
-        showStyledDialog(dialog);
+                appVersionLabel(),
+                this::showCurrencySettingsDialog,
+                this::showCategorySettingsDialog,
+                this::sharePortfolioPage,
+                this::startBackupExport,
+                this::startBackupImport,
+                this::showUpdateDialog,
+                this::openApkDownload,
+                this::copyApkDownloadLink
+        );
     }
 
     private void showUpdateDialog() {
         UpdateDialog.show(this, appVersionLabel(), appVersionCode(), UPDATE_INFO_URL, APK_DOWNLOAD_URL);
-    }
-
-    private void addSettingsSection(LinearLayout body, String title) {
-        TextView section = label(title);
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = body.getChildCount() == 0 ? 0 : dp(18);
-        params.bottomMargin = dp(8);
-        body.addView(section, params);
-    }
-
-    private View settingsActionRow(
-            String icon,
-            String title,
-            String description,
-            int iconColor,
-            View.OnClickListener listener
-    ) {
-        LinearLayout row = row();
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(10), dp(10));
-        row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
-        row.setOnClickListener(listener);
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.bottomMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        TextView iconView = text(icon, 18, iconColor, Typeface.BOLD);
-        iconView.setGravity(Gravity.CENTER);
-        iconView.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        row.addView(iconView, new LinearLayout.LayoutParams(dp(38), dp(38)));
-
-        LinearLayout copy = new LinearLayout(this);
-        copy.setOrientation(LinearLayout.VERTICAL);
-        TextView titleView = text(title, 15, INK, Typeface.BOLD);
-        titleView.setIncludeFontPadding(false);
-        copy.addView(titleView);
-
-        TextView descriptionView = text(description, 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.topMargin = dp(4);
-        copy.addView(descriptionView, descriptionParams);
-        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, -2, 1);
-        copyParams.leftMargin = dp(12);
-        row.addView(copy, copyParams);
-
-        TextView arrow = text("›", 22, MUTED, Typeface.BOLD);
-        arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(dp(22), dp(34)));
-        return row;
     }
 
     private String appVersionLabel() {
@@ -1643,14 +1404,14 @@ public final class MainActivity extends Activity {
         }
         List<AssetRecord> investments = investmentAssets();
         List<AssetInstitutionGroups.Group> groups = AssetInstitutionGroups.groupByInstitution(investments, settings);
-        InvestmentTotals totals = investmentTotals(investments);
+        InvestmentAnalytics.Summary stats = InvestmentAnalytics.summarize(investments, settings);
 
-        investmentSummaryText.setText("投资总额 " + formatMoney(totals.total, settings.baseCurrency)
+        investmentSummaryText.setText("投资总额 " + formatMoney(stats.total, settings.baseCurrency)
                 + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
 
-        renderInvestmentStructure(investments, totals);
-        renderInvestmentInstitutions(groups, totals.total);
-        renderInvestmentPlan(investments);
+        renderInvestmentStructure(investments, stats);
+        renderInvestmentInstitutions(groups, stats.total);
+        renderInvestmentPlan(investments, stats);
 
         investmentAccountList.removeAllViews();
         if (investments.isEmpty()) {
@@ -1667,25 +1428,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private InvestmentTotals investmentTotals(List<AssetRecord> investments) {
-        InvestmentTotals totals = new InvestmentTotals();
-        for (AssetRecord asset : investments) {
-            double gross = amountInBase(asset, AssetMath.assetGrossAmount(asset));
-            double holding = amountInBase(asset, investmentHoldingAmount(asset));
-            double cash = amountInBase(asset, investmentCashAmount(asset));
-            totals.total += gross;
-            totals.holding += holding;
-            totals.cash += cash;
-            if (daysUntilDue(asset) <= 0) {
-                totals.dueNow += 1;
-            } else if (daysUntilDue(asset) <= 3) {
-                totals.dueSoon += 1;
-            }
-        }
-        return totals;
-    }
-
-    private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentTotals totals) {
+    private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
         investmentStructureList.removeAllViews();
         if (investments.isEmpty()) {
             investmentStructureSummary.setText("投资类型开启后，这里会展示持仓、现金和类型分布。");
@@ -1693,45 +1436,32 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        double cashPercent = totals.total <= 0 ? 0 : totals.cash / totals.total * 100;
-        investmentStructureSummary.setText("持仓 " + formatPercent(totals.holding, totals.total)
+        double cashPercent = stats.total <= 0 ? 0 : stats.cash / stats.total * 100;
+        investmentStructureSummary.setText("持仓 " + formatPercent(stats.holding, stats.total)
                 + " · 闲置现金 " + formatPercentValue(cashPercent)
                 + " · " + investments.size() + " 项投资资产。");
 
         investmentStructureList.addView(investmentInfoRow(
                 "持仓市值",
-                formatMoney(totals.holding, settings.baseCurrency),
+                formatMoney(stats.holding, settings.baseCurrency),
                 "投资账户持仓，以及基金、加密资产等按投资类型纳入的资产。",
                 ACCENT
         ));
         investmentStructureList.addView(investmentInfoRow(
                 "闲置现金",
-                formatMoney(totals.cash, settings.baseCurrency),
+                formatMoney(stats.cash, settings.baseCurrency),
                 cashPercent >= 30
                         ? "现金占比较高，适合确认是否刻意留仓。"
                         : "现金占比用于观察券商账户里的未投资资金。",
                 cashPercent >= 30 ? AMBER : BLUE
         ));
 
-        Map<String, Double> categoryTotals = new HashMap<>();
-        for (AssetRecord asset : investments) {
-            categoryTotals.put(asset.category, doubleValue(categoryTotals, asset.category)
-                    + amountInBase(asset, AssetMath.assetGrossAmount(asset)));
-        }
-        List<CategoryBreakdown> categories = new ArrayList<>();
-        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-            if (entry.getValue() > 0) {
-                categories.add(new CategoryBreakdown(entry.getKey(), entry.getValue(), AssetMath.colorForCategory(entry.getKey())));
-            }
-        }
-        Collections.sort(categories, (left, right) -> Double.compare(right.value, left.value));
-
-        int limit = Math.min(4, categories.size());
+        int limit = Math.min(4, stats.categories.size());
         for (int index = 0; index < limit; index += 1) {
-            CategoryBreakdown category = categories.get(index);
+            CategoryBreakdown category = stats.categories.get(index);
             investmentStructureList.addView(investmentInfoRow(
                     "类型 · " + category.category,
-                    formatPercent(category.value, totals.total),
+                    formatPercent(category.value, stats.total),
                     settings.hideAmounts
                             ? "金额已隐藏。"
                             : formatMoney(category.value, settings.baseCurrency),
@@ -1759,7 +1489,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void renderInvestmentPlan(List<AssetRecord> investments) {
+    private void renderInvestmentPlan(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
         investmentPlanList.removeAllViews();
         if (investments.isEmpty()) {
             investmentPlanSummary.setText("还没有投资资产。");
@@ -1767,9 +1497,8 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        InvestmentTotals totals = investmentTotals(investments);
-        investmentPlanSummary.setText(totals.dueNow + " 项投资资产需要现在核对，"
-                + totals.dueSoon + " 项将在 3 天内到期。");
+        investmentPlanSummary.setText(stats.dueNow + " 项投资资产需要现在核对，"
+                + stats.dueSoon + " 项将在 3 天内到期。");
 
         List<AssetRecord> planned = sortedPlannedAssets(investments);
         int limit = Math.min(5, planned.size());
@@ -1838,34 +1567,6 @@ public final class MainActivity extends Activity {
         detailParams.topMargin = dp(6);
         row.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
         return row;
-    }
-
-    private double investmentHoldingAmount(AssetRecord asset) {
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return AssetMath.hasInvestmentBreakdown(asset)
-                    ? AssetMath.investmentHoldingAmount(asset)
-                    : AssetMath.assetGrossAmount(asset);
-        }
-        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
-            return 0;
-        }
-        return AssetMath.assetGrossAmount(asset);
-    }
-
-    private double investmentCashAmount(AssetRecord asset) {
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
-            return AssetMath.investmentCashAmount(asset);
-        }
-        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
-            return AssetMath.assetGrossAmount(asset);
-        }
-        return 0;
-    }
-
-    private double amountInBase(AssetRecord asset, double amount) {
-        String currency = AssetMath.cleanCurrency(asset.currency);
-        double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-        return amount * rate;
     }
 
     private TextView emptyText(String message) {
@@ -1967,9 +1668,9 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        List<AllocationDrift> drifts = allocationDrifts(portfolio);
+        List<AllocationAnalytics.Drift> drifts = AllocationAnalytics.drifts(portfolio, settings);
         int offTrack = 0;
-        for (AllocationDrift drift : drifts) {
+        for (AllocationAnalytics.Drift drift : drifts) {
             if (Math.abs(drift.currentPercent - drift.targetPercent) >= 5) {
                 offTrack += 1;
             }
@@ -1988,51 +1689,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private List<AllocationDrift> allocationDrifts(PortfolioSummary portfolio) {
-        double total = portfolio.grossAssets + portfolio.liabilities;
-        Map<String, Double> currentValues = new HashMap<>();
-        Set<String> categories = new HashSet<>();
-        for (CategoryBreakdown category : portfolio.categories) {
-            currentValues.put(category.category, category.value);
-            categories.add(category.category);
-        }
-        for (Map.Entry<String, Double> target : settings.allocationTargets.entrySet()) {
-            if (target.getValue() > 0) {
-                categories.add(target.getKey());
-            }
-        }
-
-        List<AllocationDrift> drifts = new ArrayList<>();
-        for (String category : categories) {
-            double currentValue = doubleValue(currentValues, category);
-            double currentPercent = total <= 0 ? 0 : currentValue / total * 100;
-            double targetPercent = settings.targetForCategory(category);
-            if (currentPercent <= 0 && targetPercent <= 0) {
-                continue;
-            }
-            drifts.add(new AllocationDrift(
-                    category,
-                    currentPercent,
-                    targetPercent,
-                    total * targetPercent / 100 - currentValue,
-                    AssetMath.colorForCategory(category)
-            ));
-        }
-
-        Collections.sort(drifts, (left, right) -> {
-            int driftCompare = Double.compare(
-                    Math.abs(right.currentPercent - right.targetPercent),
-                    Math.abs(left.currentPercent - left.targetPercent)
-            );
-            if (driftCompare != 0) {
-                return driftCompare;
-            }
-            return left.category.compareToIgnoreCase(right.category);
-        });
-        return drifts;
-    }
-
-    private View allocationTargetRow(AllocationDrift drift) {
+    private View allocationTargetRow(AllocationAnalytics.Drift drift) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -2066,7 +1723,7 @@ public final class MainActivity extends Activity {
         return row;
     }
 
-    private TextView allocationDriftChip(AllocationDrift drift) {
+    private TextView allocationDriftChip(AllocationAnalytics.Drift drift) {
         double gap = drift.targetPercent - drift.currentPercent;
         String label;
         int color;
@@ -2090,7 +1747,7 @@ public final class MainActivity extends Activity {
         return chip;
     }
 
-    private String allocationRecommendationText(AllocationDrift drift) {
+    private String allocationRecommendationText(AllocationAnalytics.Drift drift) {
         double amount = Math.abs(drift.amountDelta);
         if (Math.abs(drift.targetPercent - drift.currentPercent) < 0.5) {
             return "已接近目标，无需特别调整。";
@@ -2677,112 +2334,6 @@ public final class MainActivity extends Activity {
         row.addView(button, new LinearLayout.LayoutParams(0, dp(38), 1));
     }
 
-    private List<AssetRecord> visibleAssets() {
-        List<AssetRecord> visible = new ArrayList<>();
-        for (AssetRecord asset : assets) {
-            if (matchesAssetQuery(asset) && matchesAssetFilter(asset)) {
-                visible.add(asset);
-            }
-        }
-        Collections.sort(visible, (left, right) -> {
-            int leftPriority = assetPriority(left);
-            int rightPriority = assetPriority(right);
-            if (leftPriority != rightPriority) {
-                return Integer.compare(leftPriority, rightPriority);
-            }
-            int amountCompare = Double.compare(
-                    assetMagnitude(right),
-                    assetMagnitude(left)
-            );
-            if (amountCompare != 0) {
-                return amountCompare;
-            }
-            return left.name.compareToIgnoreCase(right.name);
-        });
-        return visible;
-    }
-
-    private boolean matchesAssetQuery(AssetRecord asset) {
-        String query = assetSearchQuery.toLowerCase(Locale.ROOT);
-        if (query.isEmpty()) {
-            return true;
-        }
-        return asset.name.toLowerCase(Locale.ROOT).contains(query)
-                || asset.category.toLowerCase(Locale.ROOT).contains(query)
-                || asset.institution.toLowerCase(Locale.ROOT).contains(query)
-                || appDisplayName(asset).toLowerCase(Locale.ROOT).contains(query)
-                || asset.currency.toLowerCase(Locale.ROOT).contains(query)
-                || asset.note.toLowerCase(Locale.ROOT).contains(query);
-    }
-
-    private boolean matchesAssetFilter(AssetRecord asset) {
-        if ("stale".equals(assetFilterMode)) {
-            return isStale(asset);
-        }
-        if ("unbound".equals(assetFilterMode)) {
-            return asset.packageName.isEmpty() && asset.launchUri.isEmpty();
-        }
-        if ("debt".equals(assetFilterMode)) {
-            return AssetMath.assetLiabilityAmount(asset) > 0;
-        }
-        if ("issues".equals(assetFilterMode)) {
-            return hasDataIssue(asset);
-        }
-        return true;
-    }
-
-    private int assetPriority(AssetRecord asset) {
-        if (isStale(asset)) {
-            return 0;
-        }
-        if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
-            return 1;
-        }
-        return 2;
-    }
-
-    private double assetMagnitude(AssetRecord asset) {
-        return AssetMath.assetGrossAmount(asset) + AssetMath.assetLiabilityAmount(asset);
-    }
-
-    private String assetFilterLabel() {
-        if ("stale".equals(assetFilterMode)) {
-            return "待更新";
-        }
-        if ("unbound".equals(assetFilterMode)) {
-            return "未绑定";
-        }
-        if ("issues".equals(assetFilterMode)) {
-            return "待完善";
-        }
-        if ("debt".equals(assetFilterMode)) {
-            return "负债";
-        }
-        return "全部";
-    }
-
-    private boolean hasDataIssue(AssetRecord asset) {
-        String institution = clean(asset.institution);
-        String currency = AssetMath.cleanCurrency(asset.currency);
-        return missingAssetAmount(asset)
-                || invalidAssetAmount(asset)
-                || institution.isEmpty()
-                || institution.contains("待绑定")
-                || (asset.packageName.isEmpty() && asset.launchUri.isEmpty())
-                || !settings.hasRateFor(currency)
-                || asset.lastUpdatedAt <= 0
-                || isStale(asset);
-    }
-
-    private boolean missingAssetAmount(AssetRecord asset) {
-        return clean(asset.amount).isEmpty();
-    }
-
-    private boolean invalidAssetAmount(AssetRecord asset) {
-        String amount = clean(asset.amount);
-        return !amount.isEmpty() && parseNumber(amount) == null;
-    }
-
     private void renderAssetGroups(List<AssetRecord> visibleAssets, PortfolioSummary portfolio) {
         for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(visibleAssets, settings)) {
             assetList.addView(assetInstitutionGroupHeader(group, portfolio.baseCurrency));
@@ -2850,16 +2401,6 @@ public final class MainActivity extends Activity {
         return fallback;
     }
 
-    private List<AssetSnapshot> snapshotsForBase(String baseCurrency) {
-        List<AssetSnapshot> filtered = new ArrayList<>();
-        for (AssetSnapshot snapshot : snapshots) {
-            if (baseCurrency.equals(snapshot.baseCurrency)) {
-                filtered.add(snapshot);
-            }
-        }
-        return filtered;
-    }
-
     private String trendSummaryText(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
         if (trendSnapshots.size() < 2) {
             return "当前基准 " + portfolio.baseCurrency + " 已记录 " + trendSnapshots.size()
@@ -2882,7 +2423,7 @@ public final class MainActivity extends Activity {
         trendMetricsList.removeAllViews();
         trendMetricsList.addView(text("趋势复盘", 13, MUTED, Typeface.BOLD));
 
-        List<TrendMetric> metrics = trendMetrics(portfolio, trendSnapshots);
+        List<TrendAnalytics.Metric> metrics = TrendAnalytics.metrics(portfolio, trendSnapshots, System.currentTimeMillis());
         if (metrics.isEmpty()) {
             TextView empty = text("至少记录两次快照后，会显示近 30 天、90 天和一年的变化。", 14, MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams emptyParams = lp(-1, -2);
@@ -2891,14 +2432,14 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        for (TrendMetric metric : metrics) {
+        for (TrendAnalytics.Metric metric : metrics) {
             trendMetricsList.addView(trendMetricRow(metric));
         }
     }
 
     private List<String> trendReviewLines(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
         List<String> lines = new ArrayList<>();
-        for (TrendMetric metric : trendMetrics(portfolio, trendSnapshots)) {
+        for (TrendAnalytics.Metric metric : TrendAnalytics.metrics(portfolio, trendSnapshots, System.currentTimeMillis())) {
             if (metric.complete) {
                 lines.add(metric.label + "：" + metricSummaryText(metric));
             }
@@ -2906,59 +2447,7 @@ public final class MainActivity extends Activity {
         return lines;
     }
 
-    private List<TrendMetric> trendMetrics(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
-        List<TrendMetric> metrics = new ArrayList<>();
-        metrics.add(trendMetric(portfolio, trendSnapshots, "近 30 天", 30));
-        metrics.add(trendMetric(portfolio, trendSnapshots, "近 90 天", 90));
-        metrics.add(trendMetric(portfolio, trendSnapshots, "近一年", 365));
-        return metrics;
-    }
-
-    private TrendMetric trendMetric(
-            PortfolioSummary portfolio,
-            List<AssetSnapshot> trendSnapshots,
-            String label,
-            int days
-    ) {
-        long cutoff = System.currentTimeMillis() - days * AssetMath.DAY_MS;
-        List<AssetSnapshot> window = new ArrayList<>();
-        for (AssetSnapshot snapshot : trendSnapshots) {
-            if (snapshot.timestamp >= cutoff) {
-                window.add(snapshot);
-            }
-        }
-
-        if (window.size() < 2) {
-            return new TrendMetric(label, window.size(), portfolio.baseCurrency);
-        }
-
-        AssetSnapshot first = window.get(0);
-        AssetSnapshot last = window.get(window.size() - 1);
-        AssetSnapshot high = first;
-        AssetSnapshot low = first;
-        for (AssetSnapshot snapshot : window) {
-            if (snapshot.netWorth > high.netWorth) {
-                high = snapshot;
-            }
-            if (snapshot.netWorth < low.netWorth) {
-                low = snapshot;
-            }
-        }
-
-        return new TrendMetric(
-                label,
-                window.size(),
-                portfolio.baseCurrency,
-                true,
-                first,
-                last,
-                high,
-                low,
-                last.netWorth - first.netWorth
-        );
-    }
-
-    private View trendMetricRow(TrendMetric metric) {
+    private View trendMetricRow(TrendAnalytics.Metric metric) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -2978,7 +2467,7 @@ public final class MainActivity extends Activity {
         return row;
     }
 
-    private String metricSummaryText(TrendMetric metric) {
+    private String metricSummaryText(TrendAnalytics.Metric metric) {
         if (!metric.complete) {
             return "快照不足，继续记录后再计算阶段变化。";
         }
@@ -3019,7 +2508,7 @@ public final class MainActivity extends Activity {
 
     private void renderDistributionTrend(List<AssetSnapshot> trendSnapshots) {
         distributionTrendList.removeAllViews();
-        List<AssetSnapshot> available = snapshotsWithCategoryValues(trendSnapshots);
+        List<AssetSnapshot> available = TrendAnalytics.snapshotsWithCategoryValues(trendSnapshots);
         if (available.size() < 2) {
             int count = available.size();
             distributionTrendSummary.setText("已记录 " + count + " 个带分布的快照；从这版开始，每次更新或记录快照都会保存类型分布。");
@@ -3032,7 +2521,7 @@ public final class MainActivity extends Activity {
 
         AssetSnapshot first = available.get(0);
         AssetSnapshot last = available.get(available.size() - 1);
-        List<CategoryShift> shifts = categoryShifts(first, last);
+        List<TrendAnalytics.CategoryShift> shifts = TrendAnalytics.categoryShifts(first, last);
         if (shifts.isEmpty()) {
             distributionTrendSummary.setText("已记录 " + available.size() + " 个带分布的快照，但暂时没有可对比的类型金额。");
             distributionTrendList.addView(text("继续更新资产金额后再查看分布变化。", 14, MUTED, Typeface.NORMAL));
@@ -3046,53 +2535,13 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private List<AssetSnapshot> snapshotsWithCategoryValues(List<AssetSnapshot> trendSnapshots) {
-        List<AssetSnapshot> available = new ArrayList<>();
-        for (AssetSnapshot snapshot : trendSnapshots) {
-            if (!snapshot.categoryValues.isEmpty()) {
-                available.add(snapshot);
-            }
-        }
-        return available;
-    }
-
-    private List<CategoryShift> categoryShifts(AssetSnapshot first, AssetSnapshot last) {
-        Set<String> categories = new HashSet<>();
-        categories.addAll(first.categoryValues.keySet());
-        categories.addAll(last.categoryValues.keySet());
-
-        double firstTotal = categoryTotal(first);
-        double lastTotal = categoryTotal(last);
-        List<CategoryShift> shifts = new ArrayList<>();
-        for (String category : categories) {
-            double firstValue = categoryValue(first, category);
-            double lastValue = categoryValue(last, category);
-            double firstPercent = firstTotal <= 0 ? 0 : firstValue / firstTotal * 100;
-            double lastPercent = lastTotal <= 0 ? 0 : lastValue / lastTotal * 100;
-            shifts.add(new CategoryShift(
-                    category,
-                    firstValue,
-                    lastValue,
-                    lastValue - firstValue,
-                    firstPercent,
-                    lastPercent,
-                    lastPercent - firstPercent
-            ));
-        }
-        Collections.sort(shifts, (left, right) -> Double.compare(
-                Math.abs(right.delta) + Math.abs(right.percentDelta),
-                Math.abs(left.delta) + Math.abs(left.percentDelta)
-        ));
-        return shifts;
-    }
-
     private String distributionTrendSummaryText(
             AssetSnapshot first,
             AssetSnapshot last,
-            List<CategoryShift> shifts,
+            List<TrendAnalytics.CategoryShift> shifts,
             int count
     ) {
-        CategoryShift biggest = shifts.get(0);
+        TrendAnalytics.CategoryShift biggest = shifts.get(0);
         if (settings.hideAmounts) {
             return "已记录 " + count + " 个带分布快照，范围 "
                     + first.dayKey + " 到 " + last.dayKey + "；金额已隐藏。";
@@ -3103,7 +2552,7 @@ public final class MainActivity extends Activity {
                 + "，占比 " + formatPoint(biggest.percentDelta) + "。";
     }
 
-    private View categoryShiftRow(CategoryShift shift, String currency) {
+    private View categoryShiftRow(TrendAnalytics.CategoryShift shift, String currency) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -3137,19 +2586,6 @@ public final class MainActivity extends Activity {
         detailParams.topMargin = dp(6);
         row.addView(text(detail, 13, MUTED, Typeface.NORMAL), detailParams);
         return row;
-    }
-
-    private double categoryTotal(AssetSnapshot snapshot) {
-        double total = 0;
-        for (double value : snapshot.categoryValues.values()) {
-            total += value;
-        }
-        return total;
-    }
-
-    private double categoryValue(AssetSnapshot snapshot, String category) {
-        Double value = snapshot.categoryValues.get(category);
-        return value == null ? 0 : value;
     }
 
     private void renderAssetTrend() {
@@ -3387,9 +2823,9 @@ public final class MainActivity extends Activity {
                     + String.format(Locale.getDefault(), "%.1f", ratio) + "%。");
         }
         if (settings.hasAllocationTargets()) {
-            List<AllocationDrift> drifts = allocationDrifts(portfolio);
+            List<AllocationAnalytics.Drift> drifts = AllocationAnalytics.drifts(portfolio, settings);
             if (!drifts.isEmpty()) {
-                AllocationDrift largestDrift = drifts.get(0);
+                AllocationAnalytics.Drift largestDrift = drifts.get(0);
                 double gap = largestDrift.targetPercent - largestDrift.currentPercent;
                 if (Math.abs(gap) >= 5) {
                     lines.add("比例偏离最大：" + largestDrift.category + " "
@@ -3424,67 +2860,19 @@ public final class MainActivity extends Activity {
 
     private void renderDataHealth(PortfolioSummary portfolio) {
         dataHealthList.removeAllViews();
-        List<String> issues = dataHealthIssues(portfolio);
+        List<String> issues = DataHealth.portfolioIssues(assets, settings, portfolio.baseCurrency);
         if (issues.isEmpty()) {
             dataHealthSummary.setText("数据状态良好：金额、机构、App 绑定和汇率都已覆盖。");
             dataHealthList.addView(text("继续保持定期核对即可。", 14, MUTED, Typeface.NORMAL));
             return;
         }
 
-        List<AssetInstitutionGroups.Group> groups = dataHealthInstitutionGroups();
+        List<AssetInstitutionGroups.Group> groups = DataHealth.issueGroups(assets, settings);
         dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，分布在 "
                 + groups.size() + " 个机构，建议优先处理。");
         for (AssetInstitutionGroups.Group group : groups) {
             dataHealthList.addView(healthInstitutionRow(group));
         }
-    }
-
-    private List<String> dataHealthIssues(PortfolioSummary portfolio) {
-        List<String> issues = new ArrayList<>();
-        int missingAmount = 0;
-        int invalidAmount = 0;
-        int missingInstitution = 0;
-        int missingBinding = 0;
-        int missingRate = 0;
-
-        for (AssetRecord asset : assets) {
-            if (missingAssetAmount(asset)) {
-                missingAmount += 1;
-            } else if (invalidAssetAmount(asset)) {
-                invalidAmount += 1;
-            }
-            String institution = clean(asset.institution);
-            if (institution.isEmpty() || institution.contains("待绑定")) {
-                missingInstitution += 1;
-            }
-            if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
-                missingBinding += 1;
-            }
-            String currency = AssetMath.cleanCurrency(asset.currency);
-            if (!settings.hasRateFor(currency)) {
-                missingRate += 1;
-            }
-        }
-
-        if (assets.isEmpty()) {
-            issues.add("还没有资产，请先新增至少一项资产。");
-        }
-        if (missingAmount > 0) {
-            issues.add(missingAmount + " 项资产缺少金额。");
-        }
-        if (invalidAmount > 0) {
-            issues.add(invalidAmount + " 项资产金额无法识别。");
-        }
-        if (missingInstitution > 0) {
-            issues.add(missingInstitution + " 项资产缺少明确机构。");
-        }
-        if (missingBinding > 0) {
-            issues.add(missingBinding + " 项资产还没有绑定 App。");
-        }
-        if (missingRate > 0) {
-            issues.add(missingRate + " 项资产缺少到 " + portfolio.baseCurrency + " 的汇率。");
-        }
-        return issues;
     }
 
     private View healthIssueRow(String issue) {
@@ -3495,42 +2883,6 @@ public final class MainActivity extends Activity {
         params.topMargin = dp(8);
         row.setLayoutParams(params);
         return row;
-    }
-
-    private List<AssetInstitutionGroups.Group> dataHealthInstitutionGroups() {
-        List<AssetRecord> issueAssets = new ArrayList<>();
-        for (AssetRecord asset : assets) {
-            if (!assetHealthIssues(asset).isEmpty()) {
-                issueAssets.add(asset);
-            }
-        }
-        return AssetInstitutionGroups.groupByInstitution(issueAssets, settings);
-    }
-
-    private List<String> assetHealthIssues(AssetRecord asset) {
-        List<String> issues = new ArrayList<>();
-        if (missingAssetAmount(asset)) {
-            issues.add("缺金额");
-        } else if (invalidAssetAmount(asset)) {
-            issues.add("金额无法识别");
-        }
-        String institution = clean(asset.institution);
-        if (institution.isEmpty() || institution.contains("待绑定")) {
-            issues.add("缺机构");
-        }
-        if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
-            issues.add("未绑定 App");
-        }
-        String currency = AssetMath.cleanCurrency(asset.currency);
-        if (!settings.hasRateFor(currency)) {
-            issues.add("缺汇率");
-        }
-        if (asset.lastUpdatedAt <= 0) {
-            issues.add("从未更新");
-        } else if (isStale(asset)) {
-            issues.add("待更新");
-        }
-        return issues;
     }
 
     private View healthInstitutionRow(AssetInstitutionGroups.Group group) {
@@ -3558,7 +2910,7 @@ public final class MainActivity extends Activity {
         int limit = Math.min(3, group.assets.size());
         for (int index = 0; index < limit; index += 1) {
             AssetRecord asset = group.assets.get(index);
-            String detail = asset.name + " · " + joinInline(assetHealthIssues(asset));
+            String detail = asset.name + " · " + joinInline(DataHealth.assetIssues(asset, settings));
             card.addView(healthIssueRow(detail));
         }
         if (group.assets.size() > limit) {
@@ -3884,36 +3236,6 @@ public final class MainActivity extends Activity {
         double delta = current - previous;
         return before + " -> " + after + " " + event.currency
                 + "（变化 " + formatSignedRawAmount(delta) + " " + event.currency + "）";
-    }
-
-    private LinearLayout card() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        card.setElevation(dp(3));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.bottomMargin = dp(14);
-        card.setLayoutParams(params);
-        return card;
-    }
-
-    private TextView sectionTitle(String title) {
-        TextView text = text(title, 17, INK, Typeface.BOLD);
-        text.setIncludeFontPadding(false);
-        return text;
-    }
-
-    private LinearLayout metric(String label, TextView value) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(12), dp(10), dp(12), dp(10));
-        box.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        box.addView(text(label, 12, MUTED, Typeface.BOLD));
-        LinearLayout.LayoutParams valueParams = lp(-1, -2);
-        valueParams.topMargin = dp(6);
-        box.addView(value, valueParams);
-        return box;
     }
 
     private View assetCard(AssetRecord asset) {
@@ -4589,202 +3911,32 @@ public final class MainActivity extends Activity {
     }
 
     private void sharePortfolioPage() {
-        try {
-            String link = buildShareLink();
-            Intent shareIntent = new Intent(Intent.ACTION_SEND);
-            shareIntent.setType("text/plain");
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Money Manager 资产看板");
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "我的资产看板：\n" + link);
-            startActivity(Intent.createChooser(shareIntent, "分享资产看板"));
-        } catch (ActivityNotFoundException error) {
-            toast("没有找到可分享的应用。");
-        } catch (Exception error) {
-            toast("生成分享链接失败，请重试。");
-        }
-    }
-
-    private String buildShareLink() throws IOException, JSONException {
-        JSONObject payload = sharePayload();
-        byte[] compressed = gzip(payload.toString().getBytes(StandardCharsets.UTF_8));
-        String encoded = Base64.encodeToString(
-                compressed,
-                Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING
-        );
-        return SHARE_PAGE_URL + "#data=" + encoded;
-    }
-
-    private JSONObject sharePayload() throws JSONException {
-        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
-        boolean includeAmounts = !settings.hideAmounts;
-
-        JSONObject root = new JSONObject();
-        root.put("schema", "money-manager-share-v1");
-        root.put("generatedAt", System.currentTimeMillis());
-        root.put("baseCurrency", portfolio.baseCurrency);
-        root.put("includeAmounts", includeAmounts);
-        root.put("assetCount", portfolio.assetCount);
-        root.put("staleCount", portfolio.staleCount);
-
-        JSONObject totals = new JSONObject();
-        if (includeAmounts) {
-            totals.put("netWorth", portfolio.netWorth);
-            totals.put("grossAssets", portfolio.grossAssets);
-            totals.put("liabilities", portfolio.liabilities);
-        }
-        root.put("totals", totals);
-        root.put("categories", shareCategories(portfolio, includeAmounts));
-        root.put("institutions", shareInstitutions(portfolio, includeAmounts));
-        root.put("assets", shareAssets(includeAmounts));
-        root.put("snapshots", shareSnapshots(includeAmounts));
-        return root;
-    }
-
-    private JSONArray shareCategories(PortfolioSummary portfolio, boolean includeAmounts) throws JSONException {
-        JSONArray array = new JSONArray();
-        for (CategoryBreakdown category : portfolio.categories) {
-            JSONObject item = new JSONObject();
-            item.put("name", category.category);
-            item.put("color", category.color);
-            if (includeAmounts) {
-                item.put("value", category.value);
-            }
-            array.put(item);
-        }
-        return array;
-    }
-
-    private JSONArray shareInstitutions(PortfolioSummary portfolio, boolean includeAmounts) throws JSONException {
-        JSONArray array = new JSONArray();
-        for (InstitutionBreakdown institution : portfolio.institutions) {
-            JSONObject item = new JSONObject();
-            item.put("name", institution.institution);
-            item.put("assetCount", institution.assetCount);
-            if (includeAmounts) {
-                item.put("value", institution.value);
-            }
-            array.put(item);
-        }
-        return array;
-    }
-
-    private JSONArray shareAssets(boolean includeAmounts) throws JSONException {
-        List<AssetRecord> sortedAssets = new ArrayList<>(assets);
-        Collections.sort(sortedAssets, (left, right) -> Double.compare(
-                shareAssetMagnitude(right),
-                shareAssetMagnitude(left)
-        ));
-
-        JSONArray array = new JSONArray();
-        for (AssetRecord asset : sortedAssets) {
-            JSONObject item = new JSONObject();
-            item.put("name", asset.name);
-            item.put("category", asset.category);
-            item.put("institution", AssetMath.cleanInstitution(asset.institution));
-            item.put("currency", AssetMath.cleanCurrency(asset.currency));
-            item.put("lastUpdatedAt", asset.lastUpdatedAt);
-            item.put("stale", AssetMath.isStale(asset));
-            if (includeAmounts) {
-                String currency = AssetMath.cleanCurrency(asset.currency);
-                double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-                double grossBase = AssetMath.assetGrossAmount(asset) * rate;
-                double liabilityBase = AssetMath.assetLiabilityAmount(asset) * rate;
-                item.put("grossBase", grossBase);
-                item.put("liabilityBase", liabilityBase);
-                item.put("netBase", grossBase - liabilityBase);
-            }
-            array.put(item);
-        }
-        return array;
-    }
-
-    private double shareAssetMagnitude(AssetRecord asset) {
-        String currency = AssetMath.cleanCurrency(asset.currency);
-        double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-        return (AssetMath.assetGrossAmount(asset) + AssetMath.assetLiabilityAmount(asset)) * rate;
-    }
-
-    private JSONArray shareSnapshots(boolean includeAmounts) throws JSONException {
-        JSONArray array = new JSONArray();
-        if (!includeAmounts) {
-            return array;
-        }
-        int start = Math.max(0, snapshots.size() - 24);
-        for (int index = start; index < snapshots.size(); index += 1) {
-            AssetSnapshot snapshot = snapshots.get(index);
-            JSONObject item = new JSONObject();
-            item.put("dayKey", snapshot.dayKey);
-            item.put("timestamp", snapshot.timestamp);
-            item.put("netWorth", snapshot.netWorth);
-            item.put("grossAssets", snapshot.grossAssets);
-            item.put("liabilities", snapshot.liabilities);
-            array.put(item);
-        }
-        return array;
-    }
-
-    private byte[] gzip(byte[] source) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try (GZIPOutputStream gzip = new GZIPOutputStream(output)) {
-            gzip.write(source);
-        }
-        return output.toByteArray();
+        BackupActions.sharePortfolioPage(this, SHARE_PAGE_URL, assets, snapshots, settings);
     }
 
     private void startBackupExport() {
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        intent.putExtra(Intent.EXTRA_TITLE, "money-manager-backup-" + backupDate() + ".json");
-        try {
-            startActivityForResult(intent, REQUEST_EXPORT_BACKUP);
-        } catch (ActivityNotFoundException error) {
-            toast("没有找到可保存文件的应用。");
-        }
+        BackupActions.startBackupExport(this, REQUEST_EXPORT_BACKUP);
     }
 
     private void startBackupImport() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        try {
-            startActivityForResult(intent, REQUEST_IMPORT_BACKUP);
-        } catch (ActivityNotFoundException error) {
-            toast("没有找到可选择文件的应用。");
-        }
+        BackupActions.startBackupImport(this, REQUEST_IMPORT_BACKUP);
     }
 
     private void writeBackup(Uri uri) {
-        try (OutputStream output = getContentResolver().openOutputStream(uri)) {
-            if (output == null) {
-                toast("无法写入备份文件。");
-                return;
-            }
-            String raw = store.exportJson(assets, snapshots, updateEvents, settings);
-            output.write(raw.getBytes(StandardCharsets.UTF_8));
-            toast("备份已导出。");
-        } catch (Exception error) {
-            toast("导出失败，请重试。");
-        }
+        BackupActions.writeBackup(this, uri, store, assets, snapshots, updateEvents, settings);
     }
 
     private void readBackup(Uri uri) {
-        try (InputStream input = getContentResolver().openInputStream(uri)) {
-            if (input == null) {
-                toast("无法读取备份文件。");
-                return;
-            }
-            String raw = readUtf8(input);
-            AssetBackup backup = store.parseBackup(raw);
+        AssetBackup backup = BackupActions.readBackup(this, uri, store);
+        if (backup != null) {
             confirmImportBackup(backup);
-        } catch (Exception error) {
-            toast("导入失败，请确认文件是 Money Manager 备份。");
         }
     }
 
     private void confirmImportBackup(AssetBackup backup) {
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("导入备份？")
-                .setMessage(importBackupMessage(backup))
+                .setMessage(BackupActions.importBackupMessage(this, backup))
                 .setNegativeButton("取消", null)
                 .setPositiveButton("导入", (ignoredDialog, which) -> {
                     store.replaceAll(backup);
@@ -4800,623 +3952,6 @@ public final class MainActivity extends Activity {
                 })
                 .create();
         showStyledDialog(dialog);
-    }
-
-    private String importBackupMessage(AssetBackup backup) {
-        List<String> lines = new ArrayList<>();
-        lines.add("将导入 " + backup.assets.size() + " 项资产和 "
-                + backup.snapshots.size() + " 个趋势快照、"
-                + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置。");
-        lines.add("备份版本：" + backupVersionText(backup));
-        if (backup.migratedLegacyAssets) {
-            lines.add("检测到旧版银行 / 券商资产结构，导入时已自动转换为按机构管理的扁平资产。");
-        }
-        lines.add("导入会覆盖当前本机数据。");
-        return joinLines(lines);
-    }
-
-    private String backupVersionText(AssetBackup backup) {
-        if (backup.schemaVersion <= 0 && backup.version <= 0) {
-            return "旧版或未知";
-        }
-        if (backup.schemaVersion > 0) {
-            return "schema " + backup.schemaVersion;
-        }
-        return "version " + backup.version;
-    }
-
-    private String readUtf8(InputStream input) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = input.read(buffer)) != -1) {
-            output.write(buffer, 0, read);
-        }
-        return output.toString(StandardCharsets.UTF_8.name());
-    }
-
-    private AssetRecord findAsset(String id) {
-        for (AssetRecord asset : assets) {
-            if (asset.id.equals(id)) {
-                return asset;
-            }
-        }
-        return null;
-    }
-
-    private void replaceAsset(AssetRecord updated) {
-        for (int index = 0; index < assets.size(); index += 1) {
-            if (assets.get(index).id.equals(updated.id)) {
-                assets.set(index, updated);
-                return;
-            }
-        }
-    }
-
-    private void removeAssetById(String assetId) {
-        for (int index = assets.size() - 1; index >= 0; index -= 1) {
-            if (assets.get(index).id.equals(assetId)) {
-                assets.remove(index);
-            }
-        }
-    }
-
-    private AssetRecord copyOf(AssetRecord asset) {
-        return AssetRecord.copyOf(asset);
-    }
-
-    private boolean isStale(AssetRecord asset) {
-        return AssetMath.isStale(asset);
-    }
-
-    private int daysUntilDue(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return -10_000;
-        }
-        long dueAt = asset.lastUpdatedAt + asset.updateEveryDays * AssetMath.DAY_MS;
-        long remaining = dueAt - System.currentTimeMillis();
-        if (remaining <= 0) {
-            return (int) (remaining / AssetMath.DAY_MS);
-        }
-        return (int) Math.ceil(remaining / (double) AssetMath.DAY_MS);
-    }
-
-    private int statusColor(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return AMBER;
-        }
-        return isStale(asset) ? DANGER : ACCENT;
-    }
-
-    private String statusText(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return "待更新";
-        }
-        return isStale(asset) ? "已过期" : "新鲜";
-    }
-
-    private String lastUpdatedText(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return "最后更新：从未更新";
-        }
-        long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
-        return "最后更新：" + dateFormat.format(new Date(asset.lastUpdatedAt)) + " · " + days + " 天前";
-    }
-
-    private String shortUpdatedText(AssetRecord asset) {
-        if (asset.lastUpdatedAt <= 0) {
-            return "从未更新";
-        }
-        long days = Math.max(0, (System.currentTimeMillis() - asset.lastUpdatedAt) / AssetMath.DAY_MS);
-        return days == 0 ? "今天更新" : days + " 天前";
-    }
-
-    private String appDisplayName(AssetRecord asset) {
-        String text = appBindingText(asset.appName, asset.packageName, asset.launchUri);
-        return "未选择 App".equals(text) ? "未绑定 App" : text;
-    }
-
-    private String appBindingText(String appName, String packageName, String launchUri) {
-        String name = clean(appName);
-        if (!name.isEmpty()) {
-            return name;
-        }
-        String resolved = resolveAppLabel(packageName);
-        if (!resolved.isEmpty()) {
-            return resolved;
-        }
-        if (!clean(packageName).isEmpty() || !clean(launchUri).isEmpty()) {
-            return "已绑定 App";
-        }
-        return "未选择 App";
-    }
-
-    private String resolveAppLabel(String packageName) {
-        String cleanPackageName = clean(packageName);
-        if (cleanPackageName.isEmpty()) {
-            return "";
-        }
-        try {
-            PackageManager packageManager = getPackageManager();
-            return String.valueOf(packageManager.getApplicationLabel(
-                    packageManager.getApplicationInfo(cleanPackageName, 0)
-            ));
-        } catch (Exception error) {
-            return "";
-        }
-    }
-
-    private Drawable resolveAppIcon(String packageName) {
-        String cleanPackageName = clean(packageName);
-        if (cleanPackageName.isEmpty()) {
-            return null;
-        }
-        try {
-            PackageManager packageManager = getPackageManager();
-            return packageManager.getApplicationIcon(cleanPackageName);
-        } catch (Exception error) {
-            return null;
-        }
-    }
-
-    private String formatAmount(AssetRecord asset) {
-        if (settings.hideAmounts) {
-            return "•••• " + asset.currency;
-        }
-        if (asset.amount.isEmpty()) {
-            return "-- " + asset.currency;
-        }
-        try {
-            Double value = parseNumber(asset.amount);
-            if (value == null) {
-                return asset.amount + " " + asset.currency;
-            }
-            DecimalFormat format = new DecimalFormat("#,##0.##");
-            return format.format(value) + " " + asset.currency;
-        } catch (NumberFormatException error) {
-            return asset.amount + " " + asset.currency;
-        }
-    }
-
-    private List<String> assetBreakdownLines(AssetRecord asset) {
-        List<String> lines = new ArrayList<>();
-        if (settings.hideAmounts) {
-            return lines;
-        }
-        return lines;
-    }
-
-    private String formatMoney(double value, String currency) {
-        if (settings.hideAmounts) {
-            return "•••• " + currency;
-        }
-        DecimalFormat format = new DecimalFormat("#,##0.##");
-        return format.format(value) + " " + currency;
-    }
-
-    private String formatRawAmount(String value) {
-        try {
-            DecimalFormat format = new DecimalFormat("#,##0.##");
-            return format.format(Double.parseDouble(value.replace(",", "")));
-        } catch (NumberFormatException error) {
-            return value;
-        }
-    }
-
-    private String formatInputNumber(double value) {
-        DecimalFormat format = new DecimalFormat("0.##");
-        return format.format(value);
-    }
-
-    private String formatRate(double value) {
-        DecimalFormat format = new DecimalFormat("#,##0.####");
-        return format.format(value);
-    }
-
-    private String formatPercent(double value, double total) {
-        if (total <= 0) {
-            return "0.0%";
-        }
-        return String.format(Locale.getDefault(), "%.1f%%", value / total * 100);
-    }
-
-    private String formatPercentValue(double value) {
-        return String.format(Locale.getDefault(), "%.1f%%", value);
-    }
-
-    private String formatPoint(double value) {
-        return String.format(Locale.getDefault(), "%+.1f 个百分点", value);
-    }
-
-    private String formatSignedMoney(double value, String currency) {
-        String sign = value > 0 ? "+" : "";
-        return sign + formatMoney(value, currency);
-    }
-
-    private String formatSignedRawAmount(double value) {
-        String sign = value > 0 ? "+" : "";
-        DecimalFormat format = new DecimalFormat("#,##0.##");
-        return sign + format.format(value);
-    }
-
-    private String joinLines(List<String> lines) {
-        StringBuilder builder = new StringBuilder();
-        for (int index = 0; index < lines.size(); index += 1) {
-            if (index > 0) {
-                builder.append("\n");
-            }
-            builder.append(lines.get(index));
-        }
-        return builder.toString();
-    }
-
-    private String joinInline(List<String> lines) {
-        StringBuilder builder = new StringBuilder();
-        for (String line : lines) {
-            if (builder.length() > 0) {
-                builder.append(" / ");
-            }
-            builder.append(line);
-        }
-        return builder.toString();
-    }
-
-    private String backupDate() {
-        return new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
-    }
-
-    private String dayKey(long timestamp) {
-        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date(timestamp));
-    }
-
-    private String defaultYearEnd() {
-        return new SimpleDateFormat("yyyy", Locale.getDefault()).format(new Date()) + "-12-31";
-    }
-
-    private int daysUntilTimestamp(long timestamp) {
-        long remaining = timestamp - System.currentTimeMillis();
-        return Math.max(0, (int) Math.ceil(remaining / (double) AssetMath.DAY_MS));
-    }
-
-    private Date parseDay(String value) {
-        try {
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            format.setLenient(false);
-            return format.parse(value);
-        } catch (Exception error) {
-            return null;
-        }
-    }
-
-    private Double parseNumber(String value) {
-        try {
-            return Double.parseDouble(value.replace(",", ""));
-        } catch (NumberFormatException error) {
-            return null;
-        }
-    }
-
-    private double doubleValue(Map<String, Double> values, String key) {
-        Double value = values.get(key);
-        return value == null ? 0.0 : value;
-    }
-
-    private int intValue(Map<String, Integer> values, String key) {
-        Integer value = values.get(key);
-        return value == null ? 0 : value;
-    }
-
-    private EditText input(String label, String value, int inputType) {
-        EditText input = new EditText(this);
-        input.setHint(label);
-        input.setText(value);
-        input.setSingleLine((inputType & InputType.TYPE_TEXT_FLAG_MULTI_LINE) == 0);
-        input.setInputType(inputType);
-        input.setTextColor(INK);
-        input.setHintTextColor(MUTED);
-        input.setTextSize(15);
-        input.setPadding(dp(14), dp(8), dp(14), dp(8));
-        input.setBackground(cardBackground(PANEL, PANEL_BORDER));
-
-        LinearLayout.LayoutParams params = lp(-1, dp(52));
-        params.bottomMargin = dp(10);
-        input.setLayoutParams(params);
-        return input;
-    }
-
-    private View fieldBox(String label, View field) {
-        return fieldBox(label, field, dp(48));
-    }
-
-    private View fieldBox(String label, View field, int fieldHeight) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        TextView text = label(label);
-        box.addView(text);
-        box.addView(field, lp(-1, fieldHeight));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.bottomMargin = dp(10);
-        box.setLayoutParams(params);
-        return box;
-    }
-
-    private Spinner currencySpinner(String selectedCurrency) {
-        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
-        if (selected.isEmpty()) {
-            selected = "CNY";
-        }
-        List<String> options = currencyOptions(selected);
-        Spinner spinner = new Spinner(this);
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, options));
-        styleSpinner(spinner);
-        int selectedIndex = options.indexOf(selected);
-        spinner.setSelection(Math.max(0, selectedIndex));
-        return spinner;
-    }
-
-    private List<String> currencyOptions(String selectedCurrency) {
-        List<String> options = new ArrayList<>();
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            options.add(currency);
-        }
-        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
-        if (!selected.isEmpty() && !options.contains(selected)) {
-            options.add(selected);
-        }
-        return options;
-    }
-
-    private String[] categoryOptions(String selectedCategory) {
-        List<String> options = categoryOptionList(selectedCategory, true);
-        return options.toArray(new String[0]);
-    }
-
-    private List<String> categoryOptionList(String selectedCategory, boolean includeAddOption) {
-        List<String> options = new ArrayList<>();
-        for (String category : AssetCategories.ALL) {
-            addCategoryOption(options, category);
-        }
-        if (settings != null) {
-            for (String category : settings.customCategories) {
-                addCategoryOption(options, category);
-            }
-        }
-        for (AssetRecord asset : assets) {
-            addCategoryOption(options, asset.category);
-        }
-        addCategoryOption(options, selectedCategory);
-        if (includeAddOption) {
-            options.add(ADD_CATEGORY_OPTION);
-        }
-        return options;
-    }
-
-    private void addCategoryOption(List<String> options, String category) {
-        String cleaned = clean(category);
-        if (!cleaned.isEmpty() && !ADD_CATEGORY_OPTION.equals(cleaned) && !options.contains(cleaned)) {
-            options.add(cleaned);
-        }
-    }
-
-    private boolean isDefaultAssetCategory(String category) {
-        for (String option : AssetCategories.ALL) {
-            if (option.equals(category)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private LinearLayout row() {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setLayoutParams(lp(-1, -2));
-        return row;
-    }
-
-    private TextView label(String value) {
-        TextView text = text(value.toUpperCase(Locale.ROOT), 12, MUTED, Typeface.BOLD);
-        text.setIncludeFontPadding(false);
-        return text;
-    }
-
-    private TextView text(String value, int sp, int color, int style) {
-        TextView text = new TextView(this);
-        text.setText(value);
-        text.setTextSize(sp);
-        text.setTextColor(color);
-        text.setTypeface(Typeface.DEFAULT, style);
-        text.setLineSpacing(0, 1.08f);
-        return text;
-    }
-
-    private Button primaryButton(String label) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setTextColor(Color.WHITE);
-        button.setTextSize(15);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setAllCaps(false);
-        button.setIncludeFontPadding(false);
-        button.setGravity(Gravity.CENTER);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setPadding(dp(14), 0, dp(14), 0);
-        button.setStateListAnimator(null);
-        button.setBackground(buttonBackground(ACCENT, ACCENT_DARK, ACCENT_DARK));
-        return button;
-    }
-
-    private Button iconButton(String label) {
-        Button button = secondaryButton(label);
-        button.setPadding(0, 0, 0, 0);
-        button.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
-        return button;
-    }
-
-    private Button secondaryButton(String label) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setTextColor(INK);
-        button.setTextSize(14);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setAllCaps(false);
-        button.setIncludeFontPadding(false);
-        button.setGravity(Gravity.CENTER);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setPadding(dp(12), 0, dp(12), 0);
-        button.setStateListAnimator(null);
-        button.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
-        return button;
-    }
-
-    private GradientDrawable cardBackground(int fill, int border) {
-        return roundedBackground(fill, border, 8);
-    }
-
-    private View dividerLine(int leftMargin) {
-        View line = new View(this);
-        line.setBackgroundColor(PANEL_BORDER);
-        LinearLayout.LayoutParams params = lp(-1, dp(1));
-        params.leftMargin = leftMargin;
-        line.setLayoutParams(params);
-        return line;
-    }
-
-    private GradientDrawable headerBackground() {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{Color.rgb(241, 247, 246), BG}
-        );
-        bg.setCornerRadius(0);
-        return bg;
-    }
-
-    private void styleSpinner(Spinner spinner) {
-        spinner.setPadding(dp(12), 0, dp(12), 0);
-        spinner.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        spinner.setMinimumHeight(dp(48));
-    }
-
-    private void showStyledDialog(AlertDialog dialog) {
-        dialog.show();
-        styleDialog(dialog);
-    }
-
-    private void styleDialog(AlertDialog dialog) {
-        Window window = dialog.getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(roundedBackground(PANEL, PANEL_BORDER, 8));
-            window.setDimAmount(0.42f);
-        }
-        Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-        if (positive != null) {
-            String label = String.valueOf(positive.getText());
-            styleDialogButton(positive, label.contains("删除") ? DANGER : ACCENT);
-        }
-        styleDialogButton(dialog.getButton(AlertDialog.BUTTON_NEGATIVE), MUTED);
-        Button neutral = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-        if (neutral != null) {
-            String label = String.valueOf(neutral.getText());
-            styleDialogButton(neutral, label.contains("删除") || label.contains("清空") ? DANGER : MUTED);
-        }
-    }
-
-    private void styleDialogButton(Button button, int color) {
-        if (button == null) {
-            return;
-        }
-        button.setAllCaps(false);
-        button.setTextColor(color);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-    }
-
-    private StateListDrawable buttonBackground(int fill, int pressedFill, int border) {
-        StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_pressed}, roundedBackground(pressedFill, border, 8));
-        states.addState(new int[]{android.R.attr.state_focused}, roundedBackground(pressedFill, border, 8));
-        states.addState(new int[]{}, roundedBackground(fill, border, 8));
-        return states;
-    }
-
-    private GradientDrawable roundedBackground(int fill, int border, int radius) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(fill);
-        bg.setCornerRadius(dp(radius));
-        bg.setStroke(dp(1), border);
-        return bg;
-    }
-
-    private LinearLayout.LayoutParams lp(int width, int height) {
-        return new LinearLayout.LayoutParams(width, height);
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private int statusBarHeight() {
-        return systemDimension("status_bar_height");
-    }
-
-    private int navigationBarHeight() {
-        return systemDimension("navigation_bar_height");
-    }
-
-    private int systemDimension(String name) {
-        int resourceId = getResources().getIdentifier(name, "dimen", "android");
-        return resourceId > 0 ? getResources().getDimensionPixelSize(resourceId) : 0;
-    }
-
-    private int parsePositiveInt(String value, int fallback) {
-        try {
-            return Math.max(1, Integer.parseInt(value.trim()));
-        } catch (NumberFormatException error) {
-            return fallback;
-        }
-    }
-
-    private double parsePositiveDouble(String value, double fallback) {
-        try {
-            double parsed = Double.parseDouble(value.trim().replace(",", ""));
-            return parsed > 0 ? parsed : fallback;
-        } catch (NumberFormatException error) {
-            return fallback;
-        }
-    }
-
-    private int indexOf(String[] values, String value) {
-        for (int index = 0; index < values.length; index += 1) {
-            if (values[index].equals(value)) {
-                return index;
-            }
-        }
-        return 0;
-    }
-
-    private String clean(String value) {
-        return value == null ? "" : value.trim();
-    }
-
-    private String cleanReason(String value) {
-        return clean(value).isEmpty() ? "余额核对" : clean(value);
-    }
-
-    private void toast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
-
-    private static final class SpaceView extends FrameLayout {
-        SpaceView(Activity activity, int width, int height) {
-            super(activity);
-            setLayoutParams(new LinearLayout.LayoutParams(width, height));
-        }
     }
 
     private interface RateSuccessHandler {
@@ -5457,99 +3992,4 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private static final class InvestmentTotals {
-        double total;
-        double holding;
-        double cash;
-        int dueNow;
-        int dueSoon;
-    }
-
-    private static final class TrendMetric {
-        final String label;
-        final int count;
-        final String currency;
-        final boolean complete;
-        final AssetSnapshot first;
-        final AssetSnapshot last;
-        final AssetSnapshot high;
-        final AssetSnapshot low;
-        final double change;
-
-        TrendMetric(String label, int count, String currency) {
-            this(label, count, currency, false, null, null, null, null, 0);
-        }
-
-        TrendMetric(
-                String label,
-                int count,
-                String currency,
-                boolean complete,
-                AssetSnapshot first,
-                AssetSnapshot last,
-                AssetSnapshot high,
-                AssetSnapshot low,
-                double change
-        ) {
-            this.label = label;
-            this.count = count;
-            this.currency = currency;
-            this.complete = complete;
-            this.first = first;
-            this.last = last;
-            this.high = high;
-            this.low = low;
-            this.change = change;
-        }
-    }
-
-    private static final class CategoryShift {
-        final String category;
-        final double firstValue;
-        final double lastValue;
-        final double delta;
-        final double firstPercent;
-        final double lastPercent;
-        final double percentDelta;
-
-        CategoryShift(
-                String category,
-                double firstValue,
-                double lastValue,
-                double delta,
-                double firstPercent,
-                double lastPercent,
-                double percentDelta
-        ) {
-            this.category = category;
-            this.firstValue = firstValue;
-            this.lastValue = lastValue;
-            this.delta = delta;
-            this.firstPercent = firstPercent;
-            this.lastPercent = lastPercent;
-            this.percentDelta = percentDelta;
-        }
-    }
-
-    private static final class AllocationDrift {
-        final String category;
-        final double currentPercent;
-        final double targetPercent;
-        final double amountDelta;
-        final int color;
-
-        AllocationDrift(
-                String category,
-                double currentPercent,
-                double targetPercent,
-                double amountDelta,
-                int color
-        ) {
-            this.category = category;
-            this.currentPercent = currentPercent;
-            this.targetPercent = targetPercent;
-            this.amountDelta = amountDelta;
-            this.color = color;
-        }
-    }
 }
