@@ -3232,10 +3232,10 @@ public final class MainActivity extends Activity {
         row.setLayoutParams(rowParams);
 
         LinearLayout header = row();
-        TextView mark = categoryMark(asset);
-        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(34), dp(34));
-        markParams.rightMargin = dp(10);
-        header.addView(mark, markParams);
+        TextView typeMark = categoryMark(asset);
+        LinearLayout.LayoutParams typeMarkParams = new LinearLayout.LayoutParams(dp(34), dp(34));
+        typeMarkParams.rightMargin = dp(10);
+        header.addView(typeMark, typeMarkParams);
 
         LinearLayout titleGroup = new LinearLayout(this);
         titleGroup.setOrientation(LinearLayout.VERTICAL);
