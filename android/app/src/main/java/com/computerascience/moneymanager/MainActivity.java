@@ -409,6 +409,47 @@ public final class MainActivity extends Activity {
         }
     }
 
+    @Override
+    public void onBackPressed() {
+        if (handleBackNavigation()) {
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private boolean handleBackNavigation() {
+        if (PAGE_ASSETS.equals(currentPage)) {
+            if (!managementExpanded) {
+                managementExpanded = true;
+                render();
+                scrollToAssetManagement();
+                return true;
+            }
+            if (!assetSearchQuery.isEmpty() || !"all".equals(assetFilterMode)) {
+                assetSearchQuery = "";
+                assetFilterMode = "all";
+                if (assetSearchInput != null) {
+                    assetSearchInput.setText("");
+                }
+                render();
+                scrollToAssetManagement();
+                return true;
+            }
+            if (!collapsedAssetGroups.isEmpty()) {
+                collapsedAssetGroups.clear();
+                render();
+                scrollToAssetManagement();
+                return true;
+            }
+        }
+
+        if (!PAGE_OVERVIEW.equals(currentPage)) {
+            selectPage(PAGE_OVERVIEW);
+            return true;
+        }
+        return false;
+    }
+
     private void render() {
         PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
 
