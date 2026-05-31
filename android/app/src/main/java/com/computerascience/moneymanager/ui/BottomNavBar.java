@@ -18,6 +18,7 @@ import java.util.List;
 
 public final class BottomNavBar extends LinearLayout {
     public static final String PAGE_OVERVIEW = "overview";
+    public static final String PAGE_INVESTMENT = "investment";
     public static final String PAGE_TREND = "trend";
     public static final String PAGE_ASSETS = "assets";
 
@@ -28,6 +29,7 @@ public final class BottomNavBar extends LinearLayout {
     private static final int BLUE = Color.rgb(51, 94, 170);
     private static final int BLUE_SOFT = Color.rgb(230, 240, 255);
     private static final String ICON_OVERVIEW = "overview";
+    private static final String ICON_INVESTMENT = "investment";
     private static final String ICON_TREND = "trend";
     private static final String ICON_ASSETS = "assets";
 
@@ -52,6 +54,7 @@ public final class BottomNavBar extends LinearLayout {
         row.setGravity(Gravity.CENTER);
         row.setPadding(dp(14), dp(6), dp(14), dp(8));
         addTab(row, "总览", ICON_OVERVIEW, PAGE_OVERVIEW, listener);
+        addTab(row, "投资", ICON_INVESTMENT, PAGE_INVESTMENT, listener);
         addTab(row, "趋势", ICON_TREND, PAGE_TREND, listener);
         addTab(row, "资产", ICON_ASSETS, PAGE_ASSETS, listener);
         addView(row, new LinearLayout.LayoutParams(
@@ -179,6 +182,8 @@ public final class BottomNavBar extends LinearLayout {
             paint.setColor(active ? BLUE : INK);
             if (ICON_TREND.equals(kind)) {
                 drawTrend(canvas);
+            } else if (ICON_INVESTMENT.equals(kind)) {
+                drawInvestment(canvas);
             } else if (ICON_ASSETS.equals(kind)) {
                 drawAssets(canvas);
             } else {
@@ -205,6 +210,16 @@ public final class BottomNavBar extends LinearLayout {
             path.lineTo(w * 0.78f, h * 0.30f);
             canvas.drawPath(path, paint);
             canvas.drawLine(w * 0.14f, h * 0.84f, w * 0.84f, h * 0.84f, paint);
+        }
+
+        private void drawInvestment(Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            rect.set(w * 0.16f, h * 0.18f, w * 0.84f, h * 0.82f);
+            canvas.drawRoundRect(rect, dp(7), dp(7), paint);
+            canvas.drawLine(w * 0.28f, h * 0.64f, w * 0.42f, h * 0.48f, paint);
+            canvas.drawLine(w * 0.42f, h * 0.48f, w * 0.56f, h * 0.56f, paint);
+            canvas.drawLine(w * 0.56f, h * 0.56f, w * 0.72f, h * 0.34f, paint);
         }
 
         private void drawAssets(Canvas canvas) {

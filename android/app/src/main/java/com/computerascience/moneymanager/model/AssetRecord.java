@@ -18,11 +18,17 @@ public final class AssetRecord {
     public String packageName;
     public String launchUri;
     public String note;
+    public String bankDepositAmount;
+    public String bankWealthAmount;
+    public String bankDebtAmount;
+    public String investmentHoldingAmount;
+    public String investmentCashAmount;
+    public String investmentPositions;
 
     public AssetRecord() {
         id = UUID.randomUUID().toString();
         name = "";
-        category = "银行";
+        category = "银行账户";
         institution = "";
         amount = "";
         currency = "CNY";
@@ -32,6 +38,12 @@ public final class AssetRecord {
         packageName = "";
         launchUri = "";
         note = "";
+        bankDepositAmount = "";
+        bankWealthAmount = "";
+        bankDebtAmount = "";
+        investmentHoldingAmount = "";
+        investmentCashAmount = "";
+        investmentPositions = "";
     }
 
     public static AssetRecord fromJson(JSONObject json) throws JSONException {
@@ -47,6 +59,12 @@ public final class AssetRecord {
         asset.packageName = json.optString("packageName", asset.packageName);
         asset.launchUri = json.optString("launchUri", asset.launchUri);
         asset.note = json.optString("note", asset.note);
+        asset.bankDepositAmount = json.optString("bankDepositAmount", asset.bankDepositAmount);
+        asset.bankWealthAmount = json.optString("bankWealthAmount", asset.bankWealthAmount);
+        asset.bankDebtAmount = json.optString("bankDebtAmount", asset.bankDebtAmount);
+        asset.investmentHoldingAmount = json.optString("investmentHoldingAmount", asset.investmentHoldingAmount);
+        asset.investmentCashAmount = json.optString("investmentCashAmount", asset.investmentCashAmount);
+        asset.investmentPositions = json.optString("investmentPositions", asset.investmentPositions);
 
         String savedId = json.optString("id", asset.id);
         return new AssetRecord(
@@ -61,7 +79,13 @@ public final class AssetRecord {
                 asset.appName,
                 asset.packageName,
                 asset.launchUri,
-                asset.note
+                asset.note,
+                asset.bankDepositAmount,
+                asset.bankWealthAmount,
+                asset.bankDebtAmount,
+                asset.investmentHoldingAmount,
+                asset.investmentCashAmount,
+                asset.investmentPositions
         );
     }
 
@@ -78,7 +102,13 @@ public final class AssetRecord {
                 source.appName,
                 source.packageName,
                 source.launchUri,
-                source.note
+                source.note,
+                source.bankDepositAmount,
+                source.bankWealthAmount,
+                source.bankDebtAmount,
+                source.investmentHoldingAmount,
+                source.investmentCashAmount,
+                source.investmentPositions
         );
     }
 
@@ -94,7 +124,13 @@ public final class AssetRecord {
             String appName,
             String packageName,
             String launchUri,
-            String note
+            String note,
+            String bankDepositAmount,
+            String bankWealthAmount,
+            String bankDebtAmount,
+            String investmentHoldingAmount,
+            String investmentCashAmount,
+            String investmentPositions
     ) {
         this.id = id;
         this.name = name;
@@ -108,6 +144,12 @@ public final class AssetRecord {
         this.packageName = packageName;
         this.launchUri = launchUri;
         this.note = note;
+        this.bankDepositAmount = bankDepositAmount;
+        this.bankWealthAmount = bankWealthAmount;
+        this.bankDebtAmount = bankDebtAmount;
+        this.investmentHoldingAmount = investmentHoldingAmount;
+        this.investmentCashAmount = investmentCashAmount;
+        this.investmentPositions = investmentPositions;
     }
 
     public JSONObject toJson() throws JSONException {
@@ -124,6 +166,12 @@ public final class AssetRecord {
         json.put("packageName", packageName);
         json.put("launchUri", launchUri);
         json.put("note", note);
+        json.put("bankDepositAmount", bankDepositAmount);
+        json.put("bankWealthAmount", bankWealthAmount);
+        json.put("bankDebtAmount", bankDebtAmount);
+        json.put("investmentHoldingAmount", investmentHoldingAmount);
+        json.put("investmentCashAmount", investmentCashAmount);
+        json.put("investmentPositions", investmentPositions);
         return json;
     }
 }

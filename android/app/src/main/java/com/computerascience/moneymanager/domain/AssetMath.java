@@ -41,16 +41,25 @@ public final class AssetMath {
                 missingRateCount += 1;
                 rate = 1.0;
             }
-            double amount = Math.abs(parseAmount(asset.amount)) * rate;
-            boolean liability = isLiability(asset);
-            if (liability) {
-                liabilities += amount;
+            double grossAmount = assetGrossAmount(asset) * rate;
+            double liabilityAmount = assetLiabilityAmount(asset) * rate;
+            grossAssets += grossAmount;
+            liabilities += liabilityAmount;
+
+            if (isBankAccount(asset)) {
+                addTotal(categoryTotals, AssetCategories.BANK_ACCOUNT, grossAmount);
+                addTotal(categoryTotals, AssetCategories.DEBT, liabilityAmount);
+            } else if (AssetCategories.isLegacyBankCategory(asset.category)) {
+                addTotal(categoryTotals, AssetCategories.BANK_ACCOUNT, grossAmount);
+            } else if (isInvestmentAsset(asset)) {
+                addTotal(categoryTotals, AssetCategories.INVESTMENT_ACCOUNT, grossAmount);
+            } else if (isLiability(asset)) {
+                addTotal(categoryTotals, AssetCategories.DEBT, liabilityAmount);
             } else {
-                grossAssets += amount;
+                addTotal(categoryTotals, asset.category, grossAmount);
             }
-            categoryTotals.put(asset.category, doubleValue(categoryTotals, asset.category) + amount);
             String institution = cleanInstitution(asset.institution);
-            institutionTotals.put(institution, doubleValue(institutionTotals, institution) + amount);
+            institutionTotals.put(institution, doubleValue(institutionTotals, institution) + grossAmount + liabilityAmount);
             institutionCounts.put(institution, intValue(institutionCounts, institution) + 1);
 
             if (isStale(asset)) {
@@ -108,7 +117,102 @@ public final class AssetMath {
     }
 
     public static boolean isLiability(AssetRecord asset) {
-        return "负债".equals(asset.category);
+        return AssetCategories.DEBT.equals(asset.category);
+    }
+
+    public static boolean isBankAccount(AssetRecord asset) {
+        return asset != null && AssetCategories.isBankAccount(asset.category);
+    }
+
+    public static boolean isInvestmentAsset(AssetRecord asset) {
+        return asset != null && (AssetCategories.isInvestmentAccount(asset.category)
+                || AssetCategories.isLegacyInvestmentCategory(asset.category));
+    }
+
+    public static double assetGrossAmount(AssetRecord asset) {
+        if (asset == null) {
+            return 0;
+        }
+        if (isBankAccount(asset)) {
+            double deposit = componentAmount(asset.bankDepositAmount);
+            double wealth = componentAmount(asset.bankWealthAmount);
+            if (!hasBankBreakdown(asset)) {
+                return componentAmount(asset.amount);
+            }
+            return deposit + wealth;
+        }
+        if (AssetCategories.isInvestmentAccount(asset.category)) {
+            double holding = componentAmount(asset.investmentHoldingAmount);
+            double cash = componentAmount(asset.investmentCashAmount);
+            if (!hasInvestmentBreakdown(asset)) {
+                return componentAmount(asset.amount);
+            }
+            return holding + cash;
+        }
+        if (isLiability(asset)) {
+            return 0;
+        }
+        return componentAmount(asset.amount);
+    }
+
+    public static double assetLiabilityAmount(AssetRecord asset) {
+        if (asset == null) {
+            return 0;
+        }
+        if (isBankAccount(asset)) {
+            return componentAmount(asset.bankDebtAmount);
+        }
+        if (isLiability(asset)) {
+            return componentAmount(asset.amount);
+        }
+        return 0;
+    }
+
+    public static double assetNetAmount(AssetRecord asset) {
+        return assetGrossAmount(asset) - assetLiabilityAmount(asset);
+    }
+
+    public static double investmentHoldingAmount(AssetRecord asset) {
+        if (asset == null) {
+            return 0;
+        }
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
+            if (!hasInvestmentBreakdown(asset)) {
+                return componentAmount(asset.amount);
+            }
+            return componentAmount(asset.investmentHoldingAmount);
+        }
+        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
+            return 0;
+        }
+        if (isInvestmentAsset(asset)) {
+            return componentAmount(asset.amount);
+        }
+        return 0;
+    }
+
+    public static double investmentCashAmount(AssetRecord asset) {
+        if (asset == null) {
+            return 0;
+        }
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
+            return hasInvestmentBreakdown(asset) ? componentAmount(asset.investmentCashAmount) : 0;
+        }
+        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
+            return componentAmount(asset.amount);
+        }
+        return 0;
+    }
+
+    public static boolean hasBankBreakdown(AssetRecord asset) {
+        return hasText(asset.bankDepositAmount)
+                || hasText(asset.bankWealthAmount)
+                || hasText(asset.bankDebtAmount);
+    }
+
+    public static boolean hasInvestmentBreakdown(AssetRecord asset) {
+        return hasText(asset.investmentHoldingAmount)
+                || hasText(asset.investmentCashAmount);
     }
 
     public static double parseAmount(String raw) {
@@ -153,15 +257,33 @@ public final class AssetMath {
         return value == null ? 0 : value;
     }
 
+    private static void addTotal(Map<String, Double> values, String key, double amount) {
+        if (amount <= 0) {
+            return;
+        }
+        values.put(key, doubleValue(values, key) + amount);
+    }
+
+    private static double componentAmount(String value) {
+        return Math.abs(parseAmount(value));
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
     public static int colorForCategory(String category) {
-        if ("银行".equals(category) || "银行存款".equals(category)) return 0xFF126B5F;
-        if ("银行理财".equals(category)) return 0xFF3B7F91;
-        if ("券商".equals(category) || "券商持仓".equals(category)) return 0xFF335EAA;
-        if ("券商现金".equals(category)) return 0xFF5B6F94;
-        if ("基金".equals(category)) return 0xFF3B7F91;
-        if ("加密资产".equals(category)) return 0xFFB85C2F;
-        if ("房产".equals(category)) return 0xFF72518A;
-        if ("负债".equals(category)) return 0xFFBE4350;
+        if (AssetCategories.BANK_ACCOUNT.equals(category)) return 0xFF126B5F;
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(category)) return 0xFF335EAA;
+        if ("银行".equals(category) || AssetCategories.BANK_DEPOSIT.equals(category)) return 0xFF126B5F;
+        if (AssetCategories.BANK_WEALTH.equals(category)) return 0xFF3B7F91;
+        if ("券商".equals(category) || AssetCategories.BROKER_HOLDING.equals(category)) return 0xFF335EAA;
+        if (AssetCategories.STOCK_HOLDING.equals(category)) return 0xFF7C4DFF;
+        if (AssetCategories.BROKER_CASH.equals(category)) return 0xFF5B6F94;
+        if (AssetCategories.FUND.equals(category)) return 0xFF3B7F91;
+        if (AssetCategories.CRYPTO.equals(category)) return 0xFFB85C2F;
+        if (AssetCategories.REAL_ESTATE.equals(category)) return 0xFF72518A;
+        if (AssetCategories.DEBT.equals(category)) return 0xFFBE4350;
         return 0xFFA67918;
     }
 }

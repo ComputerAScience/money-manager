@@ -3,6 +3,7 @@ package com.computerascience.moneymanager.data;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.computerascience.moneymanager.domain.AssetCategories;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
@@ -366,34 +367,29 @@ public final class AssetStore {
         List<AssetRecord> assets = new ArrayList<>();
 
         AssetRecord bank = new AssetRecord();
-        bank.name = "银行卡余额";
-        bank.category = "银行存款";
+        bank.name = "银行账户";
+        bank.category = AssetCategories.BANK_ACCOUNT;
         bank.institution = "待绑定银行 App";
         bank.amount = "0";
         bank.currency = "CNY";
         bank.updateEveryDays = 7;
-        bank.note = "编辑时选择已安装银行 App，即可一键打开更新。";
+        bank.bankDepositAmount = "0";
+        bank.bankWealthAmount = "0";
+        bank.bankDebtAmount = "0";
+        bank.note = "在一个条目里记录存款、理财和负债，只绑定一次银行 App。";
         assets.add(bank);
 
-        AssetRecord broker = new AssetRecord();
-        broker.name = "证券持仓";
-        broker.category = "券商持仓";
-        broker.institution = "待绑定券商 App";
-        broker.amount = "0";
-        broker.currency = "CNY";
-        broker.updateEveryDays = 1;
-        broker.note = "每日交易后打开券商 App 核对持仓并记录快照。";
-        assets.add(broker);
-
-        AssetRecord brokerCash = new AssetRecord();
-        brokerCash.name = "券商现金";
-        brokerCash.category = "券商现金";
-        brokerCash.institution = "待绑定券商 App";
-        brokerCash.amount = "0";
-        brokerCash.currency = "CNY";
-        brokerCash.updateEveryDays = 1;
-        brokerCash.note = "记录券商账户里的可用资金，和持仓分开看。";
-        assets.add(brokerCash);
+        AssetRecord investment = new AssetRecord();
+        investment.name = "投资账户";
+        investment.category = AssetCategories.INVESTMENT_ACCOUNT;
+        investment.institution = "待绑定券商 App";
+        investment.amount = "0";
+        investment.currency = "CNY";
+        investment.updateEveryDays = 1;
+        investment.investmentHoldingAmount = "0";
+        investment.investmentCashAmount = "0";
+        investment.note = "记录持仓市值、可用现金和持股备注，只绑定一次券商 App。";
+        assets.add(investment);
 
         return assets;
     }
