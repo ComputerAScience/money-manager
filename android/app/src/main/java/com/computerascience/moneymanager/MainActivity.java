@@ -281,7 +281,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(18), dp(28));
+        root.setPadding(dp(18), dp(12), dp(42), dp(28));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -2388,7 +2388,8 @@ public final class MainActivity extends Activity {
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
         row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.bottomMargin = dp(8);
+        rowParams.topMargin = dp(6);
+        rowParams.bottomMargin = dp(10);
         row.setLayoutParams(rowParams);
 
         row.addView(institutionGroupIcon(group), new LinearLayout.LayoutParams(dp(40), dp(40)));
@@ -3227,10 +3228,15 @@ public final class MainActivity extends Activity {
         row.setPadding(dp(12), dp(10), dp(12), dp(12));
         row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
+        rowParams.bottomMargin = dp(8);
         row.setLayoutParams(rowParams);
 
         LinearLayout header = row();
+        TextView mark = categoryMark(asset);
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(34), dp(34));
+        markParams.rightMargin = dp(10);
+        header.addView(mark, markParams);
+
         LinearLayout titleGroup = new LinearLayout(this);
         titleGroup.setOrientation(LinearLayout.VERTICAL);
         titleGroup.addView(text(asset.name, 14, INK, Typeface.BOLD));

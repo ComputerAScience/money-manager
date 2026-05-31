@@ -85,7 +85,9 @@ public final class AppPickerDialog {
         FrameLayout listFrame = new FrameLayout(activity);
         listFrame.setBackground(cardBackground(PANEL, PANEL_BORDER));
         listFrame.setPadding(0, 0, 0, 0);
-        listFrame.setLayoutParams(lp(-1, appPickerListHeight()));
+        LinearLayout.LayoutParams listParams = lp(-1, appPickerListHeight());
+        listParams.bottomMargin = dp(14);
+        listFrame.setLayoutParams(listParams);
 
         ListView list = new ListView(activity);
         list.setDivider(new ColorDrawable(PANEL_BORDER));
@@ -177,7 +179,7 @@ public final class AppPickerDialog {
 
     private int appPickerListHeight() {
         int screenHeight = activity.getResources().getDisplayMetrics().heightPixels;
-        return Math.min(dp(380), Math.max(dp(220), screenHeight - dp(320)));
+        return Math.min(dp(320), Math.max(dp(210), screenHeight - dp(430)));
     }
 
     private EditText input(String label, String value, int inputType) {
