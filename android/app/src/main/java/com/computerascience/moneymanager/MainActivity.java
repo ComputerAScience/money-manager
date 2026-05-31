@@ -164,9 +164,7 @@ public final class MainActivity extends Activity {
 
     private void configureSystemBars() {
         getWindow().setStatusBarColor(BG);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getWindow().setNavigationBarColor(BG);
-        }
+        getWindow().setNavigationBarColor(BG);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -301,7 +299,19 @@ public final class MainActivity extends Activity {
         bottomShell.addView(bottomNav, lp(-1, dp(56)));
         screen.addView(bottomShell, lp(-1, -2));
         setContentView(screen);
+        applySystemBarInsets(screen, header, bottomShell);
         updatePageVisibility();
+    }
+
+    private void applySystemBarInsets(View screen, View header, View bottomShell) {
+        screen.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset = Math.max(insets.getSystemWindowInsetTop(), statusBarHeight());
+            int bottomInset = Math.max(insets.getSystemWindowInsetBottom(), navigationBarHeight());
+            header.setPadding(dp(18), topInset + dp(14), dp(18), dp(12));
+            bottomShell.setPadding(dp(12), dp(8), dp(12), bottomInset + dp(8));
+            return insets;
+        });
+        screen.requestApplyInsets();
     }
 
     private LinearLayout page() {
