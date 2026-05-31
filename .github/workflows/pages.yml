@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - codex-asset-dashboard
     paths:
       - "index.html"
       - ".github/workflows/pages.yml"
@@ -24,6 +23,7 @@ env:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/master'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
