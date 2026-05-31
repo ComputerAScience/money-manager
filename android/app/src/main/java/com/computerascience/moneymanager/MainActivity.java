@@ -38,7 +38,6 @@ import android.widget.Toast;
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.ExchangeRateClient;
-import com.computerascience.moneymanager.domain.UpdateClient;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -73,7 +72,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
     private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
-    private static final String UPDATE_INFO_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/version.json";
+    private static final String APK_RELEASE_URL = "https://github.com/ComputerAScience/money-manager/releases/tag/android-debug-latest";
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
@@ -1059,9 +1058,9 @@ public final class MainActivity extends Activity {
 
         addSettingsSection(body, "版本与更新");
         body.addView(settingsActionRow(
-                "↻",
-                "检查更新",
-                "当前版本 " + appVersionLabel() + "，读取远端最新版本。",
+                "↗",
+                "更新与下载",
+                "当前版本 " + appVersionLabel() + "，打开 GitHub 发布页或 APK。",
                 ACCENT,
                 view -> {
                     dialog.dismiss();
@@ -1071,7 +1070,7 @@ public final class MainActivity extends Activity {
         body.addView(settingsActionRow(
                 "↓",
                 "直接下载 APK",
-                "打开固定下载地址，适合网络检查失败时使用。",
+                "私有仓库需要手机浏览器已登录 GitHub。",
                 BLUE,
                 view -> {
                     dialog.dismiss();
@@ -1098,12 +1097,13 @@ public final class MainActivity extends Activity {
         int pad = dp(18);
         body.setPadding(pad, dp(8), pad, dp(4));
 
-        TextView status = text("当前版本 " + appVersionLabel() + "\n正在检查最新版本…", 14, INK, Typeface.BOLD);
+        TextView status = text("当前版本 " + appVersionLabel()
+                + "\n这个仓库是 private，App 不能直接读取 GitHub 登录态。请用已登录 GitHub 的浏览器打开发布页或下载 APK。", 14, INK, Typeface.BOLD);
         status.setPadding(dp(14), dp(12), dp(14), dp(12));
         status.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
         body.addView(status, lp(-1, -2));
 
-        TextView note = text("如果从旧安装包升级时提示签名不一致，先卸载旧版再安装一次新版；之后同一个固定下载地址通常可以直接覆盖安装。", 12, MUTED, Typeface.NORMAL);
+        TextView note = text("如果浏览器提示无权限，先登录能访问这个仓库的 GitHub 账号。如果从旧安装包升级时提示签名不一致，先卸载旧版再安装一次新版。", 12, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams noteParams = lp(-1, -2);
         noteParams.topMargin = dp(10);
         body.addView(note, noteParams);
@@ -1113,10 +1113,9 @@ public final class MainActivity extends Activity {
                 .setView(body)
                 .setNegativeButton("关闭", null)
                 .setNeutralButton("复制链接", (view, which) -> copyApkDownloadLink())
-                .setPositiveButton("下载 APK", (view, which) -> openApkDownload())
+                .setPositiveButton("打开发布页", (view, which) -> openReleasePage())
                 .create();
         showStyledDialog(dialog);
-        fetchLatestUpdateInfo(status);
     }
 
     private void addSettingsSection(LinearLayout body, String title) {
@@ -1178,40 +1177,16 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private long appVersionCode() {
-        try {
-            return packageVersionCode(getPackageManager().getPackageInfo(getPackageName(), 0));
-        } catch (PackageManager.NameNotFoundException error) {
-            return 0;
-        }
-    }
-
     private long packageVersionCode(PackageInfo info) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? info.getLongVersionCode() : info.versionCode;
     }
 
-    private void fetchLatestUpdateInfo(TextView status) {
-        new Thread(() -> {
-            try {
-                UpdateClient.UpdateInfo update = UpdateClient.fetchLatest(UPDATE_INFO_URL);
-                runOnUiThread(() -> status.setText(updateStatusText(update)));
-            } catch (Exception error) {
-                runOnUiThread(() -> status.setText("当前版本 " + appVersionLabel()
-                        + "\n暂时读取不到远端版本信息。你仍然可以直接下载固定 APK。"));
-            }
-        }).start();
-    }
-
-    private String updateStatusText(UpdateClient.UpdateInfo update) {
-        String latest = update.versionCode > 0 ? update.displayVersion() : "--";
-        String state = update.isNewerThan(appVersionCode())
-                ? "发现新版本，可以下载更新。"
-                : "当前已是最新版本，必要时也可以重新下载安装包。";
-        String builtAt = update.builtAt.isEmpty() ? "" : "\n构建时间 " + update.builtAt;
-        return "当前版本 " + appVersionLabel()
-                + "\n最新版本 " + latest
-                + "\n" + state
-                + builtAt;
+    private void openReleasePage() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(APK_RELEASE_URL)));
+        } catch (ActivityNotFoundException error) {
+            openApkDownload();
+        }
     }
 
     private void openApkDownload() {
