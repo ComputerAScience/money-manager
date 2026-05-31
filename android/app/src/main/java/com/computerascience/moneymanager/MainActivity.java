@@ -38,7 +38,6 @@ import android.widget.Toast;
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.ExchangeRateClient;
-import com.computerascience.moneymanager.domain.UpdateClient;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -52,6 +51,7 @@ import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.SectionNavigator;
 import com.computerascience.moneymanager.ui.TrendChartView;
+import com.computerascience.moneymanager.ui.UpdateDialog;
 
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -1057,30 +1057,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showUpdateDialog() {
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        body.setPadding(pad, dp(8), pad, dp(4));
-
-        TextView status = text("当前版本 " + appVersionLabel() + "\n正在检查最新版本…", 14, INK, Typeface.BOLD);
-        status.setPadding(dp(14), dp(12), dp(14), dp(12));
-        status.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        body.addView(status, lp(-1, -2));
-
-        TextView note = text("如果从旧安装包升级时提示签名不一致，先卸载旧版再安装一次新版；之后同一个固定下载地址通常可以直接覆盖安装。", 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams noteParams = lp(-1, -2);
-        noteParams.topMargin = dp(10);
-        body.addView(note, noteParams);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("版本与更新")
-                .setView(body)
-                .setNegativeButton("关闭", null)
-                .setNeutralButton("复制链接", (view, which) -> copyApkDownloadLink())
-                .setPositiveButton("下载 APK", (view, which) -> openApkDownload())
-                .create();
-        showStyledDialog(dialog);
-        fetchLatestUpdateInfo(status);
+        UpdateDialog.show(this, appVersionLabel(), appVersionCode(), UPDATE_INFO_URL, APK_DOWNLOAD_URL);
     }
 
     private void addSettingsSection(LinearLayout body, String title) {
@@ -1154,46 +1131,12 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void fetchLatestUpdateInfo(TextView status) {
-        new Thread(() -> {
-            try {
-                UpdateClient.UpdateInfo update = UpdateClient.fetchLatest(UPDATE_INFO_URL);
-                runOnUiThread(() -> status.setText(updateStatusText(update)));
-            } catch (Exception error) {
-                runOnUiThread(() -> status.setText("当前版本 " + appVersionLabel()
-                        + "\n暂时读取不到远端版本信息。你仍然可以直接下载固定 APK。"));
-            }
-        }).start();
-    }
-
-    private String updateStatusText(UpdateClient.UpdateInfo update) {
-        String latest = update.versionCode > 0 ? update.displayVersion() : "--";
-        String state = update.isNewerThan(appVersionCode())
-                ? "发现新版本，可以下载更新。"
-                : "当前已是最新版本，必要时也可以重新下载安装包。";
-        String builtAt = update.builtAt.isEmpty() ? "" : "\n构建时间 " + update.builtAt;
-        return "当前版本 " + appVersionLabel()
-                + "\n最新版本 " + latest
-                + "\n" + state
-                + builtAt;
-    }
-
     private void openApkDownload() {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(APK_DOWNLOAD_URL)));
-        } catch (ActivityNotFoundException error) {
-            copyApkDownloadLink();
-        }
+        UpdateDialog.openDownload(this, APK_DOWNLOAD_URL);
     }
 
     private void copyApkDownloadLink() {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        if (clipboard == null) {
-            toast("无法访问剪贴板。");
-            return;
-        }
-        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager APK", APK_DOWNLOAD_URL));
-        toast("下载链接已复制。");
+        UpdateDialog.copyDownloadLink(this, APK_DOWNLOAD_URL);
     }
 
     private View assetManagementSection() {

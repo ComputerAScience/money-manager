@@ -89,7 +89,7 @@ gradle :app:assembleDebug
 
 `0.4.1` 之后会尽量保持 debug 签名稳定：GitHub Actions 会优先使用 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`；如果没有配置 secret，会自动生成专用 `money-manager-debug.p12` 并缓存复用。手机里如果已经安装过旧签名版本并提示“签名不一致”，需要先卸载旧 App 再安装一次新版；之后同一个固定下载地址通常可以直接覆盖安装。
 
-App 顶部设置入口里也有“版本与更新”：可以查看当前版本、读取公开 GitHub Release 里的最新版本信息、打开固定 APK 下载地址，或复制下载链接。
+App 顶部设置入口里也有“版本与更新”：可以查看当前版本、读取公开 GitHub Release 里的最新版本信息、优先使用 metadata 里的 APK 下载地址，或复制下载链接。
 
 ## 源码结构
 
