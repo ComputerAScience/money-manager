@@ -278,6 +278,8 @@ public final class AssetStore {
 
     public AssetBackup parseBackup(String raw) throws JSONException {
         JSONObject root = new JSONObject(raw);
+        int version = Math.max(0, root.optInt("version", 0));
+        int schemaVersion = Math.max(0, root.optInt("schemaVersion", version));
         JSONArray assetArray = root.optJSONArray("assets");
         if (assetArray == null) {
             throw new JSONException("Missing assets");
@@ -287,7 +289,7 @@ public final class AssetStore {
         for (int index = 0; index < assetArray.length(); index += 1) {
             importedAssets.add(AssetRecord.fromJson(assetArray.getJSONObject(index)));
         }
-        migrateLegacyAccountAssets(importedAssets);
+        boolean migratedLegacyAssets = migrateLegacyAccountAssets(importedAssets);
 
         List<AssetSnapshot> importedSnapshots = new ArrayList<>();
         JSONArray snapshotArray = root.optJSONArray("snapshots");
@@ -311,7 +313,10 @@ public final class AssetStore {
                 importedAssets,
                 pruneAndSort(importedSnapshots),
                 pruneAndSortUpdateEvents(importedUpdateEvents),
-                importedSettings
+                importedSettings,
+                version,
+                schemaVersion,
+                migratedLegacyAssets
         );
     }
 

@@ -4058,9 +4058,7 @@ public final class MainActivity extends Activity {
     private void confirmImportBackup(AssetBackup backup) {
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("导入备份？")
-                .setMessage("将导入 " + backup.assets.size() + " 项资产和 "
-                        + backup.snapshots.size() + " 个趋势快照、"
-                        + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置，并覆盖当前本机数据。")
+                .setMessage(importBackupMessage(backup))
                 .setNegativeButton("取消", null)
                 .setPositiveButton("导入", (ignoredDialog, which) -> {
                     store.replaceAll(backup);
@@ -4076,6 +4074,29 @@ public final class MainActivity extends Activity {
                 })
                 .create();
         showStyledDialog(dialog);
+    }
+
+    private String importBackupMessage(AssetBackup backup) {
+        List<String> lines = new ArrayList<>();
+        lines.add("将导入 " + backup.assets.size() + " 项资产和 "
+                + backup.snapshots.size() + " 个趋势快照、"
+                + backup.updateEvents.size() + " 条更新记录，以及汇率和目标设置。");
+        lines.add("备份版本：" + backupVersionText(backup));
+        if (backup.migratedLegacyAssets) {
+            lines.add("检测到旧版银行 / 券商资产结构，导入时已自动映射到账户明细字段。");
+        }
+        lines.add("导入会覆盖当前本机数据。");
+        return joinLines(lines);
+    }
+
+    private String backupVersionText(AssetBackup backup) {
+        if (backup.schemaVersion <= 0 && backup.version <= 0) {
+            return "旧版或未知";
+        }
+        if (backup.schemaVersion > 0) {
+            return "schema " + backup.schemaVersion;
+        }
+        return "version " + backup.version;
     }
 
     private String readUtf8(InputStream input) throws IOException {
