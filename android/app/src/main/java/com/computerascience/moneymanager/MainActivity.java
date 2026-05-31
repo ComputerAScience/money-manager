@@ -1570,23 +1570,29 @@ public final class MainActivity extends Activity {
         String targets = realtimeRateTargets();
         URL url = new URL("https://api.frankfurter.dev/v1/latest?base=USD&symbols=" + targets);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setConnectTimeout(8000);
-        connection.setReadTimeout(8000);
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "MoneyManagerAndroid/0.1");
-        int status = connection.getResponseCode();
-        if (status != HttpURLConnection.HTTP_OK) {
-            connection.disconnect();
-            throw new IOException("FX HTTP " + status);
-        }
+        try {
+            connection.setConnectTimeout(8000);
+            connection.setReadTimeout(8000);
+            connection.setUseCaches(false);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("User-Agent", "MoneyManagerAndroid/0.2.8");
+            int status = connection.getResponseCode();
+            if (status != HttpURLConnection.HTTP_OK) {
+                throw new IOException("FX HTTP " + status);
+            }
 
-        String raw;
-        try (InputStream input = connection.getInputStream()) {
-            raw = readUtf8(input);
+            String raw;
+            try (InputStream input = connection.getInputStream()) {
+                raw = readUtf8(input);
+            }
+            return parseRatesToBase(raw, baseCurrency);
         } finally {
             connection.disconnect();
         }
+    }
+
+    private Map<String, Double> parseRatesToBase(String raw, String baseCurrency) throws Exception {
         JSONObject json = new JSONObject(raw);
         JSONObject rates = json.getJSONObject("rates");
         Map<String, Double> usdToCurrency = new HashMap<>();
