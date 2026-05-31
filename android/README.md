@@ -84,7 +84,7 @@ gradle :app:assembleDebug
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
 
-`0.3.0` 之后支持固定 debug 签名：把 `money-manager-debug.p12` 以 base64 写入 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64` 后，GitHub 构建出来的 APK 会持续使用同一把签名。手机里如果已经安装过旧版本并提示“签名不一致”，需要先卸载旧 App 再安装一次固定签名版；之后同一个固定下载地址会继续覆盖安装。
+`0.3.0` 之后会尽量保持 debug 签名稳定：GitHub Actions 会缓存默认 debug keystore，之后的自动构建通常可以直接覆盖安装。更稳的方式是把 `money-manager-debug.p12` 以 base64 写入 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64`，这样即使缓存失效也会继续使用同一把签名。手机里如果已经安装过旧版本并提示“签名不一致”，需要先卸载旧 App 再安装一次新版；之后同一个固定下载地址会继续覆盖安装。
 
 ## 源码结构
 

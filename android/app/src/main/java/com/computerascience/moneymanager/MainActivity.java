@@ -278,12 +278,12 @@ public final class MainActivity extends Activity {
         View netWorthGoal = netWorthGoalCard();
         View actionCenter = actionCenterCard();
         overviewPage.addView(sectionNav(
-                new NavItem("总资产概览", overviewSummary),
-                new NavItem("资产比例", allocation),
-                new NavItem("目标比例", allocationTarget),
-                new NavItem("机构分布", institution),
-                new NavItem("年度目标", netWorthGoal),
-                new NavItem("行动中心", actionCenter)
+                new NavItem("总资产概览", "◎", overviewSummary),
+                new NavItem("资产比例", "◔", allocation),
+                new NavItem("目标比例", "⌖", allocationTarget),
+                new NavItem("机构分布", "▤", institution),
+                new NavItem("年度目标", "↗", netWorthGoal),
+                new NavItem("行动中心", "!", actionCenter)
         ));
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
@@ -298,9 +298,9 @@ public final class MainActivity extends Activity {
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
         trendPage.addView(sectionNav(
-                new NavItem("一年趋势", totalTrend),
-                new NavItem("分布变化", distributionTrend),
-                new NavItem("单项资产", assetTrend)
+                new NavItem("一年趋势", "⌁", totalTrend),
+                new NavItem("分布变化", "◫", distributionTrend),
+                new NavItem("单项资产", "▱", assetTrend)
         ));
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
@@ -311,8 +311,8 @@ public final class MainActivity extends Activity {
         View assetManagement = assetManagementSection();
         View recentUpdates = recentUpdatesCard();
         assetsPage.addView(sectionNav(
-                new NavItem("资产管理", assetManagement),
-                new NavItem("最近更新", recentUpdates)
+                new NavItem("资产管理", "▦", assetManagement),
+                new NavItem("最近更新", "↻", recentUpdates)
         ));
         assetsPage.addView(assetManagement);
         assetsPage.addView(recentUpdates);
@@ -326,19 +326,20 @@ public final class MainActivity extends Activity {
 
         LinearLayout bottomShell = new LinearLayout(this);
         bottomShell.setOrientation(LinearLayout.VERTICAL);
-        bottomShell.setPadding(dp(12), dp(8), dp(12), navigationBarHeight() + dp(8));
+        bottomShell.setPadding(0, 0, 0, navigationBarHeight() + dp(6));
         bottomShell.setBackgroundColor(PANEL);
-        bottomShell.setElevation(dp(8));
+        bottomShell.setElevation(dp(10));
 
         LinearLayout bottomNav = row();
-        bottomNav.setPadding(0, 0, 0, 0);
+        bottomNav.setPadding(dp(12), dp(6), dp(12), 0);
         overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
         trendTab = bottomTabButton("趋势", PAGE_TREND);
         assetsTab = bottomTabButton("资产", PAGE_ASSETS);
         bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(58), 1));
         bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
         bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        bottomShell.addView(bottomNav, lp(-1, dp(58)));
+        bottomShell.addView(dividerLine(0));
+        bottomShell.addView(bottomNav, lp(-1, dp(64)));
         screen.addView(bottomShell, lp(-1, -2));
         setContentView(screen);
         applySystemBarInsets(screen, header, bottomShell);
@@ -350,7 +351,7 @@ public final class MainActivity extends Activity {
             int topInset = Math.max(insets.getSystemWindowInsetTop(), statusBarHeight());
             int bottomInset = Math.max(insets.getSystemWindowInsetBottom(), navigationBarHeight());
             header.setPadding(dp(18), topInset + dp(14), dp(18), dp(12));
-            bottomShell.setPadding(dp(12), dp(8), dp(12), bottomInset + dp(8));
+            bottomShell.setPadding(0, 0, 0, bottomInset + dp(6));
             return insets;
         });
         screen.requestApplyInsets();
@@ -365,10 +366,15 @@ public final class MainActivity extends Activity {
 
     private View sectionNav(NavItem... items) {
         LinearLayout nav = card();
-        nav.setPadding(dp(14), dp(12), dp(14), dp(10));
-        nav.addView(sectionTitle("导航"));
-        for (NavItem item : items) {
+        nav.setPadding(dp(14), dp(14), dp(14), dp(10));
+        nav.setElevation(dp(1));
+        nav.addView(sectionTitle("本页导航"));
+        for (int index = 0; index < items.length; index += 1) {
+            NavItem item = items[index];
             nav.addView(navRow(item));
+            if (index < items.length - 1) {
+                nav.addView(dividerLine(dp(54)));
+            }
         }
         return nav;
     }
@@ -376,19 +382,19 @@ public final class MainActivity extends Activity {
     private View navRow(NavItem item) {
         LinearLayout row = row();
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(8), dp(8), dp(6), dp(8));
+        row.setPadding(dp(4), dp(7), dp(4), dp(7));
         row.setBackground(buttonBackground(PANEL, ROW_SURFACE, Color.TRANSPARENT));
-        LinearLayout.LayoutParams params = lp(-1, dp(44));
-        params.topMargin = dp(6);
+        LinearLayout.LayoutParams params = lp(-1, dp(50));
         row.setLayoutParams(params);
 
-        TextView dot = text("•", 20, ACCENT, Typeface.BOLD);
-        dot.setGravity(Gravity.CENTER);
-        row.addView(dot, new LinearLayout.LayoutParams(dp(24), dp(32)));
+        TextView icon = text(item.icon, 18, ACCENT, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
 
         TextView label = text(item.label, 15, INK, Typeface.BOLD);
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1);
-        labelParams.leftMargin = dp(8);
+        labelParams.leftMargin = dp(14);
         row.addView(label, labelParams);
 
         TextView arrow = text("›", 22, MUTED, Typeface.BOLD);
@@ -3980,6 +3986,15 @@ public final class MainActivity extends Activity {
         return roundedBackground(fill, border, 8);
     }
 
+    private View dividerLine(int leftMargin) {
+        View line = new View(this);
+        line.setBackgroundColor(PANEL_BORDER);
+        LinearLayout.LayoutParams params = lp(-1, dp(1));
+        params.leftMargin = leftMargin;
+        line.setLayoutParams(params);
+        return line;
+    }
+
     private GradientDrawable headerBackground() {
         GradientDrawable bg = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
@@ -4117,10 +4132,12 @@ public final class MainActivity extends Activity {
 
     private static final class NavItem {
         final String label;
+        final String icon;
         final View target;
 
-        NavItem(String label, View target) {
+        NavItem(String label, String icon, View target) {
             this.label = label;
+            this.icon = icon;
             this.target = target;
         }
     }

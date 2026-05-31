@@ -49,6 +49,12 @@ jobs:
             printf '%s' "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" | base64 --decode > app/money-manager-debug.p12
           fi
 
+      - name: Cache fallback debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: money-manager-debug-keystore-v1
+
       - name: Build debug APK
         run: gradle :app:assembleDebug
 
