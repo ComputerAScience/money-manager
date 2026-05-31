@@ -1063,49 +1063,6 @@ public final class MainActivity extends Activity {
         int pad = dp(18);
         body.setPadding(pad, dp(8), pad, dp(6));
 
-        TextView currencySummary = text(currencySettingsText(), 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.bottomMargin = dp(12);
-        body.addView(currencySummary, summaryParams);
-
-        Button currencyButton = secondaryButton("基准币种与汇率");
-        body.addView(currencyButton, lp(-1, dp(44)));
-
-        TextView backupDescription = text("备份会包含资产、App 绑定、更新时间、趋势快照、更新记录、汇率、年度目标和目标比例。", 13, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.topMargin = dp(14);
-        descriptionParams.bottomMargin = dp(10);
-        body.addView(backupDescription, descriptionParams);
-
-        LinearLayout actions = row();
-        Button exportButton = secondaryButton("导出备份");
-        actions.addView(exportButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        actions.addView(new SpaceView(this, dp(10), 1));
-
-        Button importButton = secondaryButton("导入备份");
-        actions.addView(importButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        body.addView(actions);
-
-        TextView updateTitle = sectionTitle("版本与更新");
-        LinearLayout.LayoutParams updateTitleParams = lp(-1, -2);
-        updateTitleParams.topMargin = dp(18);
-        body.addView(updateTitle, updateTitleParams);
-
-        TextView updateDescription = text("当前版本 " + appVersionLabel() + "。固定下载地址会指向最新 APK。", 13, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams updateDescriptionParams = lp(-1, -2);
-        updateDescriptionParams.topMargin = dp(8);
-        updateDescriptionParams.bottomMargin = dp(10);
-        body.addView(updateDescription, updateDescriptionParams);
-
-        LinearLayout updateActions = row();
-        Button downloadButton = primaryButton("下载更新");
-        updateActions.addView(downloadButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        updateActions.addView(new SpaceView(this, dp(10), 1));
-
-        Button copyLinkButton = secondaryButton("复制链接");
-        updateActions.addView(copyLinkButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        body.addView(updateActions);
-
         ScrollView scrollBody = new ScrollView(this);
         scrollBody.addView(body, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1118,21 +1075,106 @@ public final class MainActivity extends Activity {
                 .setNegativeButton("关闭", null)
                 .create();
 
-        currencyButton.setOnClickListener(view -> {
-            dialog.dismiss();
-            showCurrencySettingsDialog();
-        });
-        exportButton.setOnClickListener(view -> {
-            dialog.dismiss();
-            startBackupExport();
-        });
-        importButton.setOnClickListener(view -> {
-            dialog.dismiss();
-            startBackupImport();
-        });
-        downloadButton.setOnClickListener(view -> openApkDownload());
-        copyLinkButton.setOnClickListener(view -> copyApkDownloadLink());
+        addSettingsSection(body, "偏好");
+        body.addView(settingsActionRow(
+                "¥",
+                "基准币种与汇率",
+                currencySettingsText(),
+                ACCENT,
+                view -> {
+                    dialog.dismiss();
+                    showCurrencySettingsDialog();
+                }
+        ));
+
+        addSettingsSection(body, "数据");
+        body.addView(settingsActionRow(
+                "⇧",
+                "导出备份",
+                "保存资产、App 绑定、趋势快照、更新记录和设置。",
+                BLUE,
+                view -> {
+                    dialog.dismiss();
+                    startBackupExport();
+                }
+        ));
+        body.addView(settingsActionRow(
+                "⇩",
+                "导入备份",
+                "用备份文件覆盖当前本机数据。",
+                AMBER,
+                view -> {
+                    dialog.dismiss();
+                    startBackupImport();
+                }
+        ));
+
+        addSettingsSection(body, "版本与更新");
+        body.addView(settingsActionRow(
+                "↓",
+                "下载更新",
+                "当前版本 " + appVersionLabel() + "，打开最新 APK 固定地址。",
+                ACCENT,
+                view -> openApkDownload()
+        ));
+        body.addView(settingsActionRow(
+                "⛓",
+                "复制下载链接",
+                "把最新 APK 地址复制到剪贴板。",
+                MUTED,
+                view -> copyApkDownloadLink()
+        ));
+
         showStyledDialog(dialog);
+    }
+
+    private void addSettingsSection(LinearLayout body, String title) {
+        TextView section = label(title);
+        LinearLayout.LayoutParams params = lp(-1, -2);
+        params.topMargin = body.getChildCount() == 0 ? 0 : dp(18);
+        params.bottomMargin = dp(8);
+        body.addView(section, params);
+    }
+
+    private View settingsActionRow(
+            String icon,
+            String title,
+            String description,
+            int iconColor,
+            View.OnClickListener listener
+    ) {
+        LinearLayout row = row();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(10), dp(10));
+        row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
+        row.setOnClickListener(listener);
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.bottomMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        TextView iconView = text(icon, 18, iconColor, Typeface.BOLD);
+        iconView.setGravity(Gravity.CENTER);
+        iconView.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        row.addView(iconView, new LinearLayout.LayoutParams(dp(38), dp(38)));
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = text(title, 15, INK, Typeface.BOLD);
+        titleView.setIncludeFontPadding(false);
+        copy.addView(titleView);
+
+        TextView descriptionView = text(description, 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
+        descriptionParams.topMargin = dp(4);
+        copy.addView(descriptionView, descriptionParams);
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, -2, 1);
+        copyParams.leftMargin = dp(12);
+        row.addView(copy, copyParams);
+
+        TextView arrow = text("›", 22, MUTED, Typeface.BOLD);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(22), dp(34)));
+        return row;
     }
 
     private String appVersionLabel() {
