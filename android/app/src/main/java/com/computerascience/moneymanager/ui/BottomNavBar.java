@@ -8,6 +8,7 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -26,8 +27,10 @@ public final class BottomNavBar extends LinearLayout {
     private static final int INK = Color.rgb(31, 41, 55);
     private static final int MUTED = Color.rgb(100, 116, 139);
     private static final int PANEL_BORDER = Color.rgb(226, 232, 240);
-    private static final int BLUE = Color.rgb(51, 94, 170);
-    private static final int BLUE_SOFT = Color.rgb(230, 240, 255);
+    private static final int ACCENT = Color.rgb(18, 107, 95);
+    private static final int ACCENT_DARK = Color.rgb(9, 75, 67);
+    private static final int ACCENT_SOFT = Color.rgb(232, 246, 242);
+    private static final int PRESSED = Color.rgb(241, 245, 249);
     private static final String ICON_OVERVIEW = "overview";
     private static final String ICON_INVESTMENT = "investment";
     private static final String ICON_TREND = "trend";
@@ -70,11 +73,10 @@ public final class BottomNavBar extends LinearLayout {
     public void setSelectedPage(String page) {
         for (TabItem tab : tabs) {
             boolean active = tab.page.equals(page);
-            tab.container.setBackground(active
-                    ? roundedBackground(BLUE_SOFT, Color.TRANSPARENT, 16)
-                    : roundedBackground(Color.TRANSPARENT, Color.TRANSPARENT, 16));
+            tab.container.setBackground(tabBackground(active));
+            tab.indicator.setVisibility(active ? View.VISIBLE : View.INVISIBLE);
             tab.icon.setActive(active);
-            tab.label.setTextColor(active ? BLUE : MUTED);
+            tab.label.setTextColor(active ? ACCENT_DARK : MUTED);
             tab.label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
         }
     }
@@ -89,11 +91,19 @@ public final class BottomNavBar extends LinearLayout {
         LinearLayout tab = new LinearLayout(activity);
         tab.setOrientation(VERTICAL);
         tab.setGravity(Gravity.CENTER);
-        tab.setPadding(0, dp(6), 0, dp(5));
+        tab.setPadding(0, dp(5), 0, dp(5));
+        tab.setContentDescription(label);
         tab.setOnClickListener(view -> listener.onSelected(page));
 
+        View indicator = new View(activity);
+        indicator.setBackground(roundedBackground(ACCENT, Color.TRANSPARENT, 999));
+        indicator.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams indicatorParams = new LinearLayout.LayoutParams(dp(18), dp(3));
+        indicatorParams.bottomMargin = dp(4);
+        tab.addView(indicator, indicatorParams);
+
         TabIconView iconView = new TabIconView(activity, iconKind);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(30), dp(26));
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(28), dp(24));
         tab.addView(iconView, iconParams);
 
         TextView labelView = text(label, 12, MUTED, Typeface.NORMAL);
@@ -103,7 +113,7 @@ public final class BottomNavBar extends LinearLayout {
         labelParams.topMargin = dp(3);
         tab.addView(labelView, labelParams);
 
-        tabs.add(new TabItem(page, tab, iconView, labelView));
+        tabs.add(new TabItem(page, tab, indicator, iconView, labelView));
         LinearLayout.LayoutParams tabParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1);
         tabParams.leftMargin = dp(3);
         tabParams.rightMargin = dp(3);
@@ -133,6 +143,17 @@ public final class BottomNavBar extends LinearLayout {
         return bg;
     }
 
+    private StateListDrawable tabBackground(boolean active) {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_pressed},
+                roundedBackground(active ? ACCENT_SOFT : PRESSED, Color.TRANSPARENT, 16));
+        states.addState(new int[]{android.R.attr.state_focused},
+                roundedBackground(active ? ACCENT_SOFT : PRESSED, Color.TRANSPARENT, 16));
+        states.addState(new int[]{},
+                roundedBackground(active ? ACCENT_SOFT : Color.TRANSPARENT, Color.TRANSPARENT, 16));
+        return states;
+    }
+
     private int dp(int value) {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
@@ -144,12 +165,14 @@ public final class BottomNavBar extends LinearLayout {
     private static final class TabItem {
         final String page;
         final LinearLayout container;
+        final View indicator;
         final TabIconView icon;
         final TextView label;
 
-        TabItem(String page, LinearLayout container, TabIconView icon, TextView label) {
+        TabItem(String page, LinearLayout container, View indicator, TabIconView icon, TextView label) {
             this.page = page;
             this.container = container;
+            this.indicator = indicator;
             this.icon = icon;
             this.label = label;
         }
@@ -179,7 +202,7 @@ public final class BottomNavBar extends LinearLayout {
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);
             paint.setStrokeWidth(dp(active ? 2 : 1));
-            paint.setColor(active ? BLUE : INK);
+            paint.setColor(active ? ACCENT_DARK : INK);
             if (ICON_TREND.equals(kind)) {
                 drawTrend(canvas);
             } else if (ICON_INVESTMENT.equals(kind)) {
