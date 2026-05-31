@@ -1,25 +1,25 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.UUID;
 
-final class AssetRecord {
-    final String id;
-    String name;
-    String category;
-    String institution;
-    String amount;
-    String currency;
-    int updateEveryDays;
-    long lastUpdatedAt;
-    String appName;
-    String packageName;
-    String launchUri;
-    String note;
+public final class AssetRecord {
+    public final String id;
+    public String name;
+    public String category;
+    public String institution;
+    public String amount;
+    public String currency;
+    public int updateEveryDays;
+    public long lastUpdatedAt;
+    public String appName;
+    public String packageName;
+    public String launchUri;
+    public String note;
 
-    AssetRecord() {
+    public AssetRecord() {
         id = UUID.randomUUID().toString();
         name = "";
         category = "银行";
@@ -34,7 +34,7 @@ final class AssetRecord {
         note = "";
     }
 
-    static AssetRecord fromJson(JSONObject json) throws JSONException {
+    public static AssetRecord fromJson(JSONObject json) throws JSONException {
         AssetRecord asset = new AssetRecord();
         asset.name = json.optString("name", asset.name);
         asset.category = json.optString("category", asset.category);
@@ -65,7 +65,7 @@ final class AssetRecord {
         );
     }
 
-    static AssetRecord copyOf(AssetRecord source) {
+    public static AssetRecord copyOf(AssetRecord source) {
         return new AssetRecord(
                 source.id,
                 source.name,
@@ -110,7 +110,7 @@ final class AssetRecord {
         this.note = note;
     }
 
-    JSONObject toJson() throws JSONException {
+    public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("id", id);
         json.put("name", name);

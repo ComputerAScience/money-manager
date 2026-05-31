@@ -1,14 +1,14 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import java.util.List;
 
-final class AssetBackup {
-    final List<AssetRecord> assets;
-    final List<AssetSnapshot> snapshots;
-    final List<AssetUpdateEvent> updateEvents;
-    final PortfolioSettings settings;
+public final class AssetBackup {
+    public final List<AssetRecord> assets;
+    public final List<AssetSnapshot> snapshots;
+    public final List<AssetUpdateEvent> updateEvents;
+    public final PortfolioSettings settings;
 
-    AssetBackup(
+    public AssetBackup(
             List<AssetRecord> assets,
             List<AssetSnapshot> snapshots,
             List<AssetUpdateEvent> updateEvents,

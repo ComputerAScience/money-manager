@@ -1,21 +1,21 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import java.util.List;
 
-final class PortfolioSummary {
-    final double netWorth;
-    final double grossAssets;
-    final double liabilities;
-    final int assetCount;
-    final int staleCount;
-    final int missingBindingCount;
-    final int missingRateCount;
-    final String baseCurrency;
-    final boolean hasMixedCurrencies;
-    final List<CategoryBreakdown> categories;
-    final List<InstitutionBreakdown> institutions;
+public final class PortfolioSummary {
+    public final double netWorth;
+    public final double grossAssets;
+    public final double liabilities;
+    public final int assetCount;
+    public final int staleCount;
+    public final int missingBindingCount;
+    public final int missingRateCount;
+    public final String baseCurrency;
+    public final boolean hasMixedCurrencies;
+    public final List<CategoryBreakdown> categories;
+    public final List<InstitutionBreakdown> institutions;
 
-    PortfolioSummary(
+    public PortfolioSummary(
             double netWorth,
             double grossAssets,
             double liabilities,

@@ -1,4 +1,4 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,21 +6,23 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
+import com.computerascience.moneymanager.model.AssetSnapshot;
+
 import java.util.ArrayList;
 import java.util.List;
 
-final class TrendChartView extends View {
+public final class TrendChartView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private List<Point> points = new ArrayList<>();
     private String emptyText = "记录几次快照后显示一年趋势";
 
-    TrendChartView(Context context) {
+    public TrendChartView(Context context) {
         super(context);
         setMinimumHeight(dp(180));
     }
 
-    void setSnapshots(List<AssetSnapshot> snapshots) {
+    public void setSnapshots(List<AssetSnapshot> snapshots) {
         List<Point> mapped = new ArrayList<>();
         if (snapshots != null) {
             for (AssetSnapshot snapshot : snapshots) {
@@ -30,7 +32,7 @@ final class TrendChartView extends View {
         setPoints(mapped, "记录几次快照后显示一年趋势");
     }
 
-    void setPoints(List<Point> points, String emptyText) {
+    public void setPoints(List<Point> points, String emptyText) {
         this.points = points == null ? new ArrayList<>() : new ArrayList<>(points);
         this.emptyText = emptyText == null || emptyText.isEmpty()
                 ? "记录几次数据后显示趋势"
@@ -110,11 +112,11 @@ final class TrendChartView extends View {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    static final class Point {
-        final long timestamp;
-        final double value;
+    public static final class Point {
+        public final long timestamp;
+        public final double value;
 
-        Point(long timestamp, double value) {
+        public Point(long timestamp, double value) {
             this.timestamp = timestamp;
             this.value = value;
         }

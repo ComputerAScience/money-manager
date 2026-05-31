@@ -1,4 +1,4 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -7,20 +7,20 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-final class AssetSnapshot {
-    final String dayKey;
-    final long timestamp;
-    final String baseCurrency;
-    final double netWorth;
-    final double grossAssets;
-    final double liabilities;
-    final Map<String, Double> categoryValues;
+public final class AssetSnapshot {
+    public final String dayKey;
+    public final long timestamp;
+    public final String baseCurrency;
+    public final double netWorth;
+    public final double grossAssets;
+    public final double liabilities;
+    public final Map<String, Double> categoryValues;
 
-    AssetSnapshot(String dayKey, long timestamp, String baseCurrency, double netWorth, double grossAssets, double liabilities) {
+    public AssetSnapshot(String dayKey, long timestamp, String baseCurrency, double netWorth, double grossAssets, double liabilities) {
         this(dayKey, timestamp, baseCurrency, netWorth, grossAssets, liabilities, new HashMap<>());
     }
 
-    AssetSnapshot(
+    public AssetSnapshot(
             String dayKey,
             long timestamp,
             String baseCurrency,
@@ -38,7 +38,7 @@ final class AssetSnapshot {
         this.categoryValues = cleanCategoryValues(categoryValues);
     }
 
-    static AssetSnapshot fromJson(JSONObject json) {
+    public static AssetSnapshot fromJson(JSONObject json) {
         JSONObject categoryJson = json.optJSONObject("categoryValues");
         if (categoryJson == null) {
             categoryJson = json.optJSONObject("categories");
@@ -54,7 +54,7 @@ final class AssetSnapshot {
         );
     }
 
-    JSONObject toJson() throws JSONException {
+    public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("dayKey", dayKey);
         json.put("timestamp", timestamp);

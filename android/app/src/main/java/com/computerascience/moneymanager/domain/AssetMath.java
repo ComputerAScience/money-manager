@@ -1,4 +1,10 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.domain;
+
+import com.computerascience.moneymanager.model.AssetRecord;
+import com.computerascience.moneymanager.model.CategoryBreakdown;
+import com.computerascience.moneymanager.model.InstitutionBreakdown;
+import com.computerascience.moneymanager.model.PortfolioSettings;
+import com.computerascience.moneymanager.model.PortfolioSummary;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,13 +13,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-final class AssetMath {
-    static final long DAY_MS = 24L * 60L * 60L * 1000L;
+public final class AssetMath {
+    public static final long DAY_MS = 24L * 60L * 60L * 1000L;
 
     private AssetMath() {
     }
 
-    static PortfolioSummary summarize(List<AssetRecord> assets, PortfolioSettings settings) {
+    public static PortfolioSummary summarize(List<AssetRecord> assets, PortfolioSettings settings) {
         double grossAssets = 0;
         double liabilities = 0;
         int staleCount = 0;
@@ -93,7 +99,7 @@ final class AssetMath {
         );
     }
 
-    static boolean isStale(AssetRecord asset) {
+    public static boolean isStale(AssetRecord asset) {
         if (asset.lastUpdatedAt <= 0) {
             return true;
         }
@@ -101,11 +107,11 @@ final class AssetMath {
         return days >= asset.updateEveryDays;
     }
 
-    static boolean isLiability(AssetRecord asset) {
+    public static boolean isLiability(AssetRecord asset) {
         return "负债".equals(asset.category);
     }
 
-    static double parseAmount(String raw) {
+    public static double parseAmount(String raw) {
         if (raw == null) {
             return 0;
         }
@@ -126,11 +132,11 @@ final class AssetMath {
         }
     }
 
-    static String cleanCurrency(String currency) {
+    public static String cleanCurrency(String currency) {
         return currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
     }
 
-    static String cleanInstitution(String institution) {
+    public static String cleanInstitution(String institution) {
         if (institution == null || institution.trim().isEmpty()) {
             return "未填写机构";
         }
@@ -147,7 +153,7 @@ final class AssetMath {
         return value == null ? 0 : value;
     }
 
-    static int colorForCategory(String category) {
+    public static int colorForCategory(String category) {
         if ("银行".equals(category)) return 0xFF126B5F;
         if ("券商".equals(category)) return 0xFF335EAA;
         if ("基金".equals(category)) return 0xFF3B7F91;

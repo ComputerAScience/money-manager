@@ -23,6 +23,7 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -37,6 +38,19 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.computerascience.moneymanager.data.AssetStore;
+import com.computerascience.moneymanager.domain.AssetMath;
+import com.computerascience.moneymanager.model.AssetBackup;
+import com.computerascience.moneymanager.model.AssetRecord;
+import com.computerascience.moneymanager.model.AssetSnapshot;
+import com.computerascience.moneymanager.model.AssetUpdateEvent;
+import com.computerascience.moneymanager.model.CategoryBreakdown;
+import com.computerascience.moneymanager.model.InstitutionBreakdown;
+import com.computerascience.moneymanager.model.PortfolioSettings;
+import com.computerascience.moneymanager.model.PortfolioSummary;
+import com.computerascience.moneymanager.ui.AllocationChartView;
+import com.computerascience.moneymanager.ui.TrendChartView;
 
 import org.json.JSONObject;
 
@@ -257,23 +271,51 @@ public final class MainActivity extends Activity {
         ));
 
         overviewPage = page();
-        overviewPage.addView(overviewCard());
-        overviewPage.addView(allocationCard());
-        overviewPage.addView(allocationTargetCard());
-        overviewPage.addView(institutionCard());
-        overviewPage.addView(netWorthGoalCard());
-        overviewPage.addView(actionCenterCard());
+        View overviewSummary = overviewCard();
+        View allocation = allocationCard();
+        View allocationTarget = allocationTargetCard();
+        View institution = institutionCard();
+        View netWorthGoal = netWorthGoalCard();
+        View actionCenter = actionCenterCard();
+        overviewPage.addView(sectionNav(
+                new NavItem("总资产概览", overviewSummary),
+                new NavItem("资产比例", allocation),
+                new NavItem("目标比例", allocationTarget),
+                new NavItem("机构分布", institution),
+                new NavItem("年度目标", netWorthGoal),
+                new NavItem("行动中心", actionCenter)
+        ));
+        overviewPage.addView(overviewSummary);
+        overviewPage.addView(allocation);
+        overviewPage.addView(allocationTarget);
+        overviewPage.addView(institution);
+        overviewPage.addView(netWorthGoal);
+        overviewPage.addView(actionCenter);
         root.addView(overviewPage);
 
         trendPage = page();
-        trendPage.addView(trendCard());
-        trendPage.addView(distributionTrendCard());
-        trendPage.addView(assetTrendCard());
+        View totalTrend = trendCard();
+        View distributionTrend = distributionTrendCard();
+        View assetTrend = assetTrendCard();
+        trendPage.addView(sectionNav(
+                new NavItem("一年趋势", totalTrend),
+                new NavItem("分布变化", distributionTrend),
+                new NavItem("单项资产", assetTrend)
+        ));
+        trendPage.addView(totalTrend);
+        trendPage.addView(distributionTrend);
+        trendPage.addView(assetTrend);
         root.addView(trendPage);
 
         assetsPage = page();
-        assetsPage.addView(assetManagementSection());
-        assetsPage.addView(recentUpdatesCard());
+        View assetManagement = assetManagementSection();
+        View recentUpdates = recentUpdatesCard();
+        assetsPage.addView(sectionNav(
+                new NavItem("资产管理", assetManagement),
+                new NavItem("最近更新", recentUpdates)
+        ));
+        assetsPage.addView(assetManagement);
+        assetsPage.addView(recentUpdates);
         root.addView(assetsPage);
 
         screen.addView(scrollView, new LinearLayout.LayoutParams(
@@ -285,19 +327,18 @@ public final class MainActivity extends Activity {
         LinearLayout bottomShell = new LinearLayout(this);
         bottomShell.setOrientation(LinearLayout.VERTICAL);
         bottomShell.setPadding(dp(12), dp(8), dp(12), navigationBarHeight() + dp(8));
-        bottomShell.setBackgroundColor(BG);
+        bottomShell.setBackgroundColor(PANEL);
+        bottomShell.setElevation(dp(8));
 
         LinearLayout bottomNav = row();
-        bottomNav.setPadding(dp(4), dp(4), dp(4), dp(4));
-        bottomNav.setBackground(cardBackground(PANEL, PANEL_BORDER));
-        bottomNav.setElevation(dp(6));
+        bottomNav.setPadding(0, 0, 0, 0);
         overviewTab = bottomTabButton("总览", PAGE_OVERVIEW);
         trendTab = bottomTabButton("趋势", PAGE_TREND);
         assetsTab = bottomTabButton("资产", PAGE_ASSETS);
-        bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        bottomShell.addView(bottomNav, lp(-1, dp(56)));
+        bottomNav.addView(overviewTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        bottomNav.addView(trendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        bottomNav.addView(assetsTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        bottomShell.addView(bottomNav, lp(-1, dp(58)));
         screen.addView(bottomShell, lp(-1, -2));
         setContentView(screen);
         applySystemBarInsets(screen, header, bottomShell);
@@ -322,11 +363,59 @@ public final class MainActivity extends Activity {
         return page;
     }
 
+    private View sectionNav(NavItem... items) {
+        LinearLayout nav = card();
+        nav.setPadding(dp(14), dp(12), dp(14), dp(10));
+        nav.addView(sectionTitle("导航"));
+        for (NavItem item : items) {
+            nav.addView(navRow(item));
+        }
+        return nav;
+    }
+
+    private View navRow(NavItem item) {
+        LinearLayout row = row();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(8), dp(8), dp(6), dp(8));
+        row.setBackground(buttonBackground(PANEL, ROW_SURFACE, Color.TRANSPARENT));
+        LinearLayout.LayoutParams params = lp(-1, dp(44));
+        params.topMargin = dp(6);
+        row.setLayoutParams(params);
+
+        TextView dot = text("•", 20, ACCENT, Typeface.BOLD);
+        dot.setGravity(Gravity.CENTER);
+        row.addView(dot, new LinearLayout.LayoutParams(dp(24), dp(32)));
+
+        TextView label = text(item.label, 15, INK, Typeface.BOLD);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1);
+        labelParams.leftMargin = dp(8);
+        row.addView(label, labelParams);
+
+        TextView arrow = text("›", 22, MUTED, Typeface.BOLD);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(24), dp(32)));
+
+        row.setOnClickListener(view -> scrollToSection(item.target));
+        return row;
+    }
+
     private Button bottomTabButton(String label, String page) {
-        Button button = secondaryButton(label);
-        button.setTextSize(13);
+        Button button = secondaryButton(bottomTabIcon(page) + "\n" + label);
+        button.setTextSize(12);
+        button.setLines(2);
+        button.setLineSpacing(0, 0.95f);
         button.setOnClickListener(view -> selectPage(page));
         return button;
+    }
+
+    private String bottomTabIcon(String page) {
+        if (PAGE_TREND.equals(page)) {
+            return "⌁";
+        }
+        if (PAGE_ASSETS.equals(page)) {
+            return "▦";
+        }
+        return "◉";
     }
 
     private void selectPage(String page) {
@@ -367,12 +456,12 @@ public final class MainActivity extends Activity {
         if (button == null) {
             return;
         }
-        button.setTextColor(active ? Color.WHITE : INK);
+        button.setTextColor(active ? BLUE : INK);
         button.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
         button.setBackground(buttonBackground(
-                active ? ACCENT : Color.TRANSPARENT,
-                active ? ACCENT_DARK : ROW_SURFACE,
-                active ? ACCENT_DARK : Color.TRANSPARENT
+                Color.TRANSPARENT,
+                ROW_SURFACE,
+                Color.TRANSPARENT
         ));
     }
 
@@ -515,11 +604,15 @@ public final class MainActivity extends Activity {
         card.addView(sectionTitle("总资产概览"));
 
         netWorthValue = text("--", 34, INK, Typeface.BOLD);
+        netWorthValue.setOnClickListener(view -> showAssetManagement("all"));
+        netWorthValue.setContentDescription("调整资产明细");
         LinearLayout.LayoutParams netParams = lp(-1, -2);
         netParams.topMargin = dp(10);
         card.addView(netWorthValue, netParams);
 
         currencyNote = text("", 13, MUTED, Typeface.NORMAL);
+        currencyNote.setOnClickListener(view -> showCurrencySettingsDialog());
+        currencyNote.setContentDescription("调整基准币种与汇率");
         LinearLayout.LayoutParams noteParams = lp(-1, -2);
         noteParams.topMargin = dp(8);
         noteParams.bottomMargin = dp(10);
@@ -545,15 +638,24 @@ public final class MainActivity extends Activity {
         LinearLayout row1 = row();
         grossAssetsValue = text("--", 18, INK, Typeface.BOLD);
         liabilitiesValue = text("--", 18, INK, Typeface.BOLD);
-        row1.addView(metric("资产总额", grossAssetsValue), new LinearLayout.LayoutParams(0, -2, 1));
+        View grossMetric = metric("资产总额", grossAssetsValue);
+        grossMetric.setOnClickListener(view -> showAssetManagement("all"));
+        grossMetric.setContentDescription("调整资产总额明细");
+        row1.addView(grossMetric, new LinearLayout.LayoutParams(0, -2, 1));
         row1.addView(new SpaceView(this, dp(10), 1));
-        row1.addView(metric("负债", liabilitiesValue), new LinearLayout.LayoutParams(0, -2, 1));
+        View liabilitiesMetric = metric("负债", liabilitiesValue);
+        liabilitiesMetric.setOnClickListener(view -> showAssetManagement("debt"));
+        liabilitiesMetric.setContentDescription("调整负债明细");
+        row1.addView(liabilitiesMetric, new LinearLayout.LayoutParams(0, -2, 1));
         card.addView(row1);
 
         freshnessValue = text("--", 18, INK, Typeface.BOLD);
         LinearLayout.LayoutParams freshParams = lp(-1, -2);
         freshParams.topMargin = dp(10);
-        card.addView(metric("更新状态", freshnessValue), freshParams);
+        View freshnessMetric = metric("更新状态", freshnessValue);
+        freshnessMetric.setOnClickListener(view -> showAssetManagement("stale"));
+        freshnessMetric.setContentDescription("调整待更新资产");
+        card.addView(freshnessMetric, freshParams);
         return card;
     }
 
@@ -1080,7 +1182,25 @@ public final class MainActivity extends Activity {
         if (mainScrollView == null || assetManagementCard == null) {
             return;
         }
-        mainScrollView.post(() -> mainScrollView.smoothScrollTo(0, assetManagementCard.getTop()));
+        scrollToSection(assetManagementCard);
+    }
+
+    private void scrollToSection(View target) {
+        if (mainScrollView == null || target == null) {
+            return;
+        }
+        target.post(() -> mainScrollView.smoothScrollTo(0, Math.max(0, topInsideScroll(target) - dp(8))));
+    }
+
+    private int topInsideScroll(View target) {
+        int top = target.getTop();
+        ViewParent parent = target.getParent();
+        while (parent instanceof View && parent != mainScrollView) {
+            View parentView = (View) parent;
+            top += parentView.getTop();
+            parent = parentView.getParent();
+        }
+        return top;
     }
 
     private void renderAllocationLegend(PortfolioSummary portfolio) {
@@ -3992,6 +4112,16 @@ public final class MainActivity extends Activity {
         SpaceView(Activity activity, int width, int height) {
             super(activity);
             setLayoutParams(new LinearLayout.LayoutParams(width, height));
+        }
+    }
+
+    private static final class NavItem {
+        final String label;
+        final View target;
+
+        NavItem(String label, View target) {
+            this.label = label;
+            this.target = target;
         }
     }
 

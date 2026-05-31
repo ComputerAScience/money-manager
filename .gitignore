@@ -3,6 +3,7 @@
 android/.gradle/
 android/build/
 android/app/build/
+android/app/money-manager-debug.p12
 local.properties
 
 # IDE

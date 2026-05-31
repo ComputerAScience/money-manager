@@ -2,6 +2,8 @@ plugins {
     id "com.android.application"
 }
 
+def moneyManagerDebugKeystore = file("money-manager-debug.p12")
+
 android {
     namespace "com.computerascience.moneymanager"
     compileSdk 35
@@ -10,8 +12,28 @@ android {
         applicationId "com.computerascience.moneymanager"
         minSdk 23
         targetSdk 35
-        versionCode 10
-        versionName "0.2.8"
+        versionCode 11
+        versionName "0.3.0"
+    }
+
+    signingConfigs {
+        if (moneyManagerDebugKeystore.exists()) {
+            stableDebug {
+                storeFile moneyManagerDebugKeystore
+                storePassword "money-manager"
+                keyAlias "money-manager-debug"
+                keyPassword "money-manager"
+                storeType "pkcs12"
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (moneyManagerDebugKeystore.exists()) {
+                signingConfig signingConfigs.stableDebug
+            }
+        }
     }
 
     compileOptions {

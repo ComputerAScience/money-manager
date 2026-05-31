@@ -1,19 +1,19 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class AssetUpdateEvent {
-    final String assetId;
-    final String assetName;
-    final long timestamp;
-    final String currency;
-    final String previousAmount;
-    final String newAmount;
-    final String reason;
-    final String note;
+public final class AssetUpdateEvent {
+    public final String assetId;
+    public final String assetName;
+    public final long timestamp;
+    public final String currency;
+    public final String previousAmount;
+    public final String newAmount;
+    public final String reason;
+    public final String note;
 
-    AssetUpdateEvent(
+    public AssetUpdateEvent(
             String assetId,
             String assetName,
             long timestamp,
@@ -33,7 +33,7 @@ final class AssetUpdateEvent {
         this.note = note;
     }
 
-    static AssetUpdateEvent fromJson(JSONObject json) {
+    public static AssetUpdateEvent fromJson(JSONObject json) {
         return new AssetUpdateEvent(
                 json.optString("assetId", ""),
                 json.optString("assetName", ""),
@@ -46,7 +46,7 @@ final class AssetUpdateEvent {
         );
     }
 
-    JSONObject toJson() throws JSONException {
+    public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("assetId", assetId);
         json.put("assetName", assetName);

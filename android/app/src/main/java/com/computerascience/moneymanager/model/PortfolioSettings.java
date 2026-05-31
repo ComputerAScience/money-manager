@@ -1,4 +1,4 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.model;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -8,17 +8,17 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 
-final class PortfolioSettings {
-    static final String[] COMMON_CURRENCIES = {"CNY", "USD", "HKD", "EUR", "JPY"};
+public final class PortfolioSettings {
+    public static final String[] COMMON_CURRENCIES = {"CNY", "USD", "HKD", "EUR", "JPY"};
 
-    String baseCurrency;
-    boolean hideAmounts;
-    double netWorthTarget;
-    long netWorthTargetDate;
-    final Map<String, Double> ratesToBase;
-    final Map<String, Double> allocationTargets;
+    public String baseCurrency;
+    public boolean hideAmounts;
+    public double netWorthTarget;
+    public long netWorthTargetDate;
+    public final Map<String, Double> ratesToBase;
+    public final Map<String, Double> allocationTargets;
 
-    PortfolioSettings() {
+    public PortfolioSettings() {
         baseCurrency = "CNY";
         hideAmounts = false;
         netWorthTarget = 0;
@@ -32,7 +32,7 @@ final class PortfolioSettings {
         ratesToBase.put("JPY", 0.05);
     }
 
-    static PortfolioSettings fromJson(JSONObject json) {
+    public static PortfolioSettings fromJson(JSONObject json) {
         PortfolioSettings settings = new PortfolioSettings();
         settings.baseCurrency = cleanCurrency(json.optString("baseCurrency", settings.baseCurrency));
         settings.hideAmounts = json.optBoolean("hideAmounts", settings.hideAmounts);
@@ -64,7 +64,7 @@ final class PortfolioSettings {
         return settings;
     }
 
-    static PortfolioSettings copyOf(PortfolioSettings source) {
+    public static PortfolioSettings copyOf(PortfolioSettings source) {
         PortfolioSettings copy = new PortfolioSettings();
         copy.baseCurrency = source.baseCurrency;
         copy.hideAmounts = source.hideAmounts;
@@ -78,7 +78,7 @@ final class PortfolioSettings {
         return copy;
     }
 
-    JSONObject toJson() throws JSONException {
+    public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
         json.put("baseCurrency", baseCurrency);
         json.put("hideAmounts", hideAmounts);
@@ -97,7 +97,7 @@ final class PortfolioSettings {
         return json;
     }
 
-    double rateFor(String currency) {
+    public double rateFor(String currency) {
         String cleaned = cleanCurrency(currency);
         if (cleaned.isEmpty() || cleaned.equals(baseCurrency)) {
             return 1.0;
@@ -106,12 +106,12 @@ final class PortfolioSettings {
         return rate == null || rate <= 0 ? 0 : rate;
     }
 
-    boolean hasRateFor(String currency) {
+    public boolean hasRateFor(String currency) {
         String cleaned = cleanCurrency(currency);
         return cleaned.isEmpty() || cleaned.equals(baseCurrency) || rateFor(cleaned) > 0;
     }
 
-    void setRate(String currency, double rate) {
+    public void setRate(String currency, double rate) {
         String cleaned = cleanCurrency(currency);
         if (cleaned.isEmpty() || rate <= 0) {
             return;
@@ -119,12 +119,12 @@ final class PortfolioSettings {
         ratesToBase.put(cleaned, rate);
     }
 
-    double targetForCategory(String category) {
+    public double targetForCategory(String category) {
         Double target = allocationTargets.get(category);
         return target == null || target <= 0 ? 0 : target;
     }
 
-    void setAllocationTarget(String category, double percent) {
+    public void setAllocationTarget(String category, double percent) {
         String cleaned = category == null ? "" : category.trim();
         if (cleaned.isEmpty()) {
             return;
@@ -136,19 +136,19 @@ final class PortfolioSettings {
         allocationTargets.put(cleaned, percent);
     }
 
-    void clearAllocationTargets() {
+    public void clearAllocationTargets() {
         allocationTargets.clear();
     }
 
-    boolean hasAllocationTargets() {
+    public boolean hasAllocationTargets() {
         return !allocationTargets.isEmpty();
     }
 
-    boolean hasNetWorthTarget() {
+    public boolean hasNetWorthTarget() {
         return netWorthTarget > 0 && netWorthTargetDate > 0;
     }
 
-    void ensureBaseRate() {
+    public void ensureBaseRate() {
         if (baseCurrency == null || baseCurrency.trim().isEmpty()) {
             baseCurrency = "CNY";
         }
@@ -156,7 +156,7 @@ final class PortfolioSettings {
         ratesToBase.put(baseCurrency, 1.0);
     }
 
-    static String cleanCurrency(String currency) {
+    public static String cleanCurrency(String currency) {
         return currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
     }
 }

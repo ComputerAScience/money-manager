@@ -1,4 +1,4 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -7,20 +7,22 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.View;
 
+import com.computerascience.moneymanager.model.CategoryBreakdown;
+
 import java.util.ArrayList;
 import java.util.List;
 
-final class AllocationChartView extends View {
+public final class AllocationChartView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF oval = new RectF();
     private List<CategoryBreakdown> categories = new ArrayList<>();
 
-    AllocationChartView(Context context) {
+    public AllocationChartView(Context context) {
         super(context);
         setMinimumHeight(dp(144));
     }
 
-    void setCategories(List<CategoryBreakdown> categories) {
+    public void setCategories(List<CategoryBreakdown> categories) {
         this.categories = categories == null ? new ArrayList<>() : new ArrayList<>(categories);
         invalidate();
     }

@@ -7,8 +7,10 @@
 - 新增、编辑、删除资产
 - 记录资产名称、类型、机构、金额、币种、更新周期、最后更新时间
 - 使用底部总览 / 趋势 / 资产一体式导航，设置放在顶部图标入口
+- 每个页面顶部提供导航列表，长页面可以直接跳到目标区块
 - 统一按钮、卡片和页签视觉，并提供启动图标
 - 总览展示净资产、资产总额、负债、更新状态
+- 总览里的净资产、资产总额、负债、更新状态和汇率说明可点击进入对应调整入口
 - 可设置年度净资产目标，展示进度、差额和所需月均增量
 - 一键复制资产摘要，方便贴到备忘录或发给自己复盘
 - 行动中心合并待办、数据质量和优先核对资产，避免同类提醒分散在多个入口
@@ -81,6 +83,15 @@ gradle :app:assembleDebug
 3. 等待运行成功后，固定下载地址和二维码会自动更新。
 
 这个 APK 是 debug 版，适合个人自用和测试。手机安装时可能需要允许“安装未知来源应用”。
+
+`0.3.0` 之后支持固定 debug 签名：把 `money-manager-debug.p12` 以 base64 写入 GitHub Secret `MONEY_MANAGER_DEBUG_KEYSTORE_BASE64` 后，GitHub 构建出来的 APK 会持续使用同一把签名。手机里如果已经安装过旧版本并提示“签名不一致”，需要先卸载旧 App 再安装一次固定签名版；之后同一个固定下载地址会继续覆盖安装。
+
+## 源码结构
+
+- `model/`：资产、快照、更新事件、组合设置等数据模型
+- `data/`：本地存储、备份导入导出、快照维护
+- `domain/`：资产汇总、币种换算、过期判断等计算逻辑
+- `ui/`：资产分布图和趋势图等自定义视图
 
 ## 如何绑定 App
 
@@ -184,8 +195,13 @@ App 会在这些时刻记录当天总资产快照：
 `AndroidManifest.xml` 里使用了：
 
 ```xml
-<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 <uses-permission android:name="android.permission.INTERNET" />
+<queries>
+    <intent>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+</queries>
 ```
 
-`QUERY_ALL_PACKAGES` 是为了个人自用时能读取已安装 App 列表，并在你选择后拉起对应外部 App。这个权限对 Play Store 上架比较敏感。如果未来要公开发布，建议改成固定 allowlist 的 `<queries>` 配置。`INTERNET` 用于获取公开汇率，不会登录银行或券商账户。
+`<queries>` 用于在 Android 11+ 上读取可启动 App 列表，并在你选择后拉起对应外部 App；没有再申请敏感的 `QUERY_ALL_PACKAGES`。`INTERNET` 用于获取公开汇率，不会登录银行或券商账户。

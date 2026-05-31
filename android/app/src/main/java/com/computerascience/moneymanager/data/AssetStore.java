@@ -1,7 +1,16 @@
-package com.computerascience.moneymanager;
+package com.computerascience.moneymanager.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+
+import com.computerascience.moneymanager.domain.AssetMath;
+import com.computerascience.moneymanager.model.AssetBackup;
+import com.computerascience.moneymanager.model.AssetRecord;
+import com.computerascience.moneymanager.model.AssetSnapshot;
+import com.computerascience.moneymanager.model.AssetUpdateEvent;
+import com.computerascience.moneymanager.model.CategoryBreakdown;
+import com.computerascience.moneymanager.model.PortfolioSettings;
+import com.computerascience.moneymanager.model.PortfolioSummary;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -16,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-final class AssetStore {
+public final class AssetStore {
     private static final String PREFS = "money_manager_assets";
     private static final String KEY_ASSETS = "assets";
     private static final String KEY_SNAPSHOTS = "snapshots";
@@ -26,11 +35,11 @@ final class AssetStore {
     private final SharedPreferences preferences;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
-    AssetStore(Context context) {
+    public AssetStore(Context context) {
         preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    List<AssetRecord> load() {
+    public List<AssetRecord> load() {
         String raw = preferences.getString(KEY_ASSETS, "");
         if (raw == null || raw.isEmpty()) {
             return defaultAssets();
@@ -48,7 +57,7 @@ final class AssetStore {
         }
     }
 
-    void save(List<AssetRecord> assets) {
+    public void save(List<AssetRecord> assets) {
         JSONArray array = new JSONArray();
         for (AssetRecord asset : assets) {
             try {
@@ -60,7 +69,7 @@ final class AssetStore {
         preferences.edit().putString(KEY_ASSETS, array.toString()).apply();
     }
 
-    PortfolioSettings loadSettings() {
+    public PortfolioSettings loadSettings() {
         String raw = preferences.getString(KEY_SETTINGS, "");
         if (raw == null || raw.isEmpty()) {
             return new PortfolioSettings();
@@ -72,7 +81,7 @@ final class AssetStore {
         }
     }
 
-    void saveSettings(PortfolioSettings settings) {
+    public void saveSettings(PortfolioSettings settings) {
         settings.ensureBaseRate();
         try {
             preferences.edit().putString(KEY_SETTINGS, settings.toJson().toString()).apply();
@@ -81,7 +90,7 @@ final class AssetStore {
         }
     }
 
-    List<AssetSnapshot> loadSnapshots() {
+    public List<AssetSnapshot> loadSnapshots() {
         String raw = preferences.getString(KEY_SNAPSHOTS, "");
         if (raw == null || raw.isEmpty()) {
             return new ArrayList<>();
@@ -99,7 +108,7 @@ final class AssetStore {
         }
     }
 
-    List<AssetUpdateEvent> loadUpdateEvents() {
+    public List<AssetUpdateEvent> loadUpdateEvents() {
         String raw = preferences.getString(KEY_UPDATE_EVENTS, "");
         if (raw == null || raw.isEmpty()) {
             return new ArrayList<>();
@@ -117,7 +126,7 @@ final class AssetStore {
         }
     }
 
-    List<AssetSnapshot> recordSnapshot(List<AssetRecord> assets, PortfolioSettings settings) {
+    public List<AssetSnapshot> recordSnapshot(List<AssetRecord> assets, PortfolioSettings settings) {
         List<AssetSnapshot> snapshots = loadSnapshots();
         PortfolioSummary summary = AssetMath.summarize(assets, settings);
         long now = System.currentTimeMillis();
@@ -149,7 +158,7 @@ final class AssetStore {
         return snapshots;
     }
 
-    List<AssetSnapshot> upsertSnapshot(AssetSnapshot snapshot) {
+    public List<AssetSnapshot> upsertSnapshot(AssetSnapshot snapshot) {
         List<AssetSnapshot> snapshots = loadSnapshots();
         upsertSnapshotInto(snapshots, snapshot);
         snapshots = pruneAndSort(snapshots);
@@ -157,7 +166,7 @@ final class AssetStore {
         return snapshots;
     }
 
-    List<AssetSnapshot> upsertSnapshots(List<AssetSnapshot> importedSnapshots) {
+    public List<AssetSnapshot> upsertSnapshots(List<AssetSnapshot> importedSnapshots) {
         List<AssetSnapshot> snapshots = loadSnapshots();
         for (AssetSnapshot snapshot : importedSnapshots) {
             upsertSnapshotInto(snapshots, snapshot);
@@ -182,7 +191,7 @@ final class AssetStore {
         }
     }
 
-    List<AssetSnapshot> deleteSnapshot(String dayKey, String baseCurrency) {
+    public List<AssetSnapshot> deleteSnapshot(String dayKey, String baseCurrency) {
         List<AssetSnapshot> snapshots = loadSnapshots();
         for (int index = snapshots.size() - 1; index >= 0; index -= 1) {
             AssetSnapshot snapshot = snapshots.get(index);
@@ -194,7 +203,7 @@ final class AssetStore {
         return snapshots;
     }
 
-    List<AssetUpdateEvent> recordUpdateEvent(AssetUpdateEvent event) {
+    public List<AssetUpdateEvent> recordUpdateEvent(AssetUpdateEvent event) {
         List<AssetUpdateEvent> events = loadUpdateEvents();
         events.add(event);
         events = pruneAndSortUpdateEvents(events);
@@ -202,7 +211,7 @@ final class AssetStore {
         return events;
     }
 
-    List<AssetUpdateEvent> deleteUpdateEvent(String assetId, long timestamp) {
+    public List<AssetUpdateEvent> deleteUpdateEvent(String assetId, long timestamp) {
         List<AssetUpdateEvent> events = loadUpdateEvents();
         for (int index = events.size() - 1; index >= 0; index -= 1) {
             AssetUpdateEvent event = events.get(index);
@@ -215,7 +224,7 @@ final class AssetStore {
         return events;
     }
 
-    String exportJson(
+    public String exportJson(
             List<AssetRecord> assets,
             List<AssetSnapshot> snapshots,
             List<AssetUpdateEvent> updateEvents,
@@ -247,7 +256,7 @@ final class AssetStore {
         return root.toString(2);
     }
 
-    AssetBackup parseBackup(String raw) throws JSONException {
+    public AssetBackup parseBackup(String raw) throws JSONException {
         JSONObject root = new JSONObject(raw);
         JSONArray assetArray = root.optJSONArray("assets");
         if (assetArray == null) {
@@ -285,7 +294,7 @@ final class AssetStore {
         );
     }
 
-    void replaceAll(AssetBackup backup) {
+    public void replaceAll(AssetBackup backup) {
         save(backup.assets);
         saveSnapshots(pruneAndSort(backup.snapshots));
         saveUpdateEvents(pruneAndSortUpdateEvents(backup.updateEvents));
