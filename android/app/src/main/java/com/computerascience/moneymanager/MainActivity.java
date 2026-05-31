@@ -158,6 +158,12 @@ public final class MainActivity extends Activity {
     private TextView updatePlanSummary;
     private TextView recentUpdateSummary;
     private TextView investmentSummaryText;
+    private TextView investmentStructureSummary;
+    private LinearLayout investmentStructureList;
+    private TextView investmentInstitutionSummary;
+    private LinearLayout investmentInstitutionList;
+    private TextView investmentPlanSummary;
+    private LinearLayout investmentPlanList;
     private LinearLayout investmentAccountList;
     private TextView managementSummary;
     private TextView assetResultSummary;
@@ -303,31 +309,37 @@ public final class MainActivity extends Activity {
         View allocationTarget = allocationTargetCard();
         View institution = institutionCard();
         View netWorthGoal = netWorthGoalCard();
-        View actionCenter = actionCenterCard();
         overviewSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("总资产概览", overviewSummary),
                 new SectionDrawer.Item("资产比例", allocation),
                 new SectionDrawer.Item("目标比例", allocationTarget),
                 new SectionDrawer.Item("机构分布", institution),
-                new SectionDrawer.Item("年度目标", netWorthGoal),
-                new SectionDrawer.Item("行动中心", actionCenter)
+                new SectionDrawer.Item("年度目标", netWorthGoal)
         };
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
         overviewPage.addView(allocationTarget);
         overviewPage.addView(institution);
         overviewPage.addView(netWorthGoal);
-        overviewPage.addView(actionCenter);
         root.addView(overviewPage);
 
         investmentPage = page();
         View investmentSummary = investmentSummaryCard();
+        View investmentStructure = investmentStructureCard();
+        View investmentInstitutions = investmentInstitutionsCard();
+        View investmentPlan = investmentPlanCard();
         View investmentAccounts = investmentAccountsCard();
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
+                new SectionDrawer.Item("投资结构", investmentStructure),
+                new SectionDrawer.Item("投资机构", investmentInstitutions),
+                new SectionDrawer.Item("投资待核对", investmentPlan),
                 new SectionDrawer.Item("投资资产", investmentAccounts)
         };
         investmentPage.addView(investmentSummary);
+        investmentPage.addView(investmentStructure);
+        investmentPage.addView(investmentInstitutions);
+        investmentPage.addView(investmentPlan);
         investmentPage.addView(investmentAccounts);
         root.addView(investmentPage);
 
@@ -335,25 +347,31 @@ public final class MainActivity extends Activity {
         View totalTrend = trendCard();
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
+        View dataHealth = dataHealthCard();
+        View recentUpdates = recentUpdatesCard();
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
                 new SectionDrawer.Item("分布变化", distributionTrend),
-                new SectionDrawer.Item("单项资产", assetTrend)
+                new SectionDrawer.Item("单项资产", assetTrend),
+                new SectionDrawer.Item("数据健康", dataHealth),
+                new SectionDrawer.Item("更新流水", recentUpdates)
         };
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
         trendPage.addView(assetTrend);
+        trendPage.addView(dataHealth);
+        trendPage.addView(recentUpdates);
         root.addView(trendPage);
 
         assetsPage = page();
         View assetManagement = assetManagementSection();
-        View recentUpdates = recentUpdatesCard();
+        View updatePlan = updatePlanCard();
         assetSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("资产管理", assetManagement),
-                new SectionDrawer.Item("最近更新", recentUpdates)
+                new SectionDrawer.Item("核对计划", updatePlan)
         };
         assetsPage.addView(assetManagement);
-        assetsPage.addView(recentUpdates);
+        assetsPage.addView(updatePlan);
         root.addView(assetsPage);
 
         contentFrame.addView(scrollView, new FrameLayout.LayoutParams(
@@ -465,7 +483,7 @@ public final class MainActivity extends Activity {
             return "投资";
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return "一年趋势";
+            return "趋势与数据";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
             return "资产管理";
@@ -475,15 +493,15 @@ public final class MainActivity extends Activity {
 
     private String pageSubtitleText() {
         if (PAGE_INVESTMENT.equals(currentPage)) {
-            return "由资产类型决定哪些条目进入投资页，可在设置里调整。";
+            return "投资结构、机构集中度、待核对资产和投资明细。";
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return "记录总资产快照，查看总额、分布和单项资产变化。";
+            return "记录趋势快照，复盘分布变化、单项资产、数据质量和更新流水。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
-            return "新增、筛选、绑定、核对资产，并回看最近更新。";
+            return "新增、筛选、绑定、核对资产，并处理下一批待更新。";
         }
-        return "净资产、资产分布、年度目标和需要处理的提醒。";
+        return "净资产、资产分布、机构分布和年度目标。";
     }
 
     private SectionDrawer.Item[] currentSections() {
@@ -1114,9 +1132,31 @@ public final class MainActivity extends Activity {
         return card;
     }
 
-    private View actionCenterCard() {
+    private View updatePlanCard() {
         LinearLayout card = card();
-        card.addView(sectionTitle("行动中心"));
+        card.addView(sectionTitle("核对计划"));
+
+        updatePlanSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams updateSummaryParams = lp(-1, -2);
+        updateSummaryParams.topMargin = dp(8);
+        updateSummaryParams.bottomMargin = dp(8);
+        card.addView(updatePlanSummary, updateSummaryParams);
+
+        updatePlanList = new LinearLayout(this);
+        updatePlanList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(updatePlanList, lp(-1, -2));
+
+        Button reviewButton = secondaryButton("查看待处理资产");
+        reviewButton.setOnClickListener(view -> showAssetManagement("issues"));
+        LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
+        buttonParams.topMargin = dp(10);
+        card.addView(reviewButton, buttonParams);
+        return card;
+    }
+
+    private View dataHealthCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("数据健康"));
 
         insightSummary = text("", 15, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams insightParams = lp(-1, -2);
@@ -1124,27 +1164,9 @@ public final class MainActivity extends Activity {
         insightParams.bottomMargin = dp(12);
         card.addView(insightSummary, insightParams);
 
-        TextView updateTitle = text("优先核对", 13, MUTED, Typeface.BOLD);
-        card.addView(updateTitle, lp(-1, -2));
-
-        updatePlanSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams updateSummaryParams = lp(-1, -2);
-        updateSummaryParams.topMargin = dp(6);
-        updateSummaryParams.bottomMargin = dp(6);
-        card.addView(updatePlanSummary, updateSummaryParams);
-
-        updatePlanList = new LinearLayout(this);
-        updatePlanList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(updatePlanList, lp(-1, -2));
-
-        TextView healthTitle = text("数据质量", 13, MUTED, Typeface.BOLD);
-        LinearLayout.LayoutParams healthTitleParams = lp(-1, -2);
-        healthTitleParams.topMargin = dp(14);
-        card.addView(healthTitle, healthTitleParams);
-
         dataHealthSummary = text("", 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(6);
+        summaryParams.topMargin = dp(2);
         summaryParams.bottomMargin = dp(8);
         card.addView(dataHealthSummary, summaryParams);
 
@@ -1154,9 +1176,9 @@ public final class MainActivity extends Activity {
 
         Button reviewButton = secondaryButton("查看待处理资产");
         reviewButton.setOnClickListener(view -> showAssetManagement("issues"));
-        LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
-        buttonParams.topMargin = dp(10);
-        card.addView(reviewButton, buttonParams);
+        LinearLayout.LayoutParams reviewParams = lp(-1, dp(42));
+        reviewParams.topMargin = dp(10);
+        card.addView(reviewButton, reviewParams);
         return card;
     }
 
@@ -1554,6 +1576,54 @@ public final class MainActivity extends Activity {
         return card;
     }
 
+    private View investmentStructureCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("投资结构"));
+
+        investmentStructureSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(investmentStructureSummary, summaryParams);
+
+        investmentStructureList = new LinearLayout(this);
+        investmentStructureList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(investmentStructureList, lp(-1, -2));
+        return card;
+    }
+
+    private View investmentInstitutionsCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("投资机构"));
+
+        investmentInstitutionSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(investmentInstitutionSummary, summaryParams);
+
+        investmentInstitutionList = new LinearLayout(this);
+        investmentInstitutionList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(investmentInstitutionList, lp(-1, -2));
+        return card;
+    }
+
+    private View investmentPlanCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("投资待核对"));
+
+        investmentPlanSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(investmentPlanSummary, summaryParams);
+
+        investmentPlanList = new LinearLayout(this);
+        investmentPlanList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(investmentPlanList, lp(-1, -2));
+        return card;
+    }
+
     private View investmentAccountsCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("投资资产"));
@@ -1566,20 +1636,21 @@ public final class MainActivity extends Activity {
     }
 
     private void renderInvestmentPage() {
-        if (investmentSummaryText == null || investmentAccountList == null) {
+        if (investmentSummaryText == null || investmentAccountList == null
+                || investmentStructureList == null || investmentInstitutionList == null
+                || investmentPlanList == null) {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
         List<AssetInstitutionGroups.Group> groups = AssetInstitutionGroups.groupByInstitution(investments, settings);
-        double investmentTotal = 0;
-        for (AssetRecord asset : investments) {
-            String currency = AssetMath.cleanCurrency(asset.currency);
-            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-            investmentTotal += AssetMath.assetGrossAmount(asset) * rate;
-        }
+        InvestmentTotals totals = investmentTotals(investments);
 
-        investmentSummaryText.setText("投资总额 " + formatMoney(investmentTotal, settings.baseCurrency)
+        investmentSummaryText.setText("投资总额 " + formatMoney(totals.total, settings.baseCurrency)
                 + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
+
+        renderInvestmentStructure(investments, totals);
+        renderInvestmentInstitutions(groups, totals.total);
+        renderInvestmentPlan(investments);
 
         investmentAccountList.removeAllViews();
         if (investments.isEmpty()) {
@@ -1594,6 +1665,207 @@ public final class MainActivity extends Activity {
                 }
             }
         }
+    }
+
+    private InvestmentTotals investmentTotals(List<AssetRecord> investments) {
+        InvestmentTotals totals = new InvestmentTotals();
+        for (AssetRecord asset : investments) {
+            double gross = amountInBase(asset, AssetMath.assetGrossAmount(asset));
+            double holding = amountInBase(asset, investmentHoldingAmount(asset));
+            double cash = amountInBase(asset, investmentCashAmount(asset));
+            totals.total += gross;
+            totals.holding += holding;
+            totals.cash += cash;
+            if (daysUntilDue(asset) <= 0) {
+                totals.dueNow += 1;
+            } else if (daysUntilDue(asset) <= 3) {
+                totals.dueSoon += 1;
+            }
+        }
+        return totals;
+    }
+
+    private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentTotals totals) {
+        investmentStructureList.removeAllViews();
+        if (investments.isEmpty()) {
+            investmentStructureSummary.setText("投资类型开启后，这里会展示持仓、现金和类型分布。");
+            investmentStructureList.addView(emptyText("还没有投资资产。"));
+            return;
+        }
+
+        double cashPercent = totals.total <= 0 ? 0 : totals.cash / totals.total * 100;
+        investmentStructureSummary.setText("持仓 " + formatPercent(totals.holding, totals.total)
+                + " · 闲置现金 " + formatPercentValue(cashPercent)
+                + " · " + investments.size() + " 项投资资产。");
+
+        investmentStructureList.addView(investmentInfoRow(
+                "持仓市值",
+                formatMoney(totals.holding, settings.baseCurrency),
+                "投资账户持仓，以及基金、加密资产等按投资类型纳入的资产。",
+                ACCENT
+        ));
+        investmentStructureList.addView(investmentInfoRow(
+                "闲置现金",
+                formatMoney(totals.cash, settings.baseCurrency),
+                cashPercent >= 30
+                        ? "现金占比较高，适合确认是否刻意留仓。"
+                        : "现金占比用于观察券商账户里的未投资资金。",
+                cashPercent >= 30 ? AMBER : BLUE
+        ));
+
+        Map<String, Double> categoryTotals = new HashMap<>();
+        for (AssetRecord asset : investments) {
+            categoryTotals.put(asset.category, doubleValue(categoryTotals, asset.category)
+                    + amountInBase(asset, AssetMath.assetGrossAmount(asset)));
+        }
+        List<CategoryBreakdown> categories = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            if (entry.getValue() > 0) {
+                categories.add(new CategoryBreakdown(entry.getKey(), entry.getValue(), AssetMath.colorForCategory(entry.getKey())));
+            }
+        }
+        Collections.sort(categories, (left, right) -> Double.compare(right.value, left.value));
+
+        int limit = Math.min(4, categories.size());
+        for (int index = 0; index < limit; index += 1) {
+            CategoryBreakdown category = categories.get(index);
+            investmentStructureList.addView(investmentInfoRow(
+                    "类型 · " + category.category,
+                    formatPercent(category.value, totals.total),
+                    settings.hideAmounts
+                            ? "金额已隐藏。"
+                            : formatMoney(category.value, settings.baseCurrency),
+                    category.color
+            ));
+        }
+    }
+
+    private void renderInvestmentInstitutions(List<AssetInstitutionGroups.Group> groups, double total) {
+        investmentInstitutionList.removeAllViews();
+        if (groups.isEmpty()) {
+            investmentInstitutionSummary.setText("暂无投资机构。新增投资资产后会按机构汇总。");
+            investmentInstitutionList.addView(emptyText("还没有可展示的投资机构。"));
+            return;
+        }
+
+        AssetInstitutionGroups.Group top = groups.get(0);
+        investmentInstitutionSummary.setText("最大机构是 " + top.title
+                + "，占投资资产 " + formatPercent(top.total, total)
+                + "；共 " + groups.size() + " 个投资机构。");
+
+        int limit = Math.min(5, groups.size());
+        for (int index = 0; index < limit; index += 1) {
+            investmentInstitutionList.addView(investmentInstitutionRow(groups.get(index), total));
+        }
+    }
+
+    private void renderInvestmentPlan(List<AssetRecord> investments) {
+        investmentPlanList.removeAllViews();
+        if (investments.isEmpty()) {
+            investmentPlanSummary.setText("还没有投资资产。");
+            investmentPlanList.addView(emptyText("新增投资资产后，这里会按更新时间排序。"));
+            return;
+        }
+
+        InvestmentTotals totals = investmentTotals(investments);
+        investmentPlanSummary.setText(totals.dueNow + " 项投资资产需要现在核对，"
+                + totals.dueSoon + " 项将在 3 天内到期。");
+
+        List<AssetRecord> planned = sortedPlannedAssets(investments);
+        int limit = Math.min(5, planned.size());
+        List<AssetRecord> topPlanned = new ArrayList<>(planned.subList(0, limit));
+        for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(topPlanned, settings)) {
+            investmentPlanList.addView(assetInstitutionGroupHeader(group, settings.baseCurrency));
+            if (!collapsedAssetGroups.contains(group.key)) {
+                for (AssetRecord asset : group.assets) {
+                    investmentPlanList.addView(updatePlanRow(asset));
+                }
+            }
+        }
+    }
+
+    private View investmentInstitutionRow(AssetInstitutionGroups.Group group, double total) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        row.addView(institutionGroupIcon(group), new LinearLayout.LayoutParams(dp(34), dp(34)));
+
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
+        titleParams.leftMargin = dp(10);
+        titleGroup.addView(text(group.title, 14, INK, Typeface.BOLD));
+        LinearLayout.LayoutParams metaParams = lp(-1, -2);
+        metaParams.topMargin = dp(3);
+        titleGroup.addView(text(group.assets.size() + " 项 · " + group.displayApps(), 12, MUTED, Typeface.NORMAL), metaParams);
+        row.addView(titleGroup, titleParams);
+
+        String value = settings.hideAmounts
+                ? formatPercent(group.total, total)
+                : formatMoney(group.total, settings.baseCurrency) + "\n" + formatPercent(group.total, total);
+        TextView amount = text(value, 12, MUTED, Typeface.BOLD);
+        amount.setGravity(Gravity.RIGHT);
+        row.addView(amount);
+        return row;
+    }
+
+    private View investmentInfoRow(String title, String value, String detail, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        TextView dot = text("●", 15, color, Typeface.BOLD);
+        header.addView(dot);
+        TextView label = text("  " + title, 14, INK, Typeface.BOLD);
+        header.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView metric = text(value, 14, MUTED, Typeface.BOLD);
+        metric.setGravity(Gravity.RIGHT);
+        header.addView(metric);
+        row.addView(header);
+
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(6);
+        row.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
+        return row;
+    }
+
+    private double investmentHoldingAmount(AssetRecord asset) {
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
+            return AssetMath.hasInvestmentBreakdown(asset)
+                    ? AssetMath.investmentHoldingAmount(asset)
+                    : AssetMath.assetGrossAmount(asset);
+        }
+        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
+            return 0;
+        }
+        return AssetMath.assetGrossAmount(asset);
+    }
+
+    private double investmentCashAmount(AssetRecord asset) {
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(asset.category)) {
+            return AssetMath.investmentCashAmount(asset);
+        }
+        if (AssetCategories.BROKER_CASH.equals(asset.category)) {
+            return AssetMath.assetGrossAmount(asset);
+        }
+        return 0;
+    }
+
+    private double amountInBase(AssetRecord asset, double amount) {
+        String currency = AssetMath.cleanCurrency(asset.currency);
+        double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
+        return amount * rate;
     }
 
     private TextView emptyText(String message) {
@@ -3338,7 +3610,11 @@ public final class MainActivity extends Activity {
     }
 
     private List<AssetRecord> plannedAssets() {
-        List<AssetRecord> planned = new ArrayList<>(assets);
+        return sortedPlannedAssets(assets);
+    }
+
+    private List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
+        List<AssetRecord> planned = new ArrayList<>(source);
         Collections.sort(planned, (left, right) -> {
             int daysCompare = Integer.compare(daysUntilDue(left), daysUntilDue(right));
             if (daysCompare != 0) {
@@ -5179,6 +5455,14 @@ public final class MainActivity extends Activity {
             this.category = category;
             this.investment = investment;
         }
+    }
+
+    private static final class InvestmentTotals {
+        double total;
+        double holding;
+        double cash;
+        int dueNow;
+        int dueSoon;
     }
 
     private static final class TrendMetric {

@@ -62,7 +62,7 @@ public final class BottomNavBar extends LinearLayout {
         row.setPadding(dp(12), dp(5), dp(12), dp(10));
         addTab(row, "总览", ICON_OVERVIEW, PAGE_OVERVIEW, listener);
         addTab(row, "投资", ICON_INVESTMENT, PAGE_INVESTMENT, listener);
-        addTab(row, "趋势", ICON_TREND, PAGE_TREND, listener);
+        addTab(row, "数据", ICON_TREND, PAGE_TREND, listener);
         addTab(row, "资产", ICON_ASSETS, PAGE_ASSETS, listener);
         addView(row, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
