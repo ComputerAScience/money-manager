@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
@@ -76,6 +77,7 @@ import java.nio.charset.StandardCharsets;
 public final class MainActivity extends Activity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
     private static final int REQUEST_IMPORT_BACKUP = 4102;
+    private static final String APK_DOWNLOAD_URL = "https://github.com/ComputerAScience/money-manager/releases/download/android-debug-latest/money-manager-debug.apk";
     private static final String[] CATEGORIES = {"银行", "券商", "基金", "加密资产", "房产", "负债", "其他"};
     private static final String[] UPDATE_REASONS = {"余额核对", "入金", "出金", "市场涨跌", "转账", "利息分红", "手续费税费", "负债变化", "仅更新时间", "其他"};
     private static final int BG = Color.rgb(247, 248, 250);
@@ -1059,7 +1061,7 @@ public final class MainActivity extends Activity {
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(18);
-        body.setPadding(pad, dp(8), pad, 0);
+        body.setPadding(pad, dp(8), pad, dp(6));
 
         TextView currencySummary = text(currencySettingsText(), 14, MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams summaryParams = lp(-1, -2);
@@ -1084,9 +1086,35 @@ public final class MainActivity extends Activity {
         actions.addView(importButton, new LinearLayout.LayoutParams(0, dp(44), 1));
         body.addView(actions);
 
+        TextView updateTitle = sectionTitle("版本与更新");
+        LinearLayout.LayoutParams updateTitleParams = lp(-1, -2);
+        updateTitleParams.topMargin = dp(18);
+        body.addView(updateTitle, updateTitleParams);
+
+        TextView updateDescription = text("当前版本 " + appVersionLabel() + "。固定下载地址会指向最新 APK。", 13, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams updateDescriptionParams = lp(-1, -2);
+        updateDescriptionParams.topMargin = dp(8);
+        updateDescriptionParams.bottomMargin = dp(10);
+        body.addView(updateDescription, updateDescriptionParams);
+
+        LinearLayout updateActions = row();
+        Button downloadButton = primaryButton("下载更新");
+        updateActions.addView(downloadButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        updateActions.addView(new SpaceView(this, dp(10), 1));
+
+        Button copyLinkButton = secondaryButton("复制链接");
+        updateActions.addView(copyLinkButton, new LinearLayout.LayoutParams(0, dp(44), 1));
+        body.addView(updateActions);
+
+        ScrollView scrollBody = new ScrollView(this);
+        scrollBody.addView(body, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("设置")
-                .setView(body)
+                .setView(scrollBody)
                 .setNegativeButton("关闭", null)
                 .create();
 
@@ -1102,7 +1130,38 @@ public final class MainActivity extends Activity {
             dialog.dismiss();
             startBackupImport();
         });
+        downloadButton.setOnClickListener(view -> openApkDownload());
+        copyLinkButton.setOnClickListener(view -> copyApkDownloadLink());
         showStyledDialog(dialog);
+    }
+
+    private String appVersionLabel() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            String name = info.versionName == null || info.versionName.isEmpty() ? "--" : info.versionName;
+            long code = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? info.getLongVersionCode() : info.versionCode;
+            return name + " (" + code + ")";
+        } catch (PackageManager.NameNotFoundException error) {
+            return "--";
+        }
+    }
+
+    private void openApkDownload() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(APK_DOWNLOAD_URL)));
+        } catch (ActivityNotFoundException error) {
+            copyApkDownloadLink();
+        }
+    }
+
+    private void copyApkDownloadLink() {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            toast("无法访问剪贴板。");
+            return;
+        }
+        clipboard.setPrimaryClip(ClipData.newPlainText("Money Manager APK", APK_DOWNLOAD_URL));
+        toast("下载链接已复制。");
     }
 
     private View assetManagementSection() {
