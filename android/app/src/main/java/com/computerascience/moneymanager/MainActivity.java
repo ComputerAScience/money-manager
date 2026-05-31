@@ -275,12 +275,12 @@ public final class MainActivity extends Activity {
         View netWorthGoal = netWorthGoalCard();
         View actionCenter = actionCenterCard();
         overviewPage.addView(sectionNav(
-                new SectionNavigator.Item("总资产概览", "◎", overviewSummary),
-                new SectionNavigator.Item("资产比例", "◔", allocation),
-                new SectionNavigator.Item("目标比例", "⌖", allocationTarget),
-                new SectionNavigator.Item("机构分布", "▤", institution),
-                new SectionNavigator.Item("年度目标", "↗", netWorthGoal),
-                new SectionNavigator.Item("行动中心", "!", actionCenter)
+                new SectionNavigator.Item("总资产概览", overviewSummary),
+                new SectionNavigator.Item("资产比例", allocation),
+                new SectionNavigator.Item("目标比例", allocationTarget),
+                new SectionNavigator.Item("机构分布", institution),
+                new SectionNavigator.Item("年度目标", netWorthGoal),
+                new SectionNavigator.Item("行动中心", actionCenter)
         ));
         overviewPage.addView(overviewSummary);
         overviewPage.addView(allocation);
@@ -295,9 +295,9 @@ public final class MainActivity extends Activity {
         View distributionTrend = distributionTrendCard();
         View assetTrend = assetTrendCard();
         trendPage.addView(sectionNav(
-                new SectionNavigator.Item("一年趋势", "⌁", totalTrend),
-                new SectionNavigator.Item("分布变化", "◫", distributionTrend),
-                new SectionNavigator.Item("单项资产", "▱", assetTrend)
+                new SectionNavigator.Item("一年趋势", totalTrend),
+                new SectionNavigator.Item("分布变化", distributionTrend),
+                new SectionNavigator.Item("单项资产", assetTrend)
         ));
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
@@ -308,8 +308,8 @@ public final class MainActivity extends Activity {
         View assetManagement = assetManagementSection();
         View recentUpdates = recentUpdatesCard();
         assetsPage.addView(sectionNav(
-                new SectionNavigator.Item("资产管理", "▦", assetManagement),
-                new SectionNavigator.Item("最近更新", "↻", recentUpdates)
+                new SectionNavigator.Item("资产管理", assetManagement),
+                new SectionNavigator.Item("最近更新", recentUpdates)
         ));
         assetsPage.addView(assetManagement);
         assetsPage.addView(recentUpdates);

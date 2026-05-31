@@ -47,11 +47,11 @@ public final class SectionNavigator extends LinearLayout {
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER);
             addView(row, new LinearLayout.LayoutParams(-1, dp(44)));
-            row.addView(itemView(items[index], listener), new LinearLayout.LayoutParams(0, -1, 1));
+            row.addView(itemView(items[index], index, listener), new LinearLayout.LayoutParams(0, -1, 1));
             if (index + 1 < items.length) {
                 SpaceView gap = new SpaceView(activity, dp(8), 1);
                 row.addView(gap);
-                row.addView(itemView(items[index + 1], listener), new LinearLayout.LayoutParams(0, -1, 1));
+                row.addView(itemView(items[index + 1], index + 1, listener), new LinearLayout.LayoutParams(0, -1, 1));
             } else {
                 SpaceView gap = new SpaceView(activity, dp(8), 1);
                 row.addView(gap);
@@ -65,7 +65,7 @@ public final class SectionNavigator extends LinearLayout {
         }
     }
 
-    private View itemView(Item item, SelectionListener listener) {
+    private View itemView(Item item, int index, SelectionListener listener) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -73,10 +73,10 @@ public final class SectionNavigator extends LinearLayout {
         row.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
         row.setOnClickListener(view -> listener.onSelected(item.target));
 
-        TextView icon = text(item.icon, 15, ACCENT, Typeface.BOLD);
-        icon.setGravity(Gravity.CENTER);
-        icon.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        row.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        TextView number = text(String.format("%02d", index + 1), 11, ACCENT, Typeface.BOLD);
+        number.setGravity(Gravity.CENTER);
+        number.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        row.addView(number, new LinearLayout.LayoutParams(dp(30), dp(28)));
 
         TextView label = text(item.label, 13, INK, Typeface.BOLD);
         label.setSingleLine(true);
@@ -129,12 +129,10 @@ public final class SectionNavigator extends LinearLayout {
 
     public static final class Item {
         public final String label;
-        public final String icon;
         public final View target;
 
-        public Item(String label, String icon, View target) {
+        public Item(String label, View target) {
             this.label = label;
-            this.icon = icon;
             this.target = target;
         }
     }
