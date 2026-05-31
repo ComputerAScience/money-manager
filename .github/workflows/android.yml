@@ -22,6 +22,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MONEY_MANAGER_DEBUG_KEYSTORE_BASE64: ${{ secrets.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 }}
     defaults:
       run:
         working-directory: android
@@ -41,19 +43,33 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Restore stable debug signing key
-        env:
-          MONEY_MANAGER_DEBUG_KEYSTORE_BASE64: ${{ secrets.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 }}
+      - name: Cache fallback stable debug signing key
+        if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' }}
+        uses: actions/cache@v4
+        with:
+          path: android/app/money-manager-debug.p12
+          key: money-manager-debug-p12-v1
+
+      - name: Restore stable debug signing key from secret
         run: |
           if [ -n "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" ]; then
             printf '%s' "$MONEY_MANAGER_DEBUG_KEYSTORE_BASE64" | base64 --decode > app/money-manager-debug.p12
           fi
 
-      - name: Cache fallback debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: money-manager-debug-keystore-v1
+      - name: Generate fallback stable debug signing key
+        run: |
+          if [ ! -f app/money-manager-debug.p12 ]; then
+            keytool -genkeypair \
+              -storetype PKCS12 \
+              -keystore app/money-manager-debug.p12 \
+              -storepass money-manager \
+              -keypass money-manager \
+              -alias money-manager-debug \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Money Manager Debug,O=ComputerAScience,C=US"
+          fi
 
       - name: Build debug APK
         run: gradle :app:assembleDebug
@@ -63,20 +79,23 @@ jobs:
 
       - name: Write update metadata
         run: |
+          set -euo pipefail
           tag="android-debug-latest"
+          metadata="app/build/outputs/apk/debug/version.json"
           version_name="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)"
           version_code="$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)"
           apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/money-manager-debug.apk"
           built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          cat > app/build/outputs/apk/debug/version.json <<EOF
-          {
-            "versionName": "${version_name}",
-            "versionCode": ${version_code},
-            "apkUrl": "${apk_url}",
-            "commit": "${GITHUB_SHA}",
-            "builtAt": "${built_at}"
-          }
-          EOF
+          test -n "$version_name"
+          test -n "$version_code"
+          printf '{\n' > "$metadata"
+          printf '  "versionName": "%s",\n' "$version_name" >> "$metadata"
+          printf '  "versionCode": %s,\n' "$version_code" >> "$metadata"
+          printf '  "apkUrl": "%s",\n' "$apk_url" >> "$metadata"
+          printf '  "commit": "%s",\n' "$GITHUB_SHA" >> "$metadata"
+          printf '  "builtAt": "%s"\n' "$built_at" >> "$metadata"
+          printf '}\n' >> "$metadata"
+          cat "$metadata"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -91,8 +110,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           tag="android-debug-latest"
           apk="app/build/outputs/apk/debug/money-manager-debug.apk"
+          metadata="app/build/outputs/apk/debug/version.json"
+          test -f "$apk"
+          test -f "$metadata"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "$tag" "$GITHUB_SHA"
@@ -103,5 +126,4 @@ jobs:
               --notes "最新 debug APK。手机可以扫描仓库 README 里的二维码下载。这个 release 会被 GitHub Actions 自动更新。" \
               --prerelease
           fi
-          gh release upload "$tag" "$apk" --clobber
-          gh release upload "$tag" app/build/outputs/apk/debug/version.json --clobber
+          gh release upload "$tag" "$apk" "$metadata" --clobber
