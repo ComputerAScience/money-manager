@@ -183,7 +183,7 @@ final class SectionNavigationController {
             return "投资";
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return "趋势与数据";
+            return "趋势";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
             return "资产管理";
@@ -196,10 +196,10 @@ final class SectionNavigationController {
             return "投资结构、机构集中度、待核对资产和投资明细。";
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return "记录趋势快照，复盘分布变化、单项资产、数据质量和更新流水。";
+            return "记录趋势快照，复盘净资产、分布变化、资金流和单项资产。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
-            return "新增、筛选、绑定、核对资产，并处理下一批待更新。";
+            return "新增、筛选、绑定、核对资产，并维护数据健康和更新流水。";
         }
         return "净资产、资产分布、机构分布和年度目标。";
     }

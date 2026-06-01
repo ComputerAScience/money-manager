@@ -14,7 +14,6 @@ final class TrendPageRenderer {
     private final DistributionTrendRenderer distributionRenderer;
     private final FlowAttributionRenderer flowRenderer;
     private final AssetTrendRenderer assetTrendRenderer;
-    private final DataHealthRenderer dataHealthRenderer;
     private final TrendUpdatesRenderer updatesRenderer;
 
     TrendPageRenderer(MainActivity activity) {
@@ -24,7 +23,6 @@ final class TrendPageRenderer {
         this.distributionRenderer = new DistributionTrendRenderer(activity);
         this.flowRenderer = new FlowAttributionRenderer(activity);
         this.assetTrendRenderer = new AssetTrendRenderer(activity);
-        this.dataHealthRenderer = new DataHealthRenderer(activity);
         this.updatesRenderer = new TrendUpdatesRenderer(activity);
     }
 
@@ -52,14 +50,6 @@ final class TrendPageRenderer {
         return assetTrendRenderer.card();
     }
 
-    View dataHealthCard() {
-        return dataHealthRenderer.card();
-    }
-
-    View recentUpdatesCard() {
-        return updatesRenderer.card();
-    }
-
     void render(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
         snapshotRenderer.render(portfolio, trendSnapshots);
         reviewRenderer.renderMonthlyReview(portfolio, trendSnapshots);
@@ -67,8 +57,6 @@ final class TrendPageRenderer {
         distributionRenderer.render(trendSnapshots);
         flowRenderer.render();
         assetTrendRenderer.render();
-        dataHealthRenderer.render(portfolio);
-        updatesRenderer.render();
     }
 
     String summaryText(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {

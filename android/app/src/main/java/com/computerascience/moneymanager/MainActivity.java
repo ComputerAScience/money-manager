@@ -53,6 +53,8 @@ public final class MainActivity extends MoneyManagerActivity {
     private final TrendPageRenderer trendRenderer = new TrendPageRenderer(this);
     private final OverviewPageRenderer overviewRenderer = new OverviewPageRenderer(this, trendRenderer);
     private final AssetsPageRenderer assetsRenderer = new AssetsPageRenderer(this);
+    private final DataHealthRenderer dataHealthRenderer = new DataHealthRenderer(this);
+    private final TrendUpdatesRenderer updatesRenderer = new TrendUpdatesRenderer(this);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -226,17 +228,13 @@ public final class MainActivity extends MoneyManagerActivity {
         View distributionTrend = trendRenderer.distributionTrendCard();
         View flowAttribution = trendRenderer.flowAttributionCard();
         View assetTrend = trendRenderer.assetTrendCard();
-        View dataHealth = trendRenderer.dataHealthCard();
-        View recentUpdates = trendRenderer.recentUpdatesCard();
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
                 new SectionDrawer.Item("月度复盘", monthlyReview),
                 new SectionDrawer.Item("目标追踪", targetProgress),
                 new SectionDrawer.Item("分布变化", distributionTrend),
                 new SectionDrawer.Item("变化归因", flowAttribution),
-                new SectionDrawer.Item("单项资产", assetTrend),
-                new SectionDrawer.Item("数据健康", dataHealth),
-                new SectionDrawer.Item("更新流水", recentUpdates)
+                new SectionDrawer.Item("单项资产", assetTrend)
         };
         trendPage.addView(totalTrend);
         trendPage.addView(monthlyReview);
@@ -244,22 +242,26 @@ public final class MainActivity extends MoneyManagerActivity {
         trendPage.addView(distributionTrend);
         trendPage.addView(flowAttribution);
         trendPage.addView(assetTrend);
-        trendPage.addView(dataHealth);
-        trendPage.addView(recentUpdates);
         root.addView(trendPage);
 
         assetsPage = page();
         View actionCenter = assetsRenderer.actionCenterCard();
         View assetManagement = assetsRenderer.assetManagementSection();
         View updatePlan = assetsRenderer.updatePlanCard();
+        View dataHealth = dataHealthRenderer.card();
+        View recentUpdates = updatesRenderer.card();
         assetSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("行动中心", actionCenter),
                 new SectionDrawer.Item("资产管理", assetManagement),
-                new SectionDrawer.Item("核对计划", updatePlan)
+                new SectionDrawer.Item("核对计划", updatePlan),
+                new SectionDrawer.Item("数据健康", dataHealth),
+                new SectionDrawer.Item("更新流水", recentUpdates)
         };
         assetsPage.addView(actionCenter);
         assetsPage.addView(assetManagement);
         assetsPage.addView(updatePlan);
+        assetsPage.addView(dataHealth);
+        assetsPage.addView(recentUpdates);
         root.addView(assetsPage);
 
         contentFrame.addView(scrollView, new FrameLayout.LayoutParams(
@@ -397,6 +399,8 @@ public final class MainActivity extends MoneyManagerActivity {
 
         trendRenderer.render(portfolio, trendSnapshots);
         assetsRenderer.render(portfolio);
+        dataHealthRenderer.render(portfolio);
+        updatesRenderer.render();
 
         navigation.updatePageVisibility();
     }
