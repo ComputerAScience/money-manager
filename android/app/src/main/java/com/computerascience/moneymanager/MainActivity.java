@@ -11,7 +11,6 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -47,7 +46,7 @@ public final class MainActivity extends MoneyManagerActivity {
     private static final String PAGE_TREND = BottomNavBar.PAGE_TREND;
     private static final String PAGE_ASSETS = BottomNavBar.PAGE_ASSETS;
 
-    private String currentPage = PAGE_OVERVIEW;
+    private final SectionNavigationController navigation = new SectionNavigationController(this);
     private final AssetDialogs assetDialogs = new AssetDialogs(this, UPDATE_REASONS);
     private final SettingsDialogs settingsDialogs = new SettingsDialogs(this);
     private final InvestmentPageRenderer investmentRenderer = new InvestmentPageRenderer(this);
@@ -161,7 +160,7 @@ public final class MainActivity extends MoneyManagerActivity {
         mainScrollView = scrollView;
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(BG);
-        scrollView.setOnScrollChangeListener((view, scrollX, scrollY, oldScrollX, oldScrollY) -> updateSectionProgress());
+        scrollView.setOnScrollChangeListener((view, scrollX, scrollY, oldScrollX, oldScrollY) -> navigation.updateProgress());
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -267,31 +266,31 @@ public final class MainActivity extends MoneyManagerActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        sectionProgressHandle = new SectionProgressHandle(this, view -> showSectionMenu(), new SectionProgressHandle.ProgressDragListener() {
+        sectionProgressHandle = new SectionProgressHandle(this, view -> navigation.showMenu(), new SectionProgressHandle.ProgressDragListener() {
             @Override
             public void onDragStart() {
-                beginSectionDrag();
+                navigation.beginDrag();
             }
 
             @Override
             public void onProgress(float progress) {
-                updateSectionDrag(progress);
+                navigation.updateDrag(progress);
             }
 
             @Override
             public void onDragEnd(float progress) {
-                finishSectionDrag(progress);
+                navigation.finishDrag(progress);
             }
 
             @Override
             public void onDragCancel() {
-                cancelSectionDrag();
+                navigation.cancelDrag();
             }
         });
         FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.RIGHT);
         contentFrame.addView(sectionProgressHandle, progressParams);
 
-        sectionDrawer = new SectionDrawer(this, this::scrollToSection);
+        sectionDrawer = new SectionDrawer(this, navigation::scrollToSection);
         sectionDrawer.setVisibility(View.GONE);
         FrameLayout.LayoutParams drawerParams = new FrameLayout.LayoutParams(dp(216), -2, Gravity.RIGHT | Gravity.TOP);
         drawerParams.topMargin = dp(12);
@@ -304,12 +303,12 @@ public final class MainActivity extends MoneyManagerActivity {
                 1
         ));
 
-        bottomNavBar = new BottomNavBar(this, this::selectPage);
+        bottomNavBar = new BottomNavBar(this, navigation::selectPage);
         bottomNavBar.setBottomInset(navigationBarHeight());
         screen.addView(bottomNavBar, lp(-1, -2));
         setContentView(screen);
         applySystemBarInsets(screen, header, bottomNavBar);
-        updatePageVisibility();
+        navigation.updatePageVisibility();
     }
 
     private void applySystemBarInsets(View screen, View header, BottomNavBar bottomNav) {
@@ -328,203 +327,6 @@ public final class MainActivity extends MoneyManagerActivity {
         page.setOrientation(LinearLayout.VERTICAL);
         page.setLayoutParams(lp(-1, -2));
         return page;
-    }
-
-    private void selectPage(String page) {
-        if (currentPage.equals(page)) {
-            return;
-        }
-        currentPage = page;
-        hideSectionDrawer();
-        updatePageVisibility();
-        if (mainScrollView != null) {
-            mainScrollView.post(() -> mainScrollView.smoothScrollTo(0, 0));
-        }
-    }
-
-    private void updatePageVisibility() {
-        setPageVisible(overviewPage, PAGE_OVERVIEW.equals(currentPage));
-        setPageVisible(investmentPage, PAGE_INVESTMENT.equals(currentPage));
-        setPageVisible(trendPage, PAGE_TREND.equals(currentPage));
-        setPageVisible(assetsPage, PAGE_ASSETS.equals(currentPage));
-
-        if (bottomNavBar != null) {
-            bottomNavBar.setSelectedPage(currentPage);
-        }
-
-        if (pageTitle != null) {
-            pageTitle.setText(pageTitleText());
-        }
-        if (pageSubtitle != null) {
-            pageSubtitle.setText(pageSubtitleText());
-        }
-        updateSectionProgress();
-    }
-
-    private void setPageVisible(View page, boolean visible) {
-        if (page != null) {
-            page.setVisibility(visible ? View.VISIBLE : View.GONE);
-        }
-    }
-
-    private String pageTitleText() {
-        if (PAGE_INVESTMENT.equals(currentPage)) {
-            return "投资";
-        }
-        if (PAGE_TREND.equals(currentPage)) {
-            return "趋势与数据";
-        }
-        if (PAGE_ASSETS.equals(currentPage)) {
-            return "资产管理";
-        }
-        return "总览";
-    }
-
-    private String pageSubtitleText() {
-        if (PAGE_INVESTMENT.equals(currentPage)) {
-            return "投资结构、机构集中度、待核对资产和投资明细。";
-        }
-        if (PAGE_TREND.equals(currentPage)) {
-            return "记录趋势快照，复盘分布变化、单项资产、数据质量和更新流水。";
-        }
-        if (PAGE_ASSETS.equals(currentPage)) {
-            return "新增、筛选、绑定、核对资产，并处理下一批待更新。";
-        }
-        return "净资产、资产分布、机构分布和年度目标。";
-    }
-
-    private SectionDrawer.Item[] currentSections() {
-        if (PAGE_INVESTMENT.equals(currentPage)) {
-            return investmentSections == null ? new SectionDrawer.Item[0] : investmentSections;
-        }
-        if (PAGE_TREND.equals(currentPage)) {
-            return trendSections == null ? new SectionDrawer.Item[0] : trendSections;
-        }
-        if (PAGE_ASSETS.equals(currentPage)) {
-            return assetSections == null ? new SectionDrawer.Item[0] : assetSections;
-        }
-        return overviewSections == null ? new SectionDrawer.Item[0] : overviewSections;
-    }
-
-    private void showSectionMenu() {
-        if (sectionDrawer == null) {
-            return;
-        }
-        if (sectionDrawer.getVisibility() == View.VISIBLE) {
-            hideSectionDrawer();
-            return;
-        }
-        SectionDrawer.Item[] sections = currentSections();
-        if (sectionProgressHandle != null) {
-            sectionProgressHandle.setSectionLabels(sectionLabels(sections));
-        }
-        sectionDrawer.setItems(pageTitleText(), sections);
-        sectionDrawer.setSelectedIndex(nearestSectionIndexToScroll(sections));
-        sectionDrawer.setVisibility(View.VISIBLE);
-    }
-
-    private void hideSectionDrawer() {
-        if (sectionDrawer != null) {
-            sectionDrawer.setVisibility(View.GONE);
-        }
-    }
-
-    private void beginSectionDrag() {
-        SectionDrawer.Item[] sections = currentSections();
-        if (sections.length == 0) {
-            return;
-        }
-        hideSectionDrawer();
-        int index = nearestSectionIndexToScroll(sections);
-        sectionDragIndex = index;
-        if (sectionProgressHandle != null) {
-            sectionProgressHandle.setSectionLabels(sectionLabels(sections));
-            sectionProgressHandle.setActiveSection(index);
-        }
-    }
-
-    private void updateSectionDrag(float progress) {
-        SectionDrawer.Item[] sections = currentSections();
-        int index = sectionIndexForProgress(progress);
-        if (index < 0 || index >= sections.length) {
-            return;
-        }
-        if (sectionProgressHandle != null) {
-            sectionProgressHandle.setActiveSection(index);
-        }
-        if (index != sectionDragIndex) {
-            sectionDragIndex = index;
-            scrollToSectionImmediate(sections[index].target);
-        }
-    }
-
-    private void finishSectionDrag(float progress) {
-        SectionDrawer.Item[] sections = currentSections();
-        int index = sectionIndexForProgress(progress);
-        if (index < 0 || index >= sections.length) {
-            sectionDragIndex = -1;
-            return;
-        }
-        sectionDragIndex = index;
-        if (sectionProgressHandle != null) {
-            sectionProgressHandle.setActiveSection(index);
-        }
-        scrollToSectionImmediate(sections[index].target);
-        sectionDragIndex = -1;
-        updateSectionProgress();
-    }
-
-    private void cancelSectionDrag() {
-        sectionDragIndex = -1;
-        updateSectionProgress();
-    }
-
-    private int sectionIndexForProgress(float progress) {
-        SectionDrawer.Item[] sections = currentSections();
-        if (sections.length == 0) {
-            return -1;
-        }
-        if (sections.length == 1) {
-            return 0;
-        }
-        int index = Math.round(Math.max(0f, Math.min(1f, progress)) * (sections.length - 1));
-        return Math.max(0, Math.min(sections.length - 1, index));
-    }
-
-    private int nearestSectionIndexToScroll(SectionDrawer.Item[] sections) {
-        if (sections.length == 0 || mainScrollView == null) {
-            return -1;
-        }
-        int anchor = mainScrollView.getScrollY() + dp(24);
-        int bestIndex = 0;
-        int bestDistance = Integer.MAX_VALUE;
-        for (int index = 0; index < sections.length; index += 1) {
-            int top = Math.max(0, topInsideScroll(sections[index].target) - dp(8));
-            int distance = Math.abs(top - anchor);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestIndex = index;
-            }
-        }
-        return bestIndex;
-    }
-
-    private String[] sectionLabels(SectionDrawer.Item[] sections) {
-        String[] labels = new String[sections.length];
-        for (int index = 0; index < sections.length; index += 1) {
-            labels[index] = sections[index].label;
-        }
-        return labels;
-    }
-
-    private void updateSectionProgress() {
-        if (sectionDragIndex >= 0 || sectionProgressHandle == null || mainScrollView == null || mainScrollView.getChildCount() == 0) {
-            return;
-        }
-        View content = mainScrollView.getChildAt(0);
-        int maxScroll = Math.max(0, content.getHeight() - mainScrollView.getHeight());
-        float progress = maxScroll == 0 ? 0f : (float) mainScrollView.getScrollY() / maxScroll;
-        sectionProgressHandle.setProgress(progress);
     }
 
     @Override
@@ -550,11 +352,11 @@ public final class MainActivity extends MoneyManagerActivity {
     }
 
     private boolean handleBackNavigation() {
-        if (sectionDrawer != null && sectionDrawer.getVisibility() == View.VISIBLE) {
-            hideSectionDrawer();
+        if (navigation.isSectionDrawerVisible()) {
+            navigation.hideSectionDrawer();
             return true;
         }
-        if (PAGE_ASSETS.equals(currentPage)) {
+        if (navigation.isPage(PAGE_ASSETS)) {
             if (!managementExpanded) {
                 managementExpanded = true;
                 render();
@@ -579,8 +381,8 @@ public final class MainActivity extends MoneyManagerActivity {
             }
         }
 
-        if (!PAGE_OVERVIEW.equals(currentPage)) {
-            selectPage(PAGE_OVERVIEW);
+        if (!navigation.isPage(PAGE_OVERVIEW)) {
+            navigation.selectPage(PAGE_OVERVIEW);
             return true;
         }
         return false;
@@ -596,7 +398,7 @@ public final class MainActivity extends MoneyManagerActivity {
         trendRenderer.render(portfolio, trendSnapshots);
         assetsRenderer.render(portfolio);
 
-        updatePageVisibility();
+        navigation.updatePageVisibility();
     }
 
     private void showSettingsMenu() {
@@ -652,7 +454,7 @@ public final class MainActivity extends MoneyManagerActivity {
         managementExpanded = true;
         assetFilterMode = filterMode;
         assetSearchQuery = "";
-        currentPage = PAGE_ASSETS;
+        navigation.setPage(PAGE_ASSETS);
         render();
         scrollToAssetManagement();
     }
@@ -661,32 +463,7 @@ public final class MainActivity extends MoneyManagerActivity {
         if (mainScrollView == null || assetManagementCard == null) {
             return;
         }
-        scrollToSection(assetManagementCard);
-    }
-
-    private void scrollToSection(View target) {
-        if (mainScrollView == null || target == null) {
-            return;
-        }
-        target.post(() -> mainScrollView.smoothScrollTo(0, Math.max(0, topInsideScroll(target) - dp(8))));
-    }
-
-    private void scrollToSectionImmediate(View target) {
-        if (mainScrollView == null || target == null) {
-            return;
-        }
-        mainScrollView.scrollTo(0, Math.max(0, topInsideScroll(target) - dp(8)));
-    }
-
-    private int topInsideScroll(View target) {
-        int top = target.getTop();
-        ViewParent parent = target.getParent();
-        while (parent instanceof View && parent != mainScrollView) {
-            View parentView = (View) parent;
-            top += parentView.getTop();
-            parent = parentView.getParent();
-        }
-        return top;
+        navigation.scrollToSection(assetManagementCard);
     }
 
     private String currencySettingsText() {

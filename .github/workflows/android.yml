@@ -52,6 +52,10 @@ jobs:
         working-directory: .
         run: node tools/migrate-backup-v8.test.js
 
+      - name: Check Java file size
+        working-directory: .
+        run: node tools/check-java-file-size.js --max=750
+
       - name: Restore stable debug signing key from cache
         id: signing-key-cache
         if: ${{ env.MONEY_MANAGER_DEBUG_KEYSTORE_BASE64 == '' }}
