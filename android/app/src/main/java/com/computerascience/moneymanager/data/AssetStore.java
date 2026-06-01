@@ -9,6 +9,7 @@ import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
 import com.computerascience.moneymanager.model.AssetUpdateEvent;
 import com.computerascience.moneymanager.model.CategoryBreakdown;
+import com.computerascience.moneymanager.model.InstitutionBreakdown;
 import com.computerascience.moneymanager.model.PortfolioSettings;
 import com.computerascience.moneymanager.model.PortfolioSummary;
 
@@ -156,7 +157,8 @@ public final class AssetStore {
                 summary.netWorth,
                 summary.grossAssets,
                 summary.liabilities,
-                categoryValues(summary)
+                categoryValues(summary),
+                institutionValues(summary)
         );
 
         boolean replaced = false;
@@ -361,6 +363,16 @@ public final class AssetStore {
         for (CategoryBreakdown category : summary.categories) {
             if (category.value > 0) {
                 values.put(category.category, category.value);
+            }
+        }
+        return values;
+    }
+
+    private Map<String, Double> institutionValues(PortfolioSummary summary) {
+        Map<String, Double> values = new HashMap<>();
+        for (InstitutionBreakdown institution : summary.institutions) {
+            if (institution.value > 0) {
+                values.put(institution.institution, institution.value);
             }
         }
         return values;

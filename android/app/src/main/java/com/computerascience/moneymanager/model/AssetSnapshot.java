@@ -15,6 +15,7 @@ public final class AssetSnapshot {
     public final double grossAssets;
     public final double liabilities;
     public final Map<String, Double> categoryValues;
+    public final Map<String, Double> institutionValues;
 
     public AssetSnapshot(String dayKey, long timestamp, String baseCurrency, double netWorth, double grossAssets, double liabilities) {
         this(dayKey, timestamp, baseCurrency, netWorth, grossAssets, liabilities, new HashMap<>());
@@ -29,19 +30,37 @@ public final class AssetSnapshot {
             double liabilities,
             Map<String, Double> categoryValues
     ) {
+        this(dayKey, timestamp, baseCurrency, netWorth, grossAssets, liabilities, categoryValues, new HashMap<>());
+    }
+
+    public AssetSnapshot(
+            String dayKey,
+            long timestamp,
+            String baseCurrency,
+            double netWorth,
+            double grossAssets,
+            double liabilities,
+            Map<String, Double> categoryValues,
+            Map<String, Double> institutionValues
+    ) {
         this.dayKey = dayKey;
         this.timestamp = timestamp;
         this.baseCurrency = baseCurrency;
         this.netWorth = netWorth;
         this.grossAssets = grossAssets;
         this.liabilities = liabilities;
-        this.categoryValues = cleanCategoryValues(categoryValues);
+        this.categoryValues = cleanValues(categoryValues);
+        this.institutionValues = cleanValues(institutionValues);
     }
 
     public static AssetSnapshot fromJson(JSONObject json) {
         JSONObject categoryJson = json.optJSONObject("categoryValues");
         if (categoryJson == null) {
             categoryJson = json.optJSONObject("categories");
+        }
+        JSONObject institutionJson = json.optJSONObject("institutionValues");
+        if (institutionJson == null) {
+            institutionJson = json.optJSONObject("institutions");
         }
         return new AssetSnapshot(
                 json.optString("dayKey", ""),
@@ -50,7 +69,8 @@ public final class AssetSnapshot {
                 json.optDouble("netWorth", 0),
                 json.optDouble("grossAssets", 0),
                 json.optDouble("liabilities", 0),
-                readCategoryValues(categoryJson)
+                readValues(categoryJson),
+                readValues(institutionJson)
         );
     }
 
@@ -67,10 +87,15 @@ public final class AssetSnapshot {
             categoryJson.put(entry.getKey(), entry.getValue());
         }
         json.put("categoryValues", categoryJson);
+        JSONObject institutionJson = new JSONObject();
+        for (Map.Entry<String, Double> entry : institutionValues.entrySet()) {
+            institutionJson.put(entry.getKey(), entry.getValue());
+        }
+        json.put("institutionValues", institutionJson);
         return json;
     }
 
-    private static Map<String, Double> readCategoryValues(JSONObject json) {
+    private static Map<String, Double> readValues(JSONObject json) {
         Map<String, Double> values = new HashMap<>();
         if (json == null) {
             return values;
@@ -86,7 +111,7 @@ public final class AssetSnapshot {
         return values;
     }
 
-    private static Map<String, Double> cleanCategoryValues(Map<String, Double> source) {
+    private static Map<String, Double> cleanValues(Map<String, Double> source) {
         Map<String, Double> values = new HashMap<>();
         if (source == null) {
             return values;

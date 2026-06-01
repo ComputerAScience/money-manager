@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class TrendAnalytics {
@@ -167,21 +168,39 @@ public final class TrendAnalytics {
         return available;
     }
 
-    public static List<CategoryShift> categoryShifts(AssetSnapshot first, AssetSnapshot last) {
-        Set<String> categories = new HashSet<>();
-        categories.addAll(first.categoryValues.keySet());
-        categories.addAll(last.categoryValues.keySet());
+    public static List<AssetSnapshot> snapshotsWithInstitutionValues(List<AssetSnapshot> snapshots) {
+        List<AssetSnapshot> available = new ArrayList<>();
+        for (AssetSnapshot snapshot : snapshots) {
+            if (!snapshot.institutionValues.isEmpty()) {
+                available.add(snapshot);
+            }
+        }
+        return available;
+    }
 
-        double firstTotal = categoryTotal(first);
-        double lastTotal = categoryTotal(last);
+    public static List<CategoryShift> categoryShifts(AssetSnapshot first, AssetSnapshot last) {
+        return valueShifts(first.categoryValues, last.categoryValues);
+    }
+
+    public static List<CategoryShift> institutionShifts(AssetSnapshot first, AssetSnapshot last) {
+        return valueShifts(first.institutionValues, last.institutionValues);
+    }
+
+    private static List<CategoryShift> valueShifts(Map<String, Double> firstValues, Map<String, Double> lastValues) {
+        Set<String> labels = new HashSet<>();
+        labels.addAll(firstValues.keySet());
+        labels.addAll(lastValues.keySet());
+
+        double firstTotal = totalValue(firstValues);
+        double lastTotal = totalValue(lastValues);
         List<CategoryShift> shifts = new ArrayList<>();
-        for (String category : categories) {
-            double firstValue = categoryValue(first, category);
-            double lastValue = categoryValue(last, category);
+        for (String label : labels) {
+            double firstValue = valueFor(firstValues, label);
+            double lastValue = valueFor(lastValues, label);
             double firstPercent = firstTotal <= 0 ? 0 : firstValue / firstTotal * 100;
             double lastPercent = lastTotal <= 0 ? 0 : lastValue / lastTotal * 100;
             shifts.add(new CategoryShift(
-                    category,
+                    label,
                     firstValue,
                     lastValue,
                     lastValue - firstValue,
@@ -197,16 +216,16 @@ public final class TrendAnalytics {
         return shifts;
     }
 
-    private static double categoryTotal(AssetSnapshot snapshot) {
+    private static double totalValue(Map<String, Double> values) {
         double total = 0;
-        for (double value : snapshot.categoryValues.values()) {
+        for (double value : values.values()) {
             total += value;
         }
         return total;
     }
 
-    private static double categoryValue(AssetSnapshot snapshot, String category) {
-        Double value = snapshot.categoryValues.get(category);
+    private static double valueFor(Map<String, Double> values, String label) {
+        Double value = values.get(label);
         return value == null ? 0 : value;
     }
 

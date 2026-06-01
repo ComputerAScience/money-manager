@@ -36,51 +36,70 @@ final class DistributionTrendRenderer {
 
     void render(List<AssetSnapshot> trendSnapshots) {
         activity.distributionTrendList.removeAllViews();
-        List<AssetSnapshot> available = TrendAnalytics.snapshotsWithCategoryValues(trendSnapshots);
-        if (available.size() < 2) {
-            int count = available.size();
-            activity.distributionTrendSummary.setText("已记录 " + count + " 个带分布的快照；从这版开始，每次更新或记录快照都会保存类型分布。");
-            TextView empty = activity.text("再记录一次快照后，这里会显示各资产类型金额和占比的变化。", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
+        List<AssetSnapshot> categorySnapshots = TrendAnalytics.snapshotsWithCategoryValues(trendSnapshots);
+        List<AssetSnapshot> institutionSnapshots = TrendAnalytics.snapshotsWithInstitutionValues(trendSnapshots);
+        if (categorySnapshots.size() < 2 && institutionSnapshots.size() < 2) {
+            int count = Math.max(categorySnapshots.size(), institutionSnapshots.size());
+            activity.distributionTrendSummary.setText("已记录 " + count + " 个带分布的快照；从这版开始，每次更新会同时保存类型和机构分布。");
+            TextView empty = activity.text("再记录一次快照后，这里会显示资产类型、机构金额和占比的变化。", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams emptyParams = activity.lp(-1, -2);
             emptyParams.topMargin = activity.dp(8);
             activity.distributionTrendList.addView(empty, emptyParams);
             return;
         }
 
-        AssetSnapshot first = available.get(0);
-        AssetSnapshot last = available.get(available.size() - 1);
-        List<TrendAnalytics.CategoryShift> shifts = TrendAnalytics.categoryShifts(first, last);
-        if (shifts.isEmpty()) {
-            activity.distributionTrendSummary.setText("已记录 " + available.size() + " 个带分布的快照，但暂时没有可对比的类型金额。");
-            activity.distributionTrendList.addView(activity.text("继续更新资产金额后再查看分布变化。", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL));
-            return;
+        activity.distributionTrendSummary.setText(summaryText(categorySnapshots, institutionSnapshots));
+        if (categorySnapshots.size() >= 2) {
+            addShiftSection("类型变化", categorySnapshots, true);
         }
-
-        activity.distributionTrendSummary.setText(summaryText(first, last, shifts, available.size()));
-        int limit = Math.min(6, shifts.size());
-        for (int index = 0; index < limit; index += 1) {
-            activity.distributionTrendList.addView(categoryShiftRow(shifts.get(index), last.baseCurrency));
+        if (institutionSnapshots.size() >= 2) {
+            addShiftSection("机构变化", institutionSnapshots, false);
         }
     }
 
-    private String summaryText(
-            AssetSnapshot first,
-            AssetSnapshot last,
-            List<TrendAnalytics.CategoryShift> shifts,
-            int count
-    ) {
-        TrendAnalytics.CategoryShift biggest = shifts.get(0);
+    private String summaryText(List<AssetSnapshot> categorySnapshots, List<AssetSnapshot> institutionSnapshots) {
+        List<AssetSnapshot> source = categorySnapshots.size() >= 2 ? categorySnapshots : institutionSnapshots;
+        AssetSnapshot first = source.get(0);
+        AssetSnapshot last = source.get(source.size() - 1);
         if (activity.settings.hideAmounts) {
-            return "已记录 " + count + " 个带分布快照，范围 "
+            return "已记录 " + source.size() + " 个带分布快照，范围 "
                     + first.dayKey + " 到 " + last.dayKey + "；金额已隐藏。";
         }
+        List<TrendAnalytics.CategoryShift> shifts = categorySnapshots.size() >= 2
+                ? TrendAnalytics.categoryShifts(first, last)
+                : TrendAnalytics.institutionShifts(first, last);
+        if (shifts.isEmpty()) {
+            return "已记录 " + source.size() + " 个带分布快照；继续更新资产后会展示变化。";
+        }
+        TrendAnalytics.CategoryShift biggest = shifts.get(0);
         return "从 " + first.dayKey + " 到 " + last.dayKey
-                + "，变化最大的是 " + biggest.category + "："
+                + "，分布变化最大的是 " + biggest.category + "："
                 + activity.formatSignedMoney(biggest.delta, last.baseCurrency)
                 + "，占比 " + activity.formatPoint(biggest.percentDelta) + "。";
     }
 
-    private View categoryShiftRow(TrendAnalytics.CategoryShift shift, String currency) {
+    private void addShiftSection(String title, List<AssetSnapshot> snapshots, boolean category) {
+        AssetSnapshot first = snapshots.get(0);
+        AssetSnapshot last = snapshots.get(snapshots.size() - 1);
+        List<TrendAnalytics.CategoryShift> shifts = category
+                ? TrendAnalytics.categoryShifts(first, last)
+                : TrendAnalytics.institutionShifts(first, last);
+        if (shifts.isEmpty()) {
+            return;
+        }
+
+        TextView heading = activity.text(title, 13, MoneyManagerActivity.MUTED, Typeface.BOLD);
+        LinearLayout.LayoutParams headingParams = activity.lp(-1, -2);
+        headingParams.topMargin = activity.dp(10);
+        activity.distributionTrendList.addView(heading, headingParams);
+
+        int limit = Math.min(4, shifts.size());
+        for (int index = 0; index < limit; index += 1) {
+            activity.distributionTrendList.addView(shiftRow(shifts.get(index), last.baseCurrency));
+        }
+    }
+
+    private View shiftRow(TrendAnalytics.CategoryShift shift, String currency) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(10));
