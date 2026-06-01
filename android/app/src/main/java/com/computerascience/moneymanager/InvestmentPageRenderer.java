@@ -14,14 +14,11 @@ import com.computerascience.moneymanager.domain.AssetPresets;
 import com.computerascience.moneymanager.domain.InvestmentAnalytics;
 import com.computerascience.moneymanager.domain.UpdateAnalytics;
 import com.computerascience.moneymanager.model.AssetRecord;
-import com.computerascience.moneymanager.model.AssetUpdateEvent;
 import com.computerascience.moneymanager.model.CategoryBreakdown;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 final class InvestmentPageRenderer {
     private final MainActivity activity;
@@ -395,7 +392,7 @@ final class InvestmentPageRenderer {
     private void renderFlow(List<AssetRecord> investments) {
         activity.investmentFlowList.removeAllViews();
         UpdateAnalytics.Summary summary = UpdateAnalytics.summarizeKnownAssets(activity.updateEvents, investments, activity.settings, 90);
-        InvestmentFlowBreakdown breakdown = investmentFlowBreakdown(investments, 90);
+        UpdateAnalytics.Breakdown breakdown = UpdateAnalytics.breakdownKnownAssets(activity.updateEvents, investments, activity.settings, 90);
         if (investments.isEmpty()) {
             activity.investmentFlowSummary.setText("还没有投资资产。");
             activity.investmentFlowList.addView(activity.emptyText("新增投资资产后，这里会按投资账户回看变化。"));
@@ -423,7 +420,7 @@ final class InvestmentPageRenderer {
         FlowSectionRenderer.add(activity, activity.investmentFlowList, "按机构", summary.institutions);
     }
 
-    private void addPerformanceRows(InvestmentFlowBreakdown breakdown) {
+    private void addPerformanceRows(UpdateAnalytics.Breakdown breakdown) {
         if (breakdown.count == 0) {
             return;
         }
@@ -462,66 +459,6 @@ final class InvestmentPageRenderer {
                         ? MoneyManagerActivity.AMBER
                         : MoneyManagerActivity.ACCENT
         ));
-    }
-
-    private InvestmentFlowBreakdown investmentFlowBreakdown(List<AssetRecord> investments, int days) {
-        InvestmentFlowBreakdown breakdown = new InvestmentFlowBreakdown();
-        Set<String> investmentIds = new HashSet<>();
-        for (AssetRecord asset : investments) {
-            investmentIds.add(asset.id);
-        }
-
-        long cutoff = System.currentTimeMillis() - days * AssetMath.DAY_MS;
-        for (AssetUpdateEvent event : activity.updateEvents) {
-            if (event.timestamp < cutoff || !investmentIds.contains(event.assetId)) {
-                continue;
-            }
-
-            double delta = eventDeltaInBase(event);
-            breakdown.count += 1;
-            String reason = event.reason == null ? "" : event.reason;
-            if (isExternalFlowReason(reason)) {
-                breakdown.externalFlowCount += 1;
-                breakdown.externalFlow += delta;
-                if (delta > 0) {
-                    breakdown.externalInflow += delta;
-                } else if (delta < 0) {
-                    breakdown.externalOutflow += delta;
-                }
-            } else if (isPerformanceReason(reason)) {
-                breakdown.performanceCount += 1;
-                breakdown.performance += delta;
-            } else if (isTradeReason(reason)) {
-                breakdown.tradeCount += 1;
-                breakdown.trade += delta;
-            } else {
-                breakdown.reconcileCount += 1;
-                breakdown.reconcile += delta;
-            }
-        }
-        return breakdown;
-    }
-
-    private double eventDeltaInBase(AssetUpdateEvent event) {
-        String currency = AssetMath.cleanCurrency(event.currency);
-        double rate = activity.settings.hasRateFor(currency) ? activity.settings.rateFor(currency) : 1.0;
-        double previous = AssetMath.parseAmount(event.previousAmount);
-        double current = AssetMath.parseAmount(event.newAmount);
-        return (current - previous) * rate;
-    }
-
-    private boolean isExternalFlowReason(String reason) {
-        return reason.contains("入金") || reason.contains("出金") || reason.contains("转账");
-    }
-
-    private boolean isPerformanceReason(String reason) {
-        return reason.contains("市场涨跌")
-                || reason.contains("利息分红")
-                || reason.contains("手续费税费");
-    }
-
-    private boolean isTradeReason(String reason) {
-        return reason.contains("买入卖出");
     }
 
     private void renderStructure(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
@@ -691,17 +628,4 @@ final class InvestmentPageRenderer {
         activity.showEditDialog(null);
     }
 
-    private static final class InvestmentFlowBreakdown {
-        int count;
-        int performanceCount;
-        int externalFlowCount;
-        int tradeCount;
-        int reconcileCount;
-        double performance;
-        double externalFlow;
-        double externalInflow;
-        double externalOutflow;
-        double trade;
-        double reconcile;
-    }
 }

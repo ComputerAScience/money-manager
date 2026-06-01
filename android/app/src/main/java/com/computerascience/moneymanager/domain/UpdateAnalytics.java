@@ -58,7 +58,7 @@ public final class UpdateAnalytics {
             if (asset == null && !includeUnknownAssets) {
                 continue;
             }
-            double delta = deltaInBase(event, settings);
+            double delta = deltaInBase(event, asset, settings);
             summary.count += 1;
             summary.delta += delta;
             if (delta > 0.0001) {
@@ -80,12 +80,83 @@ public final class UpdateAnalytics {
         return summary;
     }
 
-    private static double deltaInBase(AssetUpdateEvent event, PortfolioSettings settings) {
+    public static Breakdown breakdown(
+            List<AssetUpdateEvent> events,
+            List<AssetRecord> assets,
+            PortfolioSettings settings,
+            int days
+    ) {
+        return breakdown(events, assets, settings, days, true);
+    }
+
+    public static Breakdown breakdownKnownAssets(
+            List<AssetUpdateEvent> events,
+            List<AssetRecord> assets,
+            PortfolioSettings settings,
+            int days
+    ) {
+        return breakdown(events, assets, settings, days, false);
+    }
+
+    private static Breakdown breakdown(
+            List<AssetUpdateEvent> events,
+            List<AssetRecord> assets,
+            PortfolioSettings settings,
+            int days,
+            boolean includeUnknownAssets
+    ) {
+        Breakdown breakdown = new Breakdown(days);
+        long cutoff = System.currentTimeMillis() - days * AssetMath.DAY_MS;
+        Map<String, AssetRecord> assetById = new HashMap<>();
+        for (AssetRecord asset : assets) {
+            assetById.put(asset.id, asset);
+        }
+
+        for (AssetUpdateEvent event : events) {
+            if (event.timestamp < cutoff) {
+                continue;
+            }
+
+            AssetRecord asset = assetById.get(event.assetId);
+            if (asset == null && !includeUnknownAssets) {
+                continue;
+            }
+
+            double delta = deltaInBase(event, asset, settings);
+            String reason = cleanReason(event.reason);
+            breakdown.count += 1;
+            if (isDebtChange(asset, reason)) {
+                breakdown.debtCount += 1;
+                breakdown.debt += delta;
+            } else if (isExternalFlowReason(reason)) {
+                breakdown.externalFlowCount += 1;
+                breakdown.externalFlow += delta;
+                if (delta > 0) {
+                    breakdown.externalInflow += delta;
+                } else if (delta < 0) {
+                    breakdown.externalOutflow += delta;
+                }
+            } else if (isPerformanceReason(reason)) {
+                breakdown.performanceCount += 1;
+                breakdown.performance += delta;
+            } else if (isTradeReason(reason)) {
+                breakdown.tradeCount += 1;
+                breakdown.trade += delta;
+            } else {
+                breakdown.reconcileCount += 1;
+                breakdown.reconcile += delta;
+            }
+        }
+        return breakdown;
+    }
+
+    private static double deltaInBase(AssetUpdateEvent event, AssetRecord asset, PortfolioSettings settings) {
         String currency = AssetMath.cleanCurrency(event.currency);
         double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
         double previous = AssetMath.parseAmount(event.previousAmount);
         double current = AssetMath.parseAmount(event.newAmount);
-        return (current - previous) * rate;
+        double rawDelta = (current - previous) * rate;
+        return AssetMath.isLiability(asset) ? -rawDelta : rawDelta;
     }
 
     private static void addBucket(Map<String, Bucket> buckets, String label, double delta) {
@@ -118,6 +189,24 @@ public final class UpdateAnalytics {
         return value == null || value.trim().isEmpty() ? "余额核对" : value.trim();
     }
 
+    private static boolean isDebtChange(AssetRecord asset, String reason) {
+        return AssetMath.isLiability(asset) || reason.contains("负债变化");
+    }
+
+    private static boolean isExternalFlowReason(String reason) {
+        return reason.contains("入金") || reason.contains("出金") || reason.contains("转账");
+    }
+
+    private static boolean isPerformanceReason(String reason) {
+        return reason.contains("市场涨跌")
+                || reason.contains("利息分红")
+                || reason.contains("手续费税费");
+    }
+
+    private static boolean isTradeReason(String reason) {
+        return reason.contains("买入卖出");
+    }
+
     public static final class Summary {
         public final int days;
         public final List<Bucket> reasons = new ArrayList<>();
@@ -141,6 +230,27 @@ public final class UpdateAnalytics {
 
         private Bucket(String label) {
             this.label = label;
+        }
+    }
+
+    public static final class Breakdown {
+        public final int days;
+        public int count;
+        public int performanceCount;
+        public int externalFlowCount;
+        public int debtCount;
+        public int tradeCount;
+        public int reconcileCount;
+        public double performance;
+        public double externalFlow;
+        public double externalInflow;
+        public double externalOutflow;
+        public double debt;
+        public double trade;
+        public double reconcile;
+
+        private Breakdown(int days) {
+            this.days = days;
         }
     }
 }

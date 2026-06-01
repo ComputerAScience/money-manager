@@ -9,14 +9,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.computerascience.moneymanager.domain.AssetMath;
+import com.computerascience.moneymanager.domain.UpdateAnalytics;
 import com.computerascience.moneymanager.model.AssetUpdateEvent;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 final class TrendUpdatesRenderer {
     private final MainActivity activity;
@@ -66,65 +64,26 @@ final class TrendUpdatesRenderer {
     }
 
     String recentUpdateSummaryText() {
-        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
-        int count = 0;
-        double deltaInBase = 0;
-        for (AssetUpdateEvent event : activity.updateEvents) {
-            if (event.timestamp < cutoff) {
-                continue;
-            }
-            count += 1;
-            String currency = AssetMath.cleanCurrency(event.currency);
-            double rate = activity.settings.hasRateFor(currency) ? activity.settings.rateFor(currency) : 1.0;
-            double previous = AssetMath.parseAmount(event.previousAmount);
-            double current = AssetMath.parseAmount(event.newAmount);
-            deltaInBase += (current - previous) * rate;
-        }
-
-        if (count == 0) {
+        UpdateAnalytics.Summary summary = UpdateAnalytics.summarize(activity.updateEvents, activity.assets, activity.settings, 30);
+        if (summary.count == 0) {
             return "保留最近一年更新记录；近 30 天还没有新的金额变化。";
         }
         if (activity.settings.hideAmounts) {
-            return "近 30 天记录 " + count + " 次更新，金额变化已隐藏。";
+            return "近 30 天记录 " + summary.count + " 次更新，金额变化已隐藏。";
         }
-        return "近 30 天记录 " + count + " 次更新，折算净变化 "
-                + activity.formatSignedMoney(deltaInBase, activity.settings.baseCurrency) + "。";
+        return "近 30 天记录 " + summary.count + " 次更新，折算净资产影响 "
+                + activity.formatSignedMoney(summary.delta, activity.settings.baseCurrency) + "。";
     }
 
     List<String> updateReasonSummaryLines(boolean includeEmpty) {
-        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
-        Map<String, Integer> counts = new HashMap<>();
-        Map<String, Double> deltas = new HashMap<>();
-        for (AssetUpdateEvent event : activity.updateEvents) {
-            if (event.timestamp < cutoff) {
-                continue;
-            }
-            String reason = activity.cleanReason(event.reason);
-            counts.put(reason, activity.intValue(counts, reason) + 1);
-
-            String currency = AssetMath.cleanCurrency(event.currency);
-            double rate = activity.settings.hasRateFor(currency) ? activity.settings.rateFor(currency) : 1.0;
-            double previous = AssetMath.parseAmount(event.previousAmount);
-            double current = AssetMath.parseAmount(event.newAmount);
-            deltas.put(reason, activity.doubleValue(deltas, reason) + (current - previous) * rate);
-        }
-
-        List<String> reasons = new ArrayList<>(counts.keySet());
-        Collections.sort(reasons, (left, right) -> {
-            int countCompare = Integer.compare(activity.intValue(counts, right), activity.intValue(counts, left));
-            if (countCompare != 0) {
-                return countCompare;
-            }
-            return left.compareToIgnoreCase(right);
-        });
-
+        UpdateAnalytics.Summary summary = UpdateAnalytics.summarize(activity.updateEvents, activity.assets, activity.settings, 30);
         List<String> lines = new ArrayList<>();
-        int limit = Math.min(3, reasons.size());
+        int limit = Math.min(3, summary.reasons.size());
         for (int index = 0; index < limit; index += 1) {
-            String reason = reasons.get(index);
-            String line = reason + " " + activity.intValue(counts, reason) + " 次";
+            UpdateAnalytics.Bucket bucket = summary.reasons.get(index);
+            String line = bucket.label + " " + bucket.count + " 次";
             if (!activity.settings.hideAmounts) {
-                line += "，折算变化 " + activity.formatSignedMoney(activity.doubleValue(deltas, reason), activity.settings.baseCurrency);
+                line += "，净资产影响 " + activity.formatSignedMoney(bucket.delta, activity.settings.baseCurrency);
             }
             lines.add(line);
         }

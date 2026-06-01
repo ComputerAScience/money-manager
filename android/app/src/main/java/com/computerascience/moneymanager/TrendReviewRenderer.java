@@ -121,7 +121,7 @@ final class TrendReviewRenderer {
                     + updates.count + " 次更新；金额已隐藏。";
         }
         return "近 30 天净资产 " + activity.formatSignedMoney(review.netWorthDelta, review.currency)
-                + "，更新流水净变化 "
+                + "，更新流水净资产影响 "
                 + activity.formatSignedMoney(updates.delta, activity.settings.baseCurrency)
                 + "。";
     }
@@ -133,8 +133,8 @@ final class TrendReviewRenderer {
         if (activity.settings.hideAmounts) {
             return "近 " + updates.days + " 天有 " + updates.count + " 次更新，金额已隐藏。";
         }
-        return "流入 " + activity.formatMoney(updates.increase, activity.settings.baseCurrency)
-                + "，流出 " + activity.formatMoney(Math.abs(updates.decrease), activity.settings.baseCurrency)
+        return "正向影响 " + activity.formatMoney(updates.increase, activity.settings.baseCurrency)
+                + "，负向影响 " + activity.formatMoney(Math.abs(updates.decrease), activity.settings.baseCurrency)
                 + "，仅更新时间 " + updates.flatCount + " 次。";
     }
 
