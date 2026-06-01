@@ -20,32 +20,25 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AllocationAnalytics;
-import com.computerascience.moneymanager.domain.AssetCategories;
 import com.computerascience.moneymanager.domain.AssetFilters;
 import com.computerascience.moneymanager.domain.AssetInstitutionGroups;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.AssetPresets;
 import com.computerascience.moneymanager.domain.DataHealth;
-import com.computerascience.moneymanager.domain.InvestmentAnalytics;
 import com.computerascience.moneymanager.domain.TrendAnalytics;
-import com.computerascience.moneymanager.domain.UpdateAnalytics;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
-import com.computerascience.moneymanager.model.AssetUpdateEvent;
 import com.computerascience.moneymanager.model.CategoryBreakdown;
 import com.computerascience.moneymanager.model.InstitutionBreakdown;
 import com.computerascience.moneymanager.model.PortfolioSettings;
@@ -55,16 +48,13 @@ import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.SectionDrawer;
 import com.computerascience.moneymanager.ui.SectionProgressHandle;
 import com.computerascience.moneymanager.ui.SpaceView;
-import com.computerascience.moneymanager.ui.TrendChartView;
 import com.computerascience.moneymanager.ui.UpdateDialog;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 public final class MainActivity extends MoneyManagerActivity {
     private static final int REQUEST_EXPORT_BACKUP = 4101;
@@ -81,6 +71,8 @@ public final class MainActivity extends MoneyManagerActivity {
     private String currentPage = PAGE_OVERVIEW;
     private final AssetDialogs assetDialogs = new AssetDialogs(this, UPDATE_REASONS);
     private final SettingsDialogs settingsDialogs = new SettingsDialogs(this);
+    private final InvestmentPageRenderer investmentRenderer = new InvestmentPageRenderer(this);
+    private final TrendPageRenderer trendRenderer = new TrendPageRenderer(this);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -219,13 +211,13 @@ public final class MainActivity extends MoneyManagerActivity {
         root.addView(overviewPage);
 
         investmentPage = page();
-        View investmentSummary = investmentSummaryCard();
-        View investmentDiagnostics = investmentDiagnosticsCard();
-        View investmentFlow = investmentFlowCard();
-        View investmentStructure = investmentStructureCard();
-        View investmentInstitutions = investmentInstitutionsCard();
-        View investmentPlan = investmentPlanCard();
-        View investmentAccounts = investmentAccountsCard();
+        View investmentSummary = investmentRenderer.summaryCard();
+        View investmentDiagnostics = investmentRenderer.diagnosticsCard();
+        View investmentFlow = investmentRenderer.flowCard();
+        View investmentStructure = investmentRenderer.structureCard();
+        View investmentInstitutions = investmentRenderer.institutionsCard();
+        View investmentPlan = investmentRenderer.planCard();
+        View investmentAccounts = investmentRenderer.accountsCard();
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
                 new SectionDrawer.Item("投资诊断", investmentDiagnostics),
@@ -245,12 +237,12 @@ public final class MainActivity extends MoneyManagerActivity {
         root.addView(investmentPage);
 
         trendPage = page();
-        View totalTrend = trendCard();
-        View distributionTrend = distributionTrendCard();
-        View flowAttribution = flowAttributionCard();
-        View assetTrend = assetTrendCard();
-        View dataHealth = dataHealthCard();
-        View recentUpdates = recentUpdatesCard();
+        View totalTrend = trendRenderer.trendCard();
+        View distributionTrend = trendRenderer.distributionTrendCard();
+        View flowAttribution = trendRenderer.flowAttributionCard();
+        View assetTrend = trendRenderer.assetTrendCard();
+        View dataHealth = trendRenderer.dataHealthCard();
+        View recentUpdates = trendRenderer.recentUpdatesCard();
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
                 new SectionDrawer.Item("分布变化", distributionTrend),
@@ -632,22 +624,12 @@ public final class MainActivity extends MoneyManagerActivity {
         renderAllocationLegend(portfolio);
         renderAllocationTargets(portfolio);
         renderInstitutionList(portfolio);
-        renderInvestmentPage();
+        investmentRenderer.render();
 
         List<AssetSnapshot> trendSnapshots = TrendAnalytics.snapshotsForBase(snapshots, portfolio.baseCurrency);
-        trendChart.setSnapshots(trendSnapshots);
-        trendSummary.setText(trendSummaryText(portfolio, trendSnapshots));
-        renderTrendMetrics(portfolio, trendSnapshots);
-        renderTrendHistory(trendSnapshots);
-        renderDistributionTrend(trendSnapshots);
-        renderFlowAttribution();
-        renderAssetTrend();
-
-        insightSummary.setText(buildInsightText(portfolio));
-        renderDataHealth(portfolio);
+        trendRenderer.render(portfolio, trendSnapshots);
         renderActionCenter(portfolio);
         renderUpdatePlan();
-        renderRecentUpdates();
 
         managementSummary.setText("共 " + portfolio.assetCount + " 项资产，"
                 + portfolio.staleCount + " 项需要更新，"
@@ -769,8 +751,8 @@ public final class MainActivity extends MoneyManagerActivity {
             lines.add("年度目标：" + netWorthGoalText(portfolio));
         }
         lines.add("");
-        lines.add("一年趋势：" + trendSummaryText(portfolio, trendSnapshots));
-        List<String> trendReview = trendReviewLines(portfolio, trendSnapshots);
+        lines.add("一年趋势：" + trendRenderer.summaryText(portfolio, trendSnapshots));
+        List<String> trendReview = trendRenderer.reviewLines(portfolio, trendSnapshots);
         if (!trendReview.isEmpty()) {
             lines.add("趋势复盘：");
             for (String line : trendReview) {
@@ -946,123 +928,6 @@ public final class MainActivity extends MoneyManagerActivity {
         return card;
     }
 
-    private View trendCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("一年变化趋势"));
-
-        trendSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        card.addView(trendSummary, summaryParams);
-
-        trendChart = new TrendChartView(this);
-        LinearLayout.LayoutParams chartParams = lp(-1, dp(190));
-        chartParams.topMargin = dp(10);
-        card.addView(trendChart, chartParams);
-
-        trendMetricsList = new LinearLayout(this);
-        trendMetricsList.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams metricsParams = lp(-1, -2);
-        metricsParams.topMargin = dp(10);
-        metricsParams.bottomMargin = dp(4);
-        card.addView(trendMetricsList, metricsParams);
-
-        LinearLayout snapshotActions = row();
-        Button snapshotButton = secondaryButton("记录今日快照");
-        snapshotButton.setOnClickListener(view -> {
-            snapshots = store.recordSnapshot(assets, settings);
-            render();
-            toast("已记录今日总资产快照。");
-        });
-        snapshotActions.addView(snapshotButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        snapshotActions.addView(new SpaceView(this, dp(10), 1));
-
-        Button backfillButton = secondaryButton("补录快照");
-        backfillButton.setOnClickListener(view -> showSnapshotBackfillDialog());
-        snapshotActions.addView(backfillButton, new LinearLayout.LayoutParams(0, dp(44), 1));
-        LinearLayout.LayoutParams actionParams = lp(-1, -2);
-        actionParams.topMargin = dp(8);
-        actionParams.bottomMargin = dp(12);
-        card.addView(snapshotActions, actionParams);
-
-        trendHistoryList = new LinearLayout(this);
-        trendHistoryList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(trendHistoryList, lp(-1, -2));
-        return card;
-    }
-
-    private View distributionTrendCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("分布变化"));
-
-        distributionTrendSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(distributionTrendSummary, summaryParams);
-
-        distributionTrendList = new LinearLayout(this);
-        distributionTrendList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(distributionTrendList, lp(-1, -2));
-        return card;
-    }
-
-    private View flowAttributionCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("变化归因"));
-
-        flowAttributionSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(flowAttributionSummary, summaryParams);
-
-        flowAttributionList = new LinearLayout(this);
-        flowAttributionList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(flowAttributionList, lp(-1, -2));
-        return card;
-    }
-
-    private View assetTrendCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("单项资产趋势"));
-
-        assetTrendSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(10);
-        card.addView(assetTrendSummary, summaryParams);
-
-        assetTrendSpinner = new Spinner(this);
-        styleSpinner(assetTrendSpinner);
-        assetTrendSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (suppressAssetTrendSelection || position < 0 || position >= assetTrendOptions.size()) {
-                    return;
-                }
-                selectedTrendAssetId = assetTrendOptions.get(position).id;
-                renderAssetTrend();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-        card.addView(fieldBox("选择资产", assetTrendSpinner));
-
-        assetTrendChart = new TrendChartView(this);
-        LinearLayout.LayoutParams chartParams = lp(-1, dp(160));
-        chartParams.topMargin = dp(6);
-        chartParams.bottomMargin = dp(10);
-        card.addView(assetTrendChart, chartParams);
-
-        assetTrendHistoryList = new LinearLayout(this);
-        assetTrendHistoryList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(assetTrendHistoryList, lp(-1, -2));
-        return card;
-    }
-
     private View updatePlanCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("核对计划"));
@@ -1082,50 +947,6 @@ public final class MainActivity extends MoneyManagerActivity {
         LinearLayout.LayoutParams buttonParams = lp(-1, dp(42));
         buttonParams.topMargin = dp(10);
         card.addView(reviewButton, buttonParams);
-        return card;
-    }
-
-    private View dataHealthCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("数据健康"));
-
-        insightSummary = text("", 15, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams insightParams = lp(-1, -2);
-        insightParams.topMargin = dp(10);
-        insightParams.bottomMargin = dp(12);
-        card.addView(insightSummary, insightParams);
-
-        dataHealthSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(2);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(dataHealthSummary, summaryParams);
-
-        dataHealthList = new LinearLayout(this);
-        dataHealthList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(dataHealthList, lp(-1, -2));
-
-        Button reviewButton = secondaryButton("查看待处理资产");
-        reviewButton.setOnClickListener(view -> showAssetManagement("issues"));
-        LinearLayout.LayoutParams reviewParams = lp(-1, dp(42));
-        reviewParams.topMargin = dp(10);
-        card.addView(reviewButton, reviewParams);
-        return card;
-    }
-
-    private View recentUpdatesCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("最近更新"));
-
-        recentUpdateSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(recentUpdateSummary, summaryParams);
-
-        recentUpdateList = new LinearLayout(this);
-        recentUpdateList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(recentUpdateList, lp(-1, -2));
         return card;
     }
 
@@ -1344,437 +1165,7 @@ public final class MainActivity extends MoneyManagerActivity {
         row.addView(button, new LinearLayout.LayoutParams(0, dp(42), 1));
     }
 
-    private void showCreateInvestmentAccount() {
-        for (AssetPresets.Preset preset : AssetPresets.quickAddPresets()) {
-            if (AssetCategories.INVESTMENT_ACCOUNT.equals(preset.category)) {
-                settings.setInvestmentCategory(preset.category, true);
-                store.saveSettings(settings);
-                showCreatePreset(preset);
-                return;
-            }
-        }
-        showEditDialog(null);
-    }
-
-    private View investmentSummaryCard() {
-        LinearLayout card = card();
-        LinearLayout header = row();
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout titleGroup = new LinearLayout(this);
-        titleGroup.setOrientation(LinearLayout.VERTICAL);
-        titleGroup.addView(sectionTitle("投资总览"));
-        investmentSummaryText = text("", 13, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(4);
-        titleGroup.addView(investmentSummaryText, summaryParams);
-        header.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
-
-        Button addButton = primaryButton("新增投资资产");
-        addButton.setTextSize(13);
-        addButton.setOnClickListener(view -> showCreateInvestmentAccount());
-        header.addView(addButton, new LinearLayout.LayoutParams(dp(124), dp(42)));
-        card.addView(header);
-
-        TextView help = text("投资页由资产类型开关控制。需要新增“美股、港股、期权”等类型时，可在设置里维护。", 13, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams helpParams = lp(-1, -2);
-        helpParams.topMargin = dp(12);
-        card.addView(help, helpParams);
-
-        Button categoryButton = secondaryButton("管理投资类型");
-        categoryButton.setOnClickListener(view -> showCategorySettingsDialog());
-        LinearLayout.LayoutParams categoryParams = lp(-1, dp(42));
-        categoryParams.topMargin = dp(10);
-        card.addView(categoryButton, categoryParams);
-        return card;
-    }
-
-    private View investmentStructureCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资结构"));
-
-        investmentStructureSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(investmentStructureSummary, summaryParams);
-
-        investmentStructureList = new LinearLayout(this);
-        investmentStructureList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(investmentStructureList, lp(-1, -2));
-        return card;
-    }
-
-    private View investmentDiagnosticsCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资诊断"));
-
-        investmentDiagnosticSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(investmentDiagnosticSummary, summaryParams);
-
-        investmentDiagnosticList = new LinearLayout(this);
-        investmentDiagnosticList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(investmentDiagnosticList, lp(-1, -2));
-        return card;
-    }
-
-    private View investmentFlowCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资变化"));
-
-        investmentFlowSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(investmentFlowSummary, summaryParams);
-
-        investmentFlowList = new LinearLayout(this);
-        investmentFlowList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(investmentFlowList, lp(-1, -2));
-        return card;
-    }
-
-    private View investmentInstitutionsCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资机构"));
-
-        investmentInstitutionSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(investmentInstitutionSummary, summaryParams);
-
-        investmentInstitutionList = new LinearLayout(this);
-        investmentInstitutionList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(investmentInstitutionList, lp(-1, -2));
-        return card;
-    }
-
-    private View investmentPlanCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资待核对"));
-
-        investmentPlanSummary = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
-        summaryParams.topMargin = dp(8);
-        summaryParams.bottomMargin = dp(8);
-        card.addView(investmentPlanSummary, summaryParams);
-
-        investmentPlanList = new LinearLayout(this);
-        investmentPlanList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(investmentPlanList, lp(-1, -2));
-        return card;
-    }
-
-    private View investmentAccountsCard() {
-        LinearLayout card = card();
-        card.addView(sectionTitle("投资资产"));
-        investmentAccountList = new LinearLayout(this);
-        investmentAccountList.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listParams = lp(-1, -2);
-        listParams.topMargin = dp(12);
-        card.addView(investmentAccountList, listParams);
-        return card;
-    }
-
-    private void renderInvestmentPage() {
-        if (investmentSummaryText == null || investmentAccountList == null
-                || investmentStructureList == null || investmentInstitutionList == null
-                || investmentPlanList == null || investmentDiagnosticList == null
-                || investmentFlowList == null) {
-            return;
-        }
-        List<AssetRecord> investments = investmentAssets();
-        List<AssetInstitutionGroups.Group> groups = AssetInstitutionGroups.groupByInstitution(investments, settings);
-        InvestmentAnalytics.Summary stats = InvestmentAnalytics.summarize(investments, settings);
-
-        investmentSummaryText.setText("投资总额 " + formatMoney(stats.total, settings.baseCurrency)
-                + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
-
-        renderInvestmentStructure(investments, stats);
-        renderInvestmentDiagnostics(investments, groups, stats);
-        renderInvestmentFlow(investments);
-        renderInvestmentInstitutions(groups, stats.total);
-        renderInvestmentPlan(investments, stats);
-
-        investmentAccountList.removeAllViews();
-        if (investments.isEmpty()) {
-            investmentAccountList.addView(emptyText("还没有投资资产。可在设置里把某个资产类型加入投资页。"));
-            return;
-        }
-        for (AssetInstitutionGroups.Group group : groups) {
-            investmentAccountList.addView(assetInstitutionGroupHeader(group, settings.baseCurrency));
-            if (!collapsedAssetGroups.contains(group.key)) {
-                for (AssetRecord asset : group.assets) {
-                    investmentAccountList.addView(assetCompactRow(asset));
-                }
-            }
-        }
-    }
-
-    private void renderInvestmentDiagnostics(
-            List<AssetRecord> investments,
-            List<AssetInstitutionGroups.Group> groups,
-            InvestmentAnalytics.Summary stats
-    ) {
-        investmentDiagnosticList.removeAllViews();
-        if (investments.isEmpty()) {
-            investmentDiagnosticSummary.setText("投资资产还不够，暂时无法给出诊断。");
-            investmentDiagnosticList.addView(emptyText("先新增或标记几个投资类型资产。"));
-            return;
-        }
-
-        int alerts = 0;
-        if (stats.cashRatio() >= 30) alerts += 1;
-        if (!groups.isEmpty() && stats.total > 0 && groups.get(0).total / stats.total >= 0.5) alerts += 1;
-        if (stats.dueNow > 0) alerts += 1;
-        if (stats.unboundAppCount > 0 || stats.missingInstitutionCount > 0) alerts += 1;
-        investmentDiagnosticSummary.setText(alerts == 0
-                ? "暂无突出的投资维护风险，重点继续保持核对节奏。"
-                : "发现 " + alerts + " 个需要关注的投资维护点。");
-
-        AssetInstitutionGroups.Group top = groups.isEmpty() ? null : groups.get(0);
-        double topRatio = top == null || stats.total <= 0 ? 0 : top.total / stats.total * 100;
-        investmentDiagnosticList.addView(investmentInfoRow(
-                "机构集中度",
-                top == null ? "--" : formatPercentValue(topRatio),
-                top == null
-                        ? "还没有投资机构。"
-                        : top.title + " 占投资资产最多；" + concentrationAdvice(topRatio),
-                topRatio >= 50 ? AMBER : ACCENT
-        ));
-
-        investmentDiagnosticList.addView(investmentInfoRow(
-                "闲置现金",
-                formatPercentValue(stats.cashRatio()),
-                stats.cashRatio() >= 30
-                        ? "现金比例偏高，适合确认是否刻意保留弹药。"
-                        : "现金比例在可读范围内，可继续按账户更新。",
-                stats.cashRatio() >= 30 ? AMBER : BLUE
-        ));
-
-        investmentDiagnosticList.addView(investmentInfoRow(
-                "核对压力",
-                stats.dueNow + " 项到期",
-                stats.dueSoon + " 项将在 3 天内到期。",
-                stats.dueNow > 0 ? DANGER : ACCENT
-        ));
-
-        int dataIssues = stats.unboundAppCount + stats.missingInstitutionCount;
-        investmentDiagnosticList.addView(investmentInfoRow(
-                "数据完整度",
-                dataIssues == 0 ? "完整" : dataIssues + " 项待补",
-                stats.unboundAppCount + " 项未绑定 App，"
-                        + stats.missingInstitutionCount + " 项未填写机构。",
-                dataIssues == 0 ? ACCENT : AMBER
-        ));
-    }
-
-    private String concentrationAdvice(double ratio) {
-        if (ratio >= 50) {
-            return "集中度较高，建议核对是否符合你的风险偏好。";
-        }
-        if (ratio >= 35) {
-            return "集中度中等，适合持续观察。";
-        }
-        return "集中度相对分散。";
-    }
-
-    private void renderInvestmentFlow(List<AssetRecord> investments) {
-        investmentFlowList.removeAllViews();
-        UpdateAnalytics.Summary summary = UpdateAnalytics.summarizeKnownAssets(updateEvents, investments, settings, 90);
-        if (investments.isEmpty()) {
-            investmentFlowSummary.setText("还没有投资资产。");
-            investmentFlowList.addView(emptyText("新增投资资产后，这里会按投资账户回看变化。"));
-            return;
-        }
-        if (summary.count == 0) {
-            investmentFlowSummary.setText("近 90 天还没有投资资产更新记录。");
-            investmentFlowList.addView(emptyText("更新几次投资资产金额后，这里会按原因、类型和机构拆解。"));
-            return;
-        }
-
-        if (settings.hideAmounts) {
-            investmentFlowSummary.setText("近 " + summary.days + " 天记录 "
-                    + summary.count + " 次投资更新，金额已隐藏。");
-        } else {
-            investmentFlowSummary.setText("近 " + summary.days + " 天投资净变化 "
-                    + formatSignedMoney(summary.delta, settings.baseCurrency)
-                    + "；流入 " + formatMoney(summary.increase, settings.baseCurrency)
-                    + "，流出 " + formatMoney(Math.abs(summary.decrease), settings.baseCurrency) + "。");
-        }
-
-        addFlowSection(investmentFlowList, "按原因", summary.reasons);
-        addFlowSection(investmentFlowList, "按类型", summary.categories);
-        addFlowSection(investmentFlowList, "按机构", summary.institutions);
-    }
-
-    private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
-        investmentStructureList.removeAllViews();
-        if (investments.isEmpty()) {
-            investmentStructureSummary.setText("投资类型开启后，这里会展示持仓、现金和类型分布。");
-            investmentStructureList.addView(emptyText("还没有投资资产。"));
-            return;
-        }
-
-        double cashPercent = stats.total <= 0 ? 0 : stats.cash / stats.total * 100;
-        investmentStructureSummary.setText("持仓 " + formatPercent(stats.holding, stats.total)
-                + " · 闲置现金 " + formatPercentValue(cashPercent)
-                + " · " + investments.size() + " 项投资资产。");
-
-        investmentStructureList.addView(investmentInfoRow(
-                "持仓市值",
-                formatMoney(stats.holding, settings.baseCurrency),
-                "投资账户持仓，以及基金、加密资产等按投资类型纳入的资产。",
-                ACCENT
-        ));
-        investmentStructureList.addView(investmentInfoRow(
-                "闲置现金",
-                formatMoney(stats.cash, settings.baseCurrency),
-                cashPercent >= 30
-                        ? "现金占比较高，适合确认是否刻意留仓。"
-                        : "现金占比用于观察券商账户里的未投资资金。",
-                cashPercent >= 30 ? AMBER : BLUE
-        ));
-
-        int limit = Math.min(4, stats.categories.size());
-        for (int index = 0; index < limit; index += 1) {
-            CategoryBreakdown category = stats.categories.get(index);
-            investmentStructureList.addView(investmentInfoRow(
-                    "类型 · " + category.category,
-                    formatPercent(category.value, stats.total),
-                    settings.hideAmounts
-                            ? "金额已隐藏。"
-                            : formatMoney(category.value, settings.baseCurrency),
-                    category.color
-            ));
-        }
-    }
-
-    private void renderInvestmentInstitutions(List<AssetInstitutionGroups.Group> groups, double total) {
-        investmentInstitutionList.removeAllViews();
-        if (groups.isEmpty()) {
-            investmentInstitutionSummary.setText("暂无投资机构。新增投资资产后会按机构汇总。");
-            investmentInstitutionList.addView(emptyText("还没有可展示的投资机构。"));
-            return;
-        }
-
-        AssetInstitutionGroups.Group top = groups.get(0);
-        investmentInstitutionSummary.setText("最大机构是 " + top.title
-                + "，占投资资产 " + formatPercent(top.total, total)
-                + "；共 " + groups.size() + " 个投资机构。");
-
-        int limit = Math.min(5, groups.size());
-        for (int index = 0; index < limit; index += 1) {
-            investmentInstitutionList.addView(investmentInstitutionRow(groups.get(index), total));
-        }
-    }
-
-    private void renderInvestmentPlan(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
-        investmentPlanList.removeAllViews();
-        if (investments.isEmpty()) {
-            investmentPlanSummary.setText("还没有投资资产。");
-            investmentPlanList.addView(emptyText("新增投资资产后，这里会按更新时间排序。"));
-            return;
-        }
-
-        investmentPlanSummary.setText(stats.dueNow + " 项投资资产需要现在核对，"
-                + stats.dueSoon + " 项将在 3 天内到期。");
-
-        List<AssetRecord> planned = sortedPlannedAssets(investments);
-        int limit = Math.min(5, planned.size());
-        List<AssetRecord> topPlanned = new ArrayList<>(planned.subList(0, limit));
-        for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(topPlanned, settings)) {
-            investmentPlanList.addView(assetInstitutionGroupHeader(group, settings.baseCurrency));
-            if (!collapsedAssetGroups.contains(group.key)) {
-                for (AssetRecord asset : group.assets) {
-                    investmentPlanList.addView(updatePlanRow(asset));
-                }
-            }
-        }
-    }
-
-    private View investmentInstitutionRow(AssetInstitutionGroups.Group group, double total) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        row.addView(institutionGroupIcon(group), new LinearLayout.LayoutParams(dp(34), dp(34)));
-
-        LinearLayout titleGroup = new LinearLayout(this);
-        titleGroup.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
-        titleParams.leftMargin = dp(10);
-        titleGroup.addView(text(group.title, 14, INK, Typeface.BOLD));
-        LinearLayout.LayoutParams metaParams = lp(-1, -2);
-        metaParams.topMargin = dp(3);
-        titleGroup.addView(text(group.assets.size() + " 项 · " + group.displayApps(), 12, MUTED, Typeface.NORMAL), metaParams);
-        row.addView(titleGroup, titleParams);
-
-        String value = settings.hideAmounts
-                ? formatPercent(group.total, total)
-                : formatMoney(group.total, settings.baseCurrency) + "\n" + formatPercent(group.total, total);
-        TextView amount = text(value, 12, MUTED, Typeface.BOLD);
-        amount.setGravity(Gravity.RIGHT);
-        row.addView(amount);
-        return row;
-    }
-
-    private View investmentInfoRow(String title, String value, String detail, int color) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout header = row();
-        TextView dot = text("●", 15, color, Typeface.BOLD);
-        header.addView(dot);
-        TextView label = text("  " + title, 14, INK, Typeface.BOLD);
-        header.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView metric = text(value, 14, MUTED, Typeface.BOLD);
-        metric.setGravity(Gravity.RIGHT);
-        header.addView(metric);
-        row.addView(header);
-
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(6);
-        row.addView(text(detail, 12, MUTED, Typeface.NORMAL), detailParams);
-        return row;
-    }
-
-    private TextView emptyText(String message) {
-        TextView empty = text(message, 14, MUTED, Typeface.NORMAL);
-        empty.setGravity(Gravity.CENTER);
-        empty.setPadding(dp(14), dp(22), dp(14), dp(22));
-        empty.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        return empty;
-    }
-
-    private List<AssetRecord> investmentAssets() {
-        List<AssetRecord> investments = new ArrayList<>();
-        for (AssetRecord asset : assets) {
-            if (settings.isInvestmentCategory(asset.category)) {
-                investments.add(asset);
-            }
-        }
-        Collections.sort(investments, (left, right) -> Double.compare(
-                AssetMath.assetGrossAmount(right),
-                AssetMath.assetGrossAmount(left)
-        ));
-        return investments;
-    }
-
-    private void showAssetManagement(String filterMode) {
+    void showAssetManagement(String filterMode) {
         managementExpanded = true;
         assetFilterMode = filterMode;
         assetSearchQuery = "";
@@ -2065,7 +1456,7 @@ public final class MainActivity extends MoneyManagerActivity {
         settingsDialogs.showAllocationTargetDialog();
     }
 
-    private void showCategorySettingsDialog() {
+    void showCategorySettingsDialog() {
         settingsDialogs.showCategorySettingsDialog();
     }
 
@@ -2126,7 +1517,7 @@ public final class MainActivity extends MoneyManagerActivity {
         }
     }
 
-    private View assetInstitutionGroupHeader(AssetInstitutionGroups.Group group, String baseCurrency) {
+    View assetInstitutionGroupHeader(AssetInstitutionGroups.Group group, String baseCurrency) {
         LinearLayout row = row();
         row.setPadding(dp(12), dp(10), dp(12), dp(10));
         row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
@@ -2165,7 +1556,7 @@ public final class MainActivity extends MoneyManagerActivity {
         return row;
     }
 
-    private View institutionGroupIcon(AssetInstitutionGroups.Group group) {
+    View institutionGroupIcon(AssetInstitutionGroups.Group group) {
         Drawable icon = resolveAppIcon(group.primaryPackageName());
         if (icon != null) {
             ImageView image = new ImageView(this);
@@ -2180,564 +1571,6 @@ public final class MainActivity extends MoneyManagerActivity {
         fallback.setGravity(Gravity.CENTER);
         fallback.setBackground(roundedBackground(SURFACE_ALT, PANEL_BORDER, 8));
         return fallback;
-    }
-
-    private String trendSummaryText(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
-        if (trendSnapshots.size() < 2) {
-            return "当前基准 " + portfolio.baseCurrency + " 已记录 " + trendSnapshots.size()
-                    + " 个快照。每天或每次核对后记录一次，趋势会逐渐形成。";
-        }
-        if (settings.hideAmounts) {
-            return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency
-                    + " 快照。隐私模式已开启，金额变化暂不显示。";
-        }
-        AssetSnapshot first = trendSnapshots.get(0);
-        AssetSnapshot last = trendSnapshots.get(trendSnapshots.size() - 1);
-        double change = last.netWorth - first.netWorth;
-        double ratio = Math.abs(first.netWorth) < 0.0001 ? 0 : change / Math.abs(first.netWorth) * 100;
-        return "近一年记录 " + trendSnapshots.size() + " 个 " + portfolio.baseCurrency + " 快照，净资产变化 "
-                + formatSignedMoney(change, portfolio.baseCurrency)
-                + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
-    }
-
-    private void renderTrendMetrics(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
-        trendMetricsList.removeAllViews();
-        trendMetricsList.addView(text("趋势复盘", 13, MUTED, Typeface.BOLD));
-
-        List<TrendAnalytics.Metric> metrics = TrendAnalytics.metrics(portfolio, trendSnapshots, System.currentTimeMillis());
-        if (metrics.isEmpty()) {
-            TextView empty = text("至少记录两次快照后，会显示近 30 天、90 天和一年的变化。", 14, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
-            emptyParams.topMargin = dp(8);
-            trendMetricsList.addView(empty, emptyParams);
-            return;
-        }
-
-        for (TrendAnalytics.Metric metric : metrics) {
-            trendMetricsList.addView(trendMetricRow(metric));
-        }
-    }
-
-    private List<String> trendReviewLines(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
-        List<String> lines = new ArrayList<>();
-        for (TrendAnalytics.Metric metric : TrendAnalytics.metrics(portfolio, trendSnapshots, System.currentTimeMillis())) {
-            if (metric.complete) {
-                lines.add(metric.label + "：" + metricSummaryText(metric));
-            }
-        }
-        return lines;
-    }
-
-    private View trendMetricRow(TrendAnalytics.Metric metric) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout header = row();
-        header.addView(text(metric.label, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
-        header.addView(text(metric.count + " 个快照", 12, MUTED, Typeface.BOLD));
-        row.addView(header);
-
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(6);
-        row.addView(text(metricSummaryText(metric), 13, MUTED, Typeface.NORMAL), detailParams);
-        return row;
-    }
-
-    private String metricSummaryText(TrendAnalytics.Metric metric) {
-        if (!metric.complete) {
-            return "快照不足，继续记录后再计算阶段变化。";
-        }
-        if (settings.hideAmounts) {
-            return "金额变化已隐藏，区间为 " + metric.first.dayKey + " 到 " + metric.last.dayKey + "。";
-        }
-
-        double ratio = Math.abs(metric.first.netWorth) < 0.0001
-                ? 0
-                : metric.change / Math.abs(metric.first.netWorth) * 100;
-        return metric.first.dayKey + " 到 " + metric.last.dayKey
-                + "，变化 " + formatSignedMoney(metric.change, metric.currency)
-                + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）"
-                + "；高点 " + metric.high.dayKey + " "
-                + formatMoney(metric.high.netWorth, metric.currency)
-                + "，低点 " + metric.low.dayKey + " "
-                + formatMoney(metric.low.netWorth, metric.currency) + "。";
-    }
-
-    private void renderTrendHistory(List<AssetSnapshot> trendSnapshots) {
-        trendHistoryList.removeAllViews();
-        trendHistoryList.addView(text("最近快照", 13, MUTED, Typeface.BOLD));
-
-        if (trendSnapshots.isEmpty()) {
-            TextView empty = text("暂无快照。记录一次后会出现在这里。", 14, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
-            emptyParams.topMargin = dp(8);
-            trendHistoryList.addView(empty, emptyParams);
-            return;
-        }
-
-        int start = Math.max(0, trendSnapshots.size() - 6);
-        for (int index = trendSnapshots.size() - 1; index >= start; index -= 1) {
-            AssetSnapshot snapshot = trendSnapshots.get(index);
-            trendHistoryList.addView(snapshotRow(snapshot));
-        }
-    }
-
-    private void renderDistributionTrend(List<AssetSnapshot> trendSnapshots) {
-        distributionTrendList.removeAllViews();
-        List<AssetSnapshot> available = TrendAnalytics.snapshotsWithCategoryValues(trendSnapshots);
-        if (available.size() < 2) {
-            int count = available.size();
-            distributionTrendSummary.setText("已记录 " + count + " 个带分布的快照；从这版开始，每次更新或记录快照都会保存类型分布。");
-            TextView empty = text("再记录一次快照后，这里会显示各资产类型金额和占比的变化。", 14, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
-            emptyParams.topMargin = dp(8);
-            distributionTrendList.addView(empty, emptyParams);
-            return;
-        }
-
-        AssetSnapshot first = available.get(0);
-        AssetSnapshot last = available.get(available.size() - 1);
-        List<TrendAnalytics.CategoryShift> shifts = TrendAnalytics.categoryShifts(first, last);
-        if (shifts.isEmpty()) {
-            distributionTrendSummary.setText("已记录 " + available.size() + " 个带分布的快照，但暂时没有可对比的类型金额。");
-            distributionTrendList.addView(text("继续更新资产金额后再查看分布变化。", 14, MUTED, Typeface.NORMAL));
-            return;
-        }
-
-        distributionTrendSummary.setText(distributionTrendSummaryText(first, last, shifts, available.size()));
-        int limit = Math.min(6, shifts.size());
-        for (int index = 0; index < limit; index += 1) {
-            distributionTrendList.addView(categoryShiftRow(shifts.get(index), last.baseCurrency));
-        }
-    }
-
-    private String distributionTrendSummaryText(
-            AssetSnapshot first,
-            AssetSnapshot last,
-            List<TrendAnalytics.CategoryShift> shifts,
-            int count
-    ) {
-        TrendAnalytics.CategoryShift biggest = shifts.get(0);
-        if (settings.hideAmounts) {
-            return "已记录 " + count + " 个带分布快照，范围 "
-                    + first.dayKey + " 到 " + last.dayKey + "；金额已隐藏。";
-        }
-        return "从 " + first.dayKey + " 到 " + last.dayKey
-                + "，变化最大的是 " + biggest.category + "："
-                + formatSignedMoney(biggest.delta, last.baseCurrency)
-                + "，占比 " + formatPoint(biggest.percentDelta) + "。";
-    }
-
-    private View categoryShiftRow(TrendAnalytics.CategoryShift shift, String currency) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout header = row();
-        header.addView(text(shift.category, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
-        TextView change = text(formatPoint(shift.percentDelta), 12,
-                shift.percentDelta >= 0 ? ACCENT : DANGER,
-                Typeface.BOLD);
-        change.setGravity(Gravity.END);
-        header.addView(change);
-        row.addView(header);
-
-        String detail;
-        if (settings.hideAmounts) {
-            detail = "占比 " + formatPercentValue(shift.firstPercent)
-                    + " -> " + formatPercentValue(shift.lastPercent)
-                    + "，金额已隐藏。";
-        } else {
-            detail = formatMoney(shift.firstValue, currency)
-                    + " -> " + formatMoney(shift.lastValue, currency)
-                    + "，变化 " + formatSignedMoney(shift.delta, currency)
-                    + "；占比 " + formatPercentValue(shift.firstPercent)
-                    + " -> " + formatPercentValue(shift.lastPercent) + "。";
-        }
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(6);
-        row.addView(text(detail, 13, MUTED, Typeface.NORMAL), detailParams);
-        return row;
-    }
-
-    private void renderFlowAttribution() {
-        flowAttributionList.removeAllViews();
-        UpdateAnalytics.Summary summary = UpdateAnalytics.summarize(updateEvents, assets, settings, 90);
-        if (summary.count == 0) {
-            flowAttributionSummary.setText("近 90 天还没有更新记录。录入几次金额变化后，这里会按原因、类型和机构拆解。");
-            flowAttributionList.addView(emptyText("暂无可归因的变化。"));
-            return;
-        }
-
-        if (settings.hideAmounts) {
-            flowAttributionSummary.setText("近 " + summary.days + " 天记录 "
-                    + summary.count + " 次更新，金额已隐藏。");
-        } else {
-            flowAttributionSummary.setText("近 " + summary.days + " 天记录 "
-                    + summary.count + " 次更新，净变化 "
-                    + formatSignedMoney(summary.delta, settings.baseCurrency)
-                    + "；流入 " + formatMoney(summary.increase, settings.baseCurrency)
-                    + "，流出 " + formatMoney(Math.abs(summary.decrease), settings.baseCurrency) + "。");
-        }
-
-        addFlowSection(flowAttributionList, "按原因", summary.reasons);
-        addFlowSection(flowAttributionList, "按类型", summary.categories);
-        addFlowSection(flowAttributionList, "按机构", summary.institutions);
-    }
-
-    private void addFlowSection(LinearLayout target, String title, List<UpdateAnalytics.Bucket> buckets) {
-        TextView heading = text(title, 13, MUTED, Typeface.BOLD);
-        LinearLayout.LayoutParams headingParams = lp(-1, -2);
-        headingParams.topMargin = dp(target.getChildCount() == 0 ? 2 : 12);
-        target.addView(heading, headingParams);
-
-        int limit = Math.min(3, buckets.size());
-        for (int index = 0; index < limit; index += 1) {
-            target.addView(flowBucketRow(buckets.get(index)));
-        }
-        if (limit == 0) {
-            target.addView(emptyText("暂无数据。"));
-        }
-    }
-
-    private View flowBucketRow(UpdateAnalytics.Bucket bucket) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(9), dp(12), dp(9));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout header = row();
-        header.addView(text(bucket.label, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
-        int color = bucket.delta > 0 ? ACCENT : (bucket.delta < 0 ? DANGER : MUTED);
-        String value = settings.hideAmounts
-                ? bucket.count + " 次"
-                : formatSignedMoney(bucket.delta, settings.baseCurrency);
-        TextView delta = text(value, 13, color, Typeface.BOLD);
-        delta.setGravity(Gravity.END);
-        header.addView(delta);
-        row.addView(header);
-
-        TextView detail = text(bucket.count + " 次更新", 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(4);
-        row.addView(detail, detailParams);
-        return row;
-    }
-
-    private void renderAssetTrend() {
-        assetTrendOptions = new ArrayList<>(assets);
-        Collections.sort(assetTrendOptions, (left, right) -> left.name.compareToIgnoreCase(right.name));
-
-        assetTrendHistoryList.removeAllViews();
-        if (assetTrendOptions.isEmpty()) {
-            assetTrendSummary.setText("新增资产后，这里会显示每一项资产的金额变化。");
-            assetTrendChart.setPoints(new ArrayList<>(), "还没有资产");
-            suppressAssetTrendSelection = true;
-            assetTrendSpinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new ArrayList<String>()));
-            suppressAssetTrendSelection = false;
-            return;
-        }
-
-        int selectedIndex = 0;
-        if (!selectedTrendAssetId.isEmpty()) {
-            for (int index = 0; index < assetTrendOptions.size(); index += 1) {
-                if (selectedTrendAssetId.equals(assetTrendOptions.get(index).id)) {
-                    selectedIndex = index;
-                    break;
-                }
-            }
-        }
-        selectedTrendAssetId = assetTrendOptions.get(selectedIndex).id;
-
-        List<String> names = new ArrayList<>();
-        for (AssetRecord asset : assetTrendOptions) {
-            names.add(asset.name);
-        }
-        suppressAssetTrendSelection = true;
-        assetTrendSpinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names));
-        assetTrendSpinner.setSelection(selectedIndex);
-        suppressAssetTrendSelection = false;
-
-        AssetRecord selected = assetTrendOptions.get(selectedIndex);
-        List<AssetUpdateEvent> events = updateEventsForAsset(selected.id);
-        List<TrendChartView.Point> points = assetTrendPoints(selected, events);
-        assetTrendChart.setPoints(points, "更新几次金额后显示单项趋势");
-        assetTrendSummary.setText(assetTrendSummaryText(selected, points));
-
-        assetTrendHistoryList.addView(text("最近变化", 13, MUTED, Typeface.BOLD));
-        if (events.isEmpty()) {
-            TextView empty = text("这项资产还没有更新记录。点“已更新”录入几次金额后，就能看到单项趋势。", 14, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams emptyParams = lp(-1, -2);
-            emptyParams.topMargin = dp(8);
-            assetTrendHistoryList.addView(empty, emptyParams);
-            return;
-        }
-        int limit = Math.min(5, events.size());
-        for (int index = 0; index < limit; index += 1) {
-            assetTrendHistoryList.addView(updateEventRow(events.get(index)));
-        }
-    }
-
-    private List<AssetUpdateEvent> updateEventsForAsset(String assetId) {
-        List<AssetUpdateEvent> events = new ArrayList<>();
-        for (AssetUpdateEvent event : updateEvents) {
-            if (assetId.equals(event.assetId)) {
-                events.add(event);
-            }
-        }
-        Collections.sort(events, (left, right) -> Long.compare(right.timestamp, left.timestamp));
-        return events;
-    }
-
-    private List<TrendChartView.Point> assetTrendPoints(AssetRecord asset, List<AssetUpdateEvent> newestFirst) {
-        List<AssetUpdateEvent> ascending = new ArrayList<>(newestFirst);
-        Collections.sort(ascending, (left, right) -> Long.compare(left.timestamp, right.timestamp));
-
-        List<TrendChartView.Point> points = new ArrayList<>();
-        for (AssetUpdateEvent event : ascending) {
-            if (points.isEmpty()) {
-                points.add(new TrendChartView.Point(event.timestamp - 1, AssetMath.parseAmount(event.previousAmount)));
-            }
-            points.add(new TrendChartView.Point(event.timestamp, AssetMath.parseAmount(event.newAmount)));
-        }
-
-        if (points.isEmpty() && !asset.amount.isEmpty()) {
-            points.add(new TrendChartView.Point(
-                    asset.lastUpdatedAt <= 0 ? System.currentTimeMillis() : asset.lastUpdatedAt,
-                    AssetMath.parseAmount(asset.amount)
-            ));
-        }
-        return points;
-    }
-
-    private String assetTrendSummaryText(AssetRecord asset, List<TrendChartView.Point> points) {
-        if (points.size() < 2) {
-            return "当前 " + asset.name + " 只有 " + points.size() + " 个记录点，继续更新后会形成单项趋势。";
-        }
-        if (settings.hideAmounts) {
-            return asset.name + " 已记录 " + points.size() + " 个变化点，金额已隐藏。";
-        }
-        TrendChartView.Point first = points.get(0);
-        TrendChartView.Point last = points.get(points.size() - 1);
-        double change = last.value - first.value;
-        double ratio = Math.abs(first.value) < 0.0001 ? 0 : change / Math.abs(first.value) * 100;
-        return asset.name + " 共 " + points.size() + " 个变化点，变化 "
-                + formatSignedRawAmount(change) + " " + asset.currency
-                + "（" + String.format(Locale.getDefault(), "%+.1f", ratio) + "%）。";
-    }
-
-    private View snapshotRow(AssetSnapshot snapshot) {
-        LinearLayout row = row();
-        row.setPadding(dp(12), dp(10), dp(10), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout textGroup = new LinearLayout(this);
-        textGroup.setOrientation(LinearLayout.VERTICAL);
-        textGroup.addView(text(snapshot.dayKey + " · " + snapshot.baseCurrency, 14, INK, Typeface.BOLD));
-
-        String details = "净资产 " + formatMoney(snapshot.netWorth, snapshot.baseCurrency)
-                + " · 资产 " + formatMoney(snapshot.grossAssets, snapshot.baseCurrency)
-                + " · 负债 " + formatMoney(snapshot.liabilities, snapshot.baseCurrency);
-        LinearLayout.LayoutParams detailsParams = lp(-1, -2);
-        detailsParams.topMargin = dp(4);
-        textGroup.addView(text(details, 12, MUTED, Typeface.NORMAL), detailsParams);
-        row.addView(textGroup, new LinearLayout.LayoutParams(0, -2, 1));
-
-        Button delete = secondaryButton("删除");
-        delete.setTextColor(DANGER);
-        delete.setOnClickListener(view -> confirmDeleteSnapshot(snapshot));
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(72), dp(38));
-        deleteParams.leftMargin = dp(10);
-        row.addView(delete, deleteParams);
-        return row;
-    }
-
-    private void confirmDeleteSnapshot(AssetSnapshot snapshot) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("删除快照？")
-                .setMessage("确定删除 " + snapshot.dayKey + " 的 " + snapshot.baseCurrency + " 快照吗？趋势图会立刻更新。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("删除", (ignoredDialog, which) -> {
-                    snapshots = store.deleteSnapshot(snapshot.dayKey, snapshot.baseCurrency);
-                    render();
-                    toast("已删除趋势快照。");
-                })
-                .create();
-        showStyledDialog(dialog);
-    }
-
-    private void showSnapshotBackfillDialog() {
-        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("按当前基准币种 " + portfolio.baseCurrency + " 补录近一年历史快照；同一天会覆盖原快照。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        EditText day = input("日期（yyyy-MM-dd）", dayKey(System.currentTimeMillis()), InputType.TYPE_CLASS_TEXT);
-        form.addView(day);
-
-        EditText netWorth = input("净资产", formatInputNumber(portfolio.netWorth), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        form.addView(netWorth);
-
-        EditText grossAssets = input("资产总额", formatInputNumber(portfolio.grossAssets), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        form.addView(grossAssets);
-
-        EditText liabilities = input("负债", formatInputNumber(portfolio.liabilities), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        form.addView(liabilities);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("补录历史快照")
-                .setView(form)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("保存快照", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                Date parsedDay = parseDay(clean(day.getText().toString()));
-                if (parsedDay == null) {
-                    toast("日期格式应为 yyyy-MM-dd。");
-                    return;
-                }
-                long timestamp = parsedDay.getTime();
-                long now = System.currentTimeMillis();
-                if (timestamp > now) {
-                    toast("不能补录未来日期。");
-                    return;
-                }
-                if (timestamp < now - 370L * AssetMath.DAY_MS) {
-                    toast("只能补录近一年快照。");
-                    return;
-                }
-
-                Double net = parseNumber(clean(netWorth.getText().toString()));
-                Double gross = parseNumber(clean(grossAssets.getText().toString()));
-                Double debt = parseNumber(clean(liabilities.getText().toString()));
-                if (net == null || gross == null || debt == null) {
-                    toast("金额必须是数字。");
-                    return;
-                }
-                if (gross < 0 || debt < 0) {
-                    toast("资产总额和负债不能为负数。");
-                    return;
-                }
-
-                snapshots = store.upsertSnapshot(new AssetSnapshot(
-                        dayKey(timestamp),
-                        timestamp,
-                        portfolio.baseCurrency,
-                        net,
-                        gross,
-                        debt
-                ));
-                render();
-                toast("已补录历史快照。");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
-    }
-
-    private String buildInsightText(PortfolioSummary portfolio) {
-        List<String> lines = new ArrayList<>();
-        if (!portfolio.categories.isEmpty()) {
-            CategoryBreakdown largest = portfolio.categories.get(0);
-            double base = portfolio.grossAssets + portfolio.liabilities;
-            double ratio = base <= 0 ? 0 : largest.value / base * 100;
-            lines.add("最大类别：" + largest.category + "，占比 "
-                    + String.format(Locale.getDefault(), "%.1f", ratio) + "%。");
-        }
-        if (settings.hasAllocationTargets()) {
-            List<AllocationAnalytics.Drift> drifts = AllocationAnalytics.drifts(portfolio, settings);
-            if (!drifts.isEmpty()) {
-                AllocationAnalytics.Drift largestDrift = drifts.get(0);
-                double gap = largestDrift.targetPercent - largestDrift.currentPercent;
-                if (Math.abs(gap) >= 5) {
-                    lines.add("比例偏离最大：" + largestDrift.category + " "
-                            + (gap > 0 ? "低配 " : "超配 ")
-                            + formatPercentValue(Math.abs(gap)) + "。");
-                }
-            }
-        }
-        if (settings.hasNetWorthTarget()) {
-            double gap = settings.netWorthTarget - portfolio.netWorth;
-            int daysLeft = daysUntilTimestamp(settings.netWorthTargetDate);
-            if (settings.hideAmounts && daysLeft <= 30) {
-                lines.add("年度目标临近，金额暂不显示。");
-            } else if (gap <= 0) {
-                lines.add("年度净资产目标已达到。");
-            } else if (daysLeft <= 30) {
-                lines.add("年度目标还差 " + formatMoney(gap, portfolio.baseCurrency)
-                        + "，剩余 " + Math.max(0, daysLeft) + " 天。");
-            }
-        }
-        if (portfolio.grossAssets > 0 && portfolio.liabilities / portfolio.grossAssets > 0.4) {
-            lines.add("负债率偏高，建议单独关注还款节奏。");
-        }
-        if (portfolio.hasMixedCurrencies) {
-            lines.add("当前存在多币种资产，总额会按最新或本地汇率换算。");
-        }
-        if (lines.isEmpty()) {
-            lines.add("暂无突出的配置或目标风险，按下面的更新周期处理即可。");
-        }
-        return joinLines(lines);
-    }
-
-    private void renderDataHealth(PortfolioSummary portfolio) {
-        dataHealthList.removeAllViews();
-        List<String> issues = DataHealth.portfolioIssues(assets, settings, portfolio.baseCurrency);
-        if (issues.isEmpty()) {
-            dataHealthSummary.setText("数据状态良好：金额、机构、App 绑定和汇率都已覆盖。");
-            dataHealthList.addView(text("继续保持定期核对即可。", 14, MUTED, Typeface.NORMAL));
-            return;
-        }
-
-        List<AssetInstitutionGroups.Group> groups = DataHealth.issueGroups(assets, settings);
-        dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，分布在 "
-                + groups.size() + " 个机构；具体处理已放到资产页行动中心。");
-        int limit = Math.min(5, issues.size());
-        for (int index = 0; index < limit; index += 1) {
-            dataHealthList.addView(healthIssueRow(issues.get(index)));
-        }
-        if (issues.size() > limit) {
-            TextView more = text("还有 " + (issues.size() - limit) + " 类问题可在行动中心继续处理。", 12, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams moreParams = lp(-1, -2);
-            moreParams.topMargin = dp(8);
-            dataHealthList.addView(more, moreParams);
-        }
-    }
-
-    private View healthIssueRow(String issue) {
-        TextView row = text("• " + issue, 14, MUTED, Typeface.NORMAL);
-        row.setPadding(dp(12), dp(8), dp(12), dp(8));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = dp(8);
-        row.setLayoutParams(params);
-        return row;
     }
 
     private void renderActionCenter(PortfolioSummary portfolio) {
@@ -2922,7 +1755,7 @@ public final class MainActivity extends MoneyManagerActivity {
         return sortedPlannedAssets(assets);
     }
 
-    private List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
+    List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
         List<AssetRecord> planned = new ArrayList<>(source);
         Collections.sort(planned, (left, right) -> {
             int daysCompare = Integer.compare(daysUntilDue(left), daysUntilDue(right));
@@ -2946,7 +1779,7 @@ public final class MainActivity extends MoneyManagerActivity {
                 + soonCount + " 项将在 3 天内到期。";
     }
 
-    private View updatePlanRow(AssetRecord asset) {
+    View updatePlanRow(AssetRecord asset) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(12), dp(10), dp(12), dp(12));
@@ -3020,179 +1853,6 @@ public final class MainActivity extends MoneyManagerActivity {
         bg.setCornerRadius(dp(999));
         chip.setBackground(bg);
         return chip;
-    }
-
-    private void renderRecentUpdates() {
-        recentUpdateList.removeAllViews();
-        if (updateEvents.isEmpty()) {
-            recentUpdateSummary.setText("还没有更新记录。录入一次最新金额后，这里会显示变化。");
-            return;
-        }
-
-        recentUpdateSummary.setText(recentUpdateSummaryText());
-        List<String> reasonLines = updateReasonSummaryLines(true);
-        for (String line : reasonLines) {
-            recentUpdateList.addView(reasonSummaryRow(line));
-        }
-        int limit = Math.min(5, updateEvents.size());
-        for (int index = 0; index < limit; index += 1) {
-            recentUpdateList.addView(updateEventRow(updateEvents.get(index)));
-        }
-        if (updateEvents.size() > limit) {
-            TextView more = text("还有 " + (updateEvents.size() - limit) + " 条更新记录会随备份保留。", 12, MUTED, Typeface.NORMAL);
-            LinearLayout.LayoutParams moreParams = lp(-1, -2);
-            moreParams.topMargin = dp(8);
-            recentUpdateList.addView(more, moreParams);
-        }
-    }
-
-    private String recentUpdateSummaryText() {
-        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
-        int count = 0;
-        double deltaInBase = 0;
-        for (AssetUpdateEvent event : updateEvents) {
-            if (event.timestamp < cutoff) {
-                continue;
-            }
-            count += 1;
-            String currency = AssetMath.cleanCurrency(event.currency);
-            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-            double previous = AssetMath.parseAmount(event.previousAmount);
-            double current = AssetMath.parseAmount(event.newAmount);
-            deltaInBase += (current - previous) * rate;
-        }
-
-        if (count == 0) {
-            return "保留最近一年更新记录；近 30 天还没有新的金额变化。";
-        }
-        if (settings.hideAmounts) {
-            return "近 30 天记录 " + count + " 次更新，金额变化已隐藏。";
-        }
-        return "近 30 天记录 " + count + " 次更新，折算净变化 "
-                + formatSignedMoney(deltaInBase, settings.baseCurrency) + "。";
-    }
-
-    private List<String> updateReasonSummaryLines(boolean includeEmpty) {
-        long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
-        Map<String, Integer> counts = new HashMap<>();
-        Map<String, Double> deltas = new HashMap<>();
-        for (AssetUpdateEvent event : updateEvents) {
-            if (event.timestamp < cutoff) {
-                continue;
-            }
-            String reason = cleanReason(event.reason);
-            counts.put(reason, intValue(counts, reason) + 1);
-
-            String currency = AssetMath.cleanCurrency(event.currency);
-            double rate = settings.hasRateFor(currency) ? settings.rateFor(currency) : 1.0;
-            double previous = AssetMath.parseAmount(event.previousAmount);
-            double current = AssetMath.parseAmount(event.newAmount);
-            deltas.put(reason, doubleValue(deltas, reason) + (current - previous) * rate);
-        }
-
-        List<String> reasons = new ArrayList<>(counts.keySet());
-        Collections.sort(reasons, (left, right) -> {
-            int countCompare = Integer.compare(intValue(counts, right), intValue(counts, left));
-            if (countCompare != 0) {
-                return countCompare;
-            }
-            return left.compareToIgnoreCase(right);
-        });
-
-        List<String> lines = new ArrayList<>();
-        int limit = Math.min(3, reasons.size());
-        for (int index = 0; index < limit; index += 1) {
-            String reason = reasons.get(index);
-            String line = reason + " " + intValue(counts, reason) + " 次";
-            if (!settings.hideAmounts) {
-                line += "，折算变化 " + formatSignedMoney(doubleValue(deltas, reason), settings.baseCurrency);
-            }
-            lines.add(line);
-        }
-
-        if (lines.isEmpty() && includeEmpty) {
-            lines.add("近 30 天还没有可汇总的变化原因。");
-        }
-        return lines;
-    }
-
-    private View reasonSummaryRow(String line) {
-        TextView row = text("原因汇总 · " + line, 13, MUTED, Typeface.NORMAL);
-        row.setPadding(dp(12), dp(8), dp(12), dp(8));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams params = lp(-1, -2);
-        params.topMargin = dp(8);
-        row.setLayoutParams(params);
-        return row;
-    }
-
-    private View updateEventRow(AssetUpdateEvent event) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.topMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        LinearLayout header = row();
-        TextView name = text(event.assetName.isEmpty() ? "未知资产" : event.assetName, 14, INK, Typeface.BOLD);
-        header.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView time = text(dateFormat.format(new Date(event.timestamp)), 12, MUTED, Typeface.NORMAL);
-        time.setGravity(Gravity.END);
-        header.addView(time);
-        row.addView(header);
-
-        LinearLayout.LayoutParams changeParams = lp(-1, -2);
-        changeParams.topMargin = dp(6);
-        row.addView(text(updateEventChangeText(event), 13, MUTED, Typeface.NORMAL), changeParams);
-
-        LinearLayout.LayoutParams reasonParams = lp(-1, -2);
-        reasonParams.topMargin = dp(4);
-        row.addView(text("原因：" + cleanReason(event.reason), 12, MUTED, Typeface.NORMAL), reasonParams);
-
-        if (!event.note.isEmpty()) {
-            LinearLayout.LayoutParams noteParams = lp(-1, -2);
-            noteParams.topMargin = dp(4);
-            row.addView(text(event.note, 12, MUTED, Typeface.NORMAL), noteParams);
-        }
-
-        Button delete = secondaryButton("删除记录");
-        delete.setTextColor(DANGER);
-        delete.setOnClickListener(view -> confirmDeleteUpdateEvent(event));
-        LinearLayout.LayoutParams deleteParams = lp(-1, dp(38));
-        deleteParams.topMargin = dp(8);
-        row.addView(delete, deleteParams);
-        return row;
-    }
-
-    private void confirmDeleteUpdateEvent(AssetUpdateEvent event) {
-        String assetName = event.assetName.isEmpty() ? "这条资产" : event.assetName;
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("删除更新记录？")
-                .setMessage("确定删除「" + assetName + "」这条更新记录吗？这只删除历史记录，不会回滚资产金额或趋势快照。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("删除", (ignoredDialog, which) -> {
-                    updateEvents = store.deleteUpdateEvent(event.assetId, event.timestamp);
-                    render();
-                    toast("已删除更新记录。");
-                })
-                .create();
-        showStyledDialog(dialog);
-    }
-
-    private String updateEventChangeText(AssetUpdateEvent event) {
-        if (settings.hideAmounts) {
-            return "金额变化已隐藏 · " + event.currency;
-        }
-        String before = event.previousAmount.isEmpty() ? "--" : formatRawAmount(event.previousAmount);
-        String after = event.newAmount.isEmpty() ? "--" : formatRawAmount(event.newAmount);
-        double previous = AssetMath.parseAmount(event.previousAmount);
-        double current = AssetMath.parseAmount(event.newAmount);
-        double delta = current - previous;
-        return before + " -> " + after + " " + event.currency
-                + "（变化 " + formatSignedRawAmount(delta) + " " + event.currency + "）";
     }
 
     private View assetCard(AssetRecord asset) {
@@ -3306,7 +1966,7 @@ public final class MainActivity extends MoneyManagerActivity {
         return card;
     }
 
-    private View assetCompactRow(AssetRecord asset) {
+    View assetCompactRow(AssetRecord asset) {
         LinearLayout item = new LinearLayout(this);
         item.setOrientation(LinearLayout.VERTICAL);
         item.setPadding(dp(12), dp(12), dp(12), dp(10));
@@ -3395,11 +2055,11 @@ public final class MainActivity extends MoneyManagerActivity {
         return item;
     }
 
-    private void showEditDialog(AssetRecord original) {
+    void showEditDialog(AssetRecord original) {
         assetDialogs.showEditDialog(original);
     }
 
-    private void showCreatePreset(AssetPresets.Preset preset) {
+    void showCreatePreset(AssetPresets.Preset preset) {
         assetDialogs.showCreatePreset(preset);
     }
 

@@ -212,6 +212,14 @@ public abstract class MoneyManagerActivity extends Activity {
         return box;
     }
 
+    protected TextView emptyText(String message) {
+        TextView empty = text(message, 14, MUTED, Typeface.NORMAL);
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dp(14), dp(22), dp(14), dp(22));
+        empty.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        return empty;
+    }
+
     protected LinearLayout row() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
