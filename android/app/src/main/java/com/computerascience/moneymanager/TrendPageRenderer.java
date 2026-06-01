@@ -756,7 +756,7 @@ final class TrendPageRenderer {
         }
     }
 
-    private String recentUpdateSummaryText() {
+    String recentUpdateSummaryText() {
         long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
         int count = 0;
         double deltaInBase = 0;
@@ -782,7 +782,7 @@ final class TrendPageRenderer {
                 + activity.formatSignedMoney(deltaInBase, activity.settings.baseCurrency) + "。";
     }
 
-    private List<String> updateReasonSummaryLines(boolean includeEmpty) {
+    List<String> updateReasonSummaryLines(boolean includeEmpty) {
         long cutoff = System.currentTimeMillis() - 30L * AssetMath.DAY_MS;
         Map<String, Integer> counts = new HashMap<>();
         Map<String, Double> deltas = new HashMap<>();

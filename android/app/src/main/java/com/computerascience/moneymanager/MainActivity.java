@@ -826,8 +826,8 @@ public final class MainActivity extends MoneyManagerActivity {
         lines.add("更新计划：" + updatePlanSummaryText(urgentCount, soonCount));
         lines.add("最近更新：" + (updateEvents.isEmpty()
                 ? "还没有更新记录。"
-                : recentUpdateSummaryText()));
-        List<String> reasonLines = updateReasonSummaryLines(false);
+                : trendRenderer.recentUpdateSummaryText()));
+        List<String> reasonLines = trendRenderer.updateReasonSummaryLines(false);
         if (!reasonLines.isEmpty()) {
             lines.add("变化原因：");
             for (String line : reasonLines) {
