@@ -41,8 +41,8 @@ public final class MainActivity extends MoneyManagerActivity {
     private final InvestmentPageRenderer investmentRenderer = new InvestmentPageRenderer(this);
     private final TrendPageRenderer trendRenderer = new TrendPageRenderer(this);
     private final OverviewPageRenderer overviewRenderer = new OverviewPageRenderer(this, trendRenderer);
-    private final AssetsPageRenderer assetsRenderer = new AssetsPageRenderer(this);
     private final DataHealthRenderer dataHealthRenderer = new DataHealthRenderer(this);
+    private final AssetsPageRenderer assetsRenderer = new AssetsPageRenderer(this, dataHealthRenderer);
     private final TrendUpdatesRenderer updatesRenderer = new TrendUpdatesRenderer(this);
 
     @Override
@@ -104,7 +104,6 @@ public final class MainActivity extends MoneyManagerActivity {
                 investmentRenderer,
                 trendRenderer,
                 assetsRenderer,
-                dataHealthRenderer,
                 updatesRenderer
         ).build();
     }

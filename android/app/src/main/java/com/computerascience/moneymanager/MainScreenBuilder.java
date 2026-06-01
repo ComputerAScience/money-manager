@@ -23,7 +23,6 @@ final class MainScreenBuilder {
     private final InvestmentPageRenderer investmentRenderer;
     private final TrendPageRenderer trendRenderer;
     private final AssetsPageRenderer assetsRenderer;
-    private final DataHealthRenderer dataHealthRenderer;
     private final TrendUpdatesRenderer updatesRenderer;
 
     MainScreenBuilder(
@@ -33,7 +32,6 @@ final class MainScreenBuilder {
             InvestmentPageRenderer investmentRenderer,
             TrendPageRenderer trendRenderer,
             AssetsPageRenderer assetsRenderer,
-            DataHealthRenderer dataHealthRenderer,
             TrendUpdatesRenderer updatesRenderer
     ) {
         this.activity = activity;
@@ -42,7 +40,6 @@ final class MainScreenBuilder {
         this.investmentRenderer = investmentRenderer;
         this.trendRenderer = trendRenderer;
         this.assetsRenderer = assetsRenderer;
-        this.dataHealthRenderer = dataHealthRenderer;
         this.updatesRenderer = updatesRenderer;
     }
 
@@ -208,15 +205,13 @@ final class MainScreenBuilder {
         activity.assetsPage = page();
         View actionCenter = assetsRenderer.actionCenterCard();
         View assetManagement = assetsRenderer.assetManagementSection();
-        View dataHealth = dataHealthRenderer.card();
         View recentUpdates = updatesRenderer.card();
         activity.assetSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("行动中心", actionCenter),
                 new SectionDrawer.Item("资产管理", assetManagement),
-                new SectionDrawer.Item("数据健康", dataHealth),
                 new SectionDrawer.Item("更新流水", recentUpdates)
         };
-        addAll(activity.assetsPage, actionCenter, assetManagement, dataHealth, recentUpdates);
+        addAll(activity.assetsPage, actionCenter, assetManagement, recentUpdates);
         return activity.assetsPage;
     }
 

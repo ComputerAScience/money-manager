@@ -1,8 +1,6 @@
 package com.computerascience.moneymanager;
 
 import android.graphics.Typeface;
-import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -23,14 +21,16 @@ final class DataHealthRenderer {
         this.activity = activity;
     }
 
-    View card() {
-        LinearLayout card = activity.card();
-        card.addView(activity.sectionTitle("数据健康"));
+    void appendToActionCenter(LinearLayout card) {
+        TextView title = activity.text("数据健康", 13, MoneyManagerActivity.INK, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = activity.lp(-1, -2);
+        titleParams.topMargin = activity.dp(14);
+        titleParams.bottomMargin = activity.dp(4);
+        card.addView(title, titleParams);
 
         activity.insightSummary = activity.text("", 15, MoneyManagerActivity.MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams insightParams = activity.lp(-1, -2);
-        insightParams.topMargin = activity.dp(10);
-        insightParams.bottomMargin = activity.dp(12);
+        insightParams.bottomMargin = activity.dp(8);
         card.addView(activity.insightSummary, insightParams);
 
         activity.dataHealthSummary = activity.text("", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
@@ -42,13 +42,6 @@ final class DataHealthRenderer {
         activity.dataHealthList = new LinearLayout(activity);
         activity.dataHealthList.setOrientation(LinearLayout.VERTICAL);
         card.addView(activity.dataHealthList, activity.lp(-1, -2));
-
-        Button reviewButton = activity.secondaryButton("查看待处理资产");
-        reviewButton.setOnClickListener(view -> activity.showAssetManagement("issues"));
-        LinearLayout.LayoutParams reviewParams = activity.lp(-1, activity.dp(42));
-        reviewParams.topMargin = activity.dp(10);
-        card.addView(reviewButton, reviewParams);
-        return card;
     }
 
     void render(PortfolioSummary portfolio) {

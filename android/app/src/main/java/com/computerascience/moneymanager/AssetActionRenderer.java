@@ -21,9 +21,11 @@ import java.util.List;
 
 final class AssetActionRenderer {
     private final MainActivity activity;
+    private final DataHealthRenderer dataHealthRenderer;
 
-    AssetActionRenderer(MainActivity activity) {
+    AssetActionRenderer(MainActivity activity, DataHealthRenderer dataHealthRenderer) {
         this.activity = activity;
+        this.dataHealthRenderer = dataHealthRenderer;
     }
 
     View actionCenterCard() {
@@ -39,6 +41,8 @@ final class AssetActionRenderer {
         activity.actionCenterList = new LinearLayout(activity);
         activity.actionCenterList.setOrientation(LinearLayout.VERTICAL);
         card.addView(activity.actionCenterList, activity.lp(-1, -2));
+
+        dataHealthRenderer.appendToActionCenter(card);
 
         TextView queueTitle = activity.text("核对队列", 13, MoneyManagerActivity.INK, Typeface.BOLD);
         LinearLayout.LayoutParams titleParams = activity.lp(-1, -2);

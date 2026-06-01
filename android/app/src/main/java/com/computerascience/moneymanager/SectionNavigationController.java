@@ -199,7 +199,7 @@ final class SectionNavigationController {
             return "记录趋势快照，复盘净资产、分布变化、资金流和对象趋势。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
-            return "新增、筛选、绑定、核对资产，并维护数据健康和更新流水。";
+            return "新增、筛选、绑定、核对资产，并查看行动中心和更新流水。";
         }
         return "净资产、资产分布、机构分布和年度目标。";
     }

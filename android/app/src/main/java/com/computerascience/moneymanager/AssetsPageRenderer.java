@@ -26,9 +26,9 @@ final class AssetsPageRenderer {
     private final MainActivity activity;
     private final AssetActionRenderer actionRenderer;
 
-    AssetsPageRenderer(MainActivity activity) {
+    AssetsPageRenderer(MainActivity activity, DataHealthRenderer dataHealthRenderer) {
         this.activity = activity;
-        this.actionRenderer = new AssetActionRenderer(activity);
+        this.actionRenderer = new AssetActionRenderer(activity, dataHealthRenderer);
     }
 
     View actionCenterCard() {
