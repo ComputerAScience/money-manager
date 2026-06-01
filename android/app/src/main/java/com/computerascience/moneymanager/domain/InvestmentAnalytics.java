@@ -25,6 +25,12 @@ public final class InvestmentAnalytics {
             summary.holding += amountInBase(asset, settings, holdingAmount(asset));
             summary.cash += amountInBase(asset, settings, cashAmount(asset));
             categoryTotals.put(asset.category, doubleValue(categoryTotals, asset.category) + gross);
+            if (asset.packageName.isEmpty() && asset.launchUri.isEmpty()) {
+                summary.unboundAppCount += 1;
+            }
+            if (asset.institution.isEmpty()) {
+                summary.missingInstitutionCount += 1;
+            }
 
             int days = AssetMath.daysUntilDue(asset, now);
             if (days <= 0) {
@@ -87,5 +93,15 @@ public final class InvestmentAnalytics {
         public double cash;
         public int dueNow;
         public int dueSoon;
+        public int unboundAppCount;
+        public int missingInstitutionCount;
+
+        public double cashRatio() {
+            return total <= 0 ? 0 : cash / total * 100;
+        }
+
+        public double holdingRatio() {
+            return total <= 0 ? 0 : holding / total * 100;
+        }
     }
 }

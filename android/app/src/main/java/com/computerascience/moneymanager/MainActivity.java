@@ -41,6 +41,7 @@ import com.computerascience.moneymanager.domain.AssetPresets;
 import com.computerascience.moneymanager.domain.DataHealth;
 import com.computerascience.moneymanager.domain.InvestmentAnalytics;
 import com.computerascience.moneymanager.domain.TrendAnalytics;
+import com.computerascience.moneymanager.domain.UpdateAnalytics;
 import com.computerascience.moneymanager.model.AssetBackup;
 import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
@@ -219,18 +220,21 @@ public final class MainActivity extends MoneyManagerActivity {
 
         investmentPage = page();
         View investmentSummary = investmentSummaryCard();
+        View investmentDiagnostics = investmentDiagnosticsCard();
         View investmentStructure = investmentStructureCard();
         View investmentInstitutions = investmentInstitutionsCard();
         View investmentPlan = investmentPlanCard();
         View investmentAccounts = investmentAccountsCard();
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
+                new SectionDrawer.Item("投资诊断", investmentDiagnostics),
                 new SectionDrawer.Item("投资结构", investmentStructure),
                 new SectionDrawer.Item("投资机构", investmentInstitutions),
                 new SectionDrawer.Item("投资待核对", investmentPlan),
                 new SectionDrawer.Item("投资资产", investmentAccounts)
         };
         investmentPage.addView(investmentSummary);
+        investmentPage.addView(investmentDiagnostics);
         investmentPage.addView(investmentStructure);
         investmentPage.addView(investmentInstitutions);
         investmentPage.addView(investmentPlan);
@@ -240,18 +244,21 @@ public final class MainActivity extends MoneyManagerActivity {
         trendPage = page();
         View totalTrend = trendCard();
         View distributionTrend = distributionTrendCard();
+        View flowAttribution = flowAttributionCard();
         View assetTrend = assetTrendCard();
         View dataHealth = dataHealthCard();
         View recentUpdates = recentUpdatesCard();
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
                 new SectionDrawer.Item("分布变化", distributionTrend),
+                new SectionDrawer.Item("变化归因", flowAttribution),
                 new SectionDrawer.Item("单项资产", assetTrend),
                 new SectionDrawer.Item("数据健康", dataHealth),
                 new SectionDrawer.Item("更新流水", recentUpdates)
         };
         trendPage.addView(totalTrend);
         trendPage.addView(distributionTrend);
+        trendPage.addView(flowAttribution);
         trendPage.addView(assetTrend);
         trendPage.addView(dataHealth);
         trendPage.addView(recentUpdates);
@@ -627,6 +634,7 @@ public final class MainActivity extends MoneyManagerActivity {
         renderTrendMetrics(portfolio, trendSnapshots);
         renderTrendHistory(trendSnapshots);
         renderDistributionTrend(trendSnapshots);
+        renderFlowAttribution();
         renderAssetTrend();
 
         insightSummary.setText(buildInsightText(portfolio));
@@ -992,6 +1000,22 @@ public final class MainActivity extends MoneyManagerActivity {
         return card;
     }
 
+    private View flowAttributionCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("变化归因"));
+
+        flowAttributionSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(flowAttributionSummary, summaryParams);
+
+        flowAttributionList = new LinearLayout(this);
+        flowAttributionList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(flowAttributionList, lp(-1, -2));
+        return card;
+    }
+
     private View assetTrendCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("单项资产趋势"));
@@ -1351,6 +1375,22 @@ public final class MainActivity extends MoneyManagerActivity {
         return card;
     }
 
+    private View investmentDiagnosticsCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("投资诊断"));
+
+        investmentDiagnosticSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(investmentDiagnosticSummary, summaryParams);
+
+        investmentDiagnosticList = new LinearLayout(this);
+        investmentDiagnosticList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(investmentDiagnosticList, lp(-1, -2));
+        return card;
+    }
+
     private View investmentInstitutionsCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("投资机构"));
@@ -1397,7 +1437,7 @@ public final class MainActivity extends MoneyManagerActivity {
     private void renderInvestmentPage() {
         if (investmentSummaryText == null || investmentAccountList == null
                 || investmentStructureList == null || investmentInstitutionList == null
-                || investmentPlanList == null) {
+                || investmentPlanList == null || investmentDiagnosticList == null) {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
@@ -1408,6 +1448,7 @@ public final class MainActivity extends MoneyManagerActivity {
                 + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
 
         renderInvestmentStructure(investments, stats);
+        renderInvestmentDiagnostics(investments, groups, stats);
         renderInvestmentInstitutions(groups, stats.total);
         renderInvestmentPlan(investments, stats);
 
@@ -1424,6 +1465,74 @@ public final class MainActivity extends MoneyManagerActivity {
                 }
             }
         }
+    }
+
+    private void renderInvestmentDiagnostics(
+            List<AssetRecord> investments,
+            List<AssetInstitutionGroups.Group> groups,
+            InvestmentAnalytics.Summary stats
+    ) {
+        investmentDiagnosticList.removeAllViews();
+        if (investments.isEmpty()) {
+            investmentDiagnosticSummary.setText("投资资产还不够，暂时无法给出诊断。");
+            investmentDiagnosticList.addView(emptyText("先新增或标记几个投资类型资产。"));
+            return;
+        }
+
+        int alerts = 0;
+        if (stats.cashRatio() >= 30) alerts += 1;
+        if (!groups.isEmpty() && stats.total > 0 && groups.get(0).total / stats.total >= 0.5) alerts += 1;
+        if (stats.dueNow > 0) alerts += 1;
+        if (stats.unboundAppCount > 0 || stats.missingInstitutionCount > 0) alerts += 1;
+        investmentDiagnosticSummary.setText(alerts == 0
+                ? "暂无突出的投资维护风险，重点继续保持核对节奏。"
+                : "发现 " + alerts + " 个需要关注的投资维护点。");
+
+        AssetInstitutionGroups.Group top = groups.isEmpty() ? null : groups.get(0);
+        double topRatio = top == null || stats.total <= 0 ? 0 : top.total / stats.total * 100;
+        investmentDiagnosticList.addView(investmentInfoRow(
+                "机构集中度",
+                top == null ? "--" : formatPercentValue(topRatio),
+                top == null
+                        ? "还没有投资机构。"
+                        : top.title + " 占投资资产最多；" + concentrationAdvice(topRatio),
+                topRatio >= 50 ? AMBER : ACCENT
+        ));
+
+        investmentDiagnosticList.addView(investmentInfoRow(
+                "闲置现金",
+                formatPercentValue(stats.cashRatio()),
+                stats.cashRatio() >= 30
+                        ? "现金比例偏高，适合确认是否刻意保留弹药。"
+                        : "现金比例在可读范围内，可继续按账户更新。",
+                stats.cashRatio() >= 30 ? AMBER : BLUE
+        ));
+
+        investmentDiagnosticList.addView(investmentInfoRow(
+                "核对压力",
+                stats.dueNow + " 项到期",
+                stats.dueSoon + " 项将在 3 天内到期。",
+                stats.dueNow > 0 ? DANGER : ACCENT
+        ));
+
+        int dataIssues = stats.unboundAppCount + stats.missingInstitutionCount;
+        investmentDiagnosticList.addView(investmentInfoRow(
+                "数据完整度",
+                dataIssues == 0 ? "完整" : dataIssues + " 项待补",
+                stats.unboundAppCount + " 项未绑定 App，"
+                        + stats.missingInstitutionCount + " 项未填写机构。",
+                dataIssues == 0 ? ACCENT : AMBER
+        ));
+    }
+
+    private String concentrationAdvice(double ratio) {
+        if (ratio >= 50) {
+            return "集中度较高，建议核对是否符合你的风险偏好。";
+        }
+        if (ratio >= 35) {
+            return "集中度中等，适合持续观察。";
+        }
+        return "集中度相对分散。";
     }
 
     private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
@@ -2181,6 +2290,73 @@ public final class MainActivity extends MoneyManagerActivity {
         LinearLayout.LayoutParams detailParams = lp(-1, -2);
         detailParams.topMargin = dp(6);
         row.addView(text(detail, 13, MUTED, Typeface.NORMAL), detailParams);
+        return row;
+    }
+
+    private void renderFlowAttribution() {
+        flowAttributionList.removeAllViews();
+        UpdateAnalytics.Summary summary = UpdateAnalytics.summarize(updateEvents, assets, settings, 90);
+        if (summary.count == 0) {
+            flowAttributionSummary.setText("近 90 天还没有更新记录。录入几次金额变化后，这里会按原因、类型和机构拆解。");
+            flowAttributionList.addView(emptyText("暂无可归因的变化。"));
+            return;
+        }
+
+        if (settings.hideAmounts) {
+            flowAttributionSummary.setText("近 " + summary.days + " 天记录 "
+                    + summary.count + " 次更新，金额已隐藏。");
+        } else {
+            flowAttributionSummary.setText("近 " + summary.days + " 天记录 "
+                    + summary.count + " 次更新，净变化 "
+                    + formatSignedMoney(summary.delta, settings.baseCurrency)
+                    + "；流入 " + formatMoney(summary.increase, settings.baseCurrency)
+                    + "，流出 " + formatMoney(Math.abs(summary.decrease), settings.baseCurrency) + "。");
+        }
+
+        addFlowSection("按原因", summary.reasons);
+        addFlowSection("按类型", summary.categories);
+        addFlowSection("按机构", summary.institutions);
+    }
+
+    private void addFlowSection(String title, List<UpdateAnalytics.Bucket> buckets) {
+        TextView heading = text(title, 13, MUTED, Typeface.BOLD);
+        LinearLayout.LayoutParams headingParams = lp(-1, -2);
+        headingParams.topMargin = dp(flowAttributionList.getChildCount() == 0 ? 2 : 12);
+        flowAttributionList.addView(heading, headingParams);
+
+        int limit = Math.min(3, buckets.size());
+        for (int index = 0; index < limit; index += 1) {
+            flowAttributionList.addView(flowBucketRow(buckets.get(index)));
+        }
+        if (limit == 0) {
+            flowAttributionList.addView(emptyText("暂无数据。"));
+        }
+    }
+
+    private View flowBucketRow(UpdateAnalytics.Bucket bucket) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(9), dp(12), dp(9));
+        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout header = row();
+        header.addView(text(bucket.label, 14, INK, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
+        int color = bucket.delta > 0 ? ACCENT : (bucket.delta < 0 ? DANGER : MUTED);
+        String value = settings.hideAmounts
+                ? bucket.count + " 次"
+                : formatSignedMoney(bucket.delta, settings.baseCurrency);
+        TextView delta = text(value, 13, color, Typeface.BOLD);
+        delta.setGravity(Gravity.END);
+        header.addView(delta);
+        row.addView(header);
+
+        TextView detail = text(bucket.count + " 次更新", 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(4);
+        row.addView(detail, detailParams);
         return row;
     }
 
