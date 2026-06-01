@@ -197,7 +197,7 @@ final class MainScreenBuilder {
                 new SectionDrawer.Item("目标追踪", targetProgress),
                 new SectionDrawer.Item("分布变化", distributionTrend),
                 new SectionDrawer.Item("变化归因", flowAttribution),
-                new SectionDrawer.Item("单项资产", assetTrend)
+                new SectionDrawer.Item("对象趋势", assetTrend)
         };
         addAll(activity.trendPage, totalTrend, monthlyReview, trendHealth, targetProgress,
                 distributionTrend, flowAttribution, assetTrend);

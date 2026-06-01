@@ -196,7 +196,7 @@ final class SectionNavigationController {
             return "投资结构、机构集中度、待核对资产和投资明细。";
         }
         if (PAGE_TREND.equals(currentPage)) {
-            return "记录趋势快照，复盘净资产、分布变化、资金流和单项资产。";
+            return "记录趋势快照，复盘净资产、分布变化、资金流和对象趋势。";
         }
         if (PAGE_ASSETS.equals(currentPage)) {
             return "新增、筛选、绑定、核对资产，并维护数据健康和更新流水。";

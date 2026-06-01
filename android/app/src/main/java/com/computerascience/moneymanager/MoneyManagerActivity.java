@@ -137,7 +137,6 @@ public abstract class MoneyManagerActivity extends MoneyManagerUiActivity {
     protected TrendChartView assetTrendChart;
     protected TextView assetTrendSummary;
     protected LinearLayout assetTrendHistoryList;
-    protected List<AssetRecord> assetTrendOptions = new ArrayList<>();
     protected final Set<String> collapsedAssetGroups = new HashSet<>();
     protected int sectionDragIndex = -1;
 
