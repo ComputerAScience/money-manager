@@ -13,6 +13,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -270,6 +271,19 @@ public abstract class MoneyManagerActivity extends Activity {
         button.setStateListAnimator(null);
         button.setBackground(buttonBackground(PANEL, ROW_SURFACE, PANEL_BORDER));
         return button;
+    }
+
+    protected CheckBox styledCheckBox(String label, boolean checked) {
+        CheckBox checkbox = new CheckBox(this);
+        checkbox.setText(label);
+        checkbox.setTextSize(13);
+        checkbox.setTextColor(INK);
+        checkbox.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        checkbox.setButtonTintList(android.content.res.ColorStateList.valueOf(ACCENT));
+        checkbox.setChecked(checked);
+        checkbox.setGravity(Gravity.CENTER_VERTICAL);
+        checkbox.setPadding(0, 0, 0, 0);
+        return checkbox;
     }
 
     protected GradientDrawable cardBackground(int fill, int border) {
@@ -738,6 +752,41 @@ public abstract class MoneyManagerActivity extends Activity {
             }
         }
         return false;
+    }
+
+    protected TextView categoryMark(AssetRecord asset) {
+        int color = AssetMath.colorForCategory(asset.category);
+        TextView mark = text(categoryIcon(asset.category), 18, color, Typeface.BOLD);
+        mark.setGravity(Gravity.CENTER);
+        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
+        return mark;
+    }
+
+    protected String categoryIcon(String category) {
+        if (AssetCategories.BANK_ACCOUNT.equals(category)) return "¥";
+        if (AssetCategories.INVESTMENT_ACCOUNT.equals(category)) return "投";
+        if ("银行".equals(category) || AssetCategories.BANK_DEPOSIT.equals(category)) return "¥";
+        if (AssetCategories.BANK_WEALTH.equals(category)) return "%";
+        if ("券商".equals(category) || AssetCategories.BROKER_HOLDING.equals(category)) return "↗";
+        if (AssetCategories.STOCK_HOLDING.equals(category)) return "股";
+        if (AssetCategories.BROKER_CASH.equals(category)) return "$";
+        if (AssetCategories.FUND.equals(category)) return "%";
+        if (AssetCategories.CRYPTO.equals(category)) return "◇";
+        if (AssetCategories.REAL_ESTATE.equals(category)) return "⌂";
+        if (AssetCategories.DEBT.equals(category)) return "!";
+        String cleaned = clean(category);
+        return cleaned.isEmpty() ? "•" : cleaned.substring(0, 1);
+    }
+
+    protected TextView statusChip(AssetRecord asset) {
+        TextView chip = text(statusText(asset), 12, Color.WHITE, Typeface.BOLD);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(statusColor(asset));
+        bg.setCornerRadius(dp(999));
+        chip.setBackground(bg);
+        return chip;
     }
 
     protected void toast(String message) {

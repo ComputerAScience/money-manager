@@ -1,7 +1,6 @@
 package com.computerascience.moneymanager;
 
 import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
@@ -24,7 +23,6 @@ import android.view.ViewParent;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -41,7 +39,6 @@ import com.computerascience.moneymanager.domain.AssetInstitutionGroups;
 import com.computerascience.moneymanager.domain.AssetMath;
 import com.computerascience.moneymanager.domain.AssetPresets;
 import com.computerascience.moneymanager.domain.DataHealth;
-import com.computerascience.moneymanager.domain.ExchangeRateClient;
 import com.computerascience.moneymanager.domain.InvestmentAnalytics;
 import com.computerascience.moneymanager.domain.TrendAnalytics;
 import com.computerascience.moneymanager.model.AssetBackup;
@@ -53,7 +50,6 @@ import com.computerascience.moneymanager.model.InstitutionBreakdown;
 import com.computerascience.moneymanager.model.PortfolioSettings;
 import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.AllocationChartView;
-import com.computerascience.moneymanager.ui.AppPickerDialog;
 import com.computerascience.moneymanager.ui.BottomNavBar;
 import com.computerascience.moneymanager.ui.SectionDrawer;
 import com.computerascience.moneymanager.ui.SectionProgressHandle;
@@ -82,6 +78,8 @@ public final class MainActivity extends MoneyManagerActivity {
     private static final String PAGE_ASSETS = BottomNavBar.PAGE_ASSETS;
 
     private String currentPage = PAGE_OVERVIEW;
+    private final AssetDialogs assetDialogs = new AssetDialogs(this, UPDATE_REASONS);
+    private final SettingsDialogs settingsDialogs = new SettingsDialogs(this);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -603,7 +601,7 @@ public final class MainActivity extends MoneyManagerActivity {
         return false;
     }
 
-    private void render() {
+    void render() {
         PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
 
         netWorthValue.setText(formatMoney(portfolio.netWorth, portfolio.baseCurrency));
@@ -1867,425 +1865,23 @@ public final class MainActivity extends MoneyManagerActivity {
     }
 
     private void showNetWorthGoalDialog() {
-        PortfolioSummary portfolio = AssetMath.summarize(assets, settings);
-        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("目标按当前基准币种 " + portfolio.baseCurrency + " 记录；切换基准币种后建议重新确认目标。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        String targetValue = draft.netWorthTarget > 0
-                ? formatInputNumber(draft.netWorthTarget)
-                : formatInputNumber(Math.max(0, portfolio.netWorth));
-        EditText target = input("目标净资产（" + portfolio.baseCurrency + "）", targetValue, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        form.addView(target);
-
-        String dateValue = draft.netWorthTargetDate > 0 ? dayKey(draft.netWorthTargetDate) : defaultYearEnd();
-        EditText targetDate = input("截止日期（yyyy-MM-dd）", dateValue, InputType.TYPE_CLASS_TEXT);
-        form.addView(targetDate);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("编辑年度目标")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setNeutralButton("清空目标", null)
-                .setPositiveButton("保存", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button clear = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-            clear.setTextColor(DANGER);
-            clear.setOnClickListener(button -> {
-                settings.netWorthTarget = 0;
-                settings.netWorthTargetDate = 0;
-                store.saveSettings(settings);
-                render();
-                toast("已清空年度目标。");
-                dialog.dismiss();
-            });
-
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                Double value = parseNumber(clean(target.getText().toString()));
-                if (value == null || value <= 0) {
-                    toast("目标净资产需要是大于 0 的数字。");
-                    return;
-                }
-
-                Date parsedDate = parseDay(clean(targetDate.getText().toString()));
-                if (parsedDate == null) {
-                    toast("截止日期格式应为 yyyy-MM-dd。");
-                    return;
-                }
-                if (parsedDate.getTime() < System.currentTimeMillis() - AssetMath.DAY_MS) {
-                    toast("截止日期不能早于今天。");
-                    return;
-                }
-
-                draft.netWorthTarget = value;
-                draft.netWorthTargetDate = parsedDate.getTime();
-                settings = draft;
-                store.saveSettings(settings);
-                render();
-                toast("年度目标已保存。");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
+        settingsDialogs.showNetWorthGoalDialog();
     }
 
     private void showCurrencySettingsDialog() {
-        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("会自动获取常用币种的最新公开汇率；网络不可用时仍可手动修改。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        Spinner baseCurrency = currencySpinner(draft.baseCurrency);
-        form.addView(fieldBox("基准币种", baseCurrency));
-
-        Button refreshButton = secondaryButton("获取实时汇率");
-        LinearLayout.LayoutParams refreshParams = lp(-1, dp(44));
-        refreshParams.bottomMargin = dp(12);
-        form.addView(refreshButton, refreshParams);
-
-        List<CurrencyRateField> rateFields = new ArrayList<>();
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            EditText rateInput = input("1 " + currency + " 等于多少基准币种", formatRate(draft.rateFor(currency)), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            rateFields.add(new CurrencyRateField(currency, rateInput));
-            form.addView(rateInput);
-        }
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("汇率设置")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("保存", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            refreshButton.setOnClickListener(button -> {
-                String base = String.valueOf(baseCurrency.getSelectedItem());
-                refreshButton.setEnabled(false);
-                refreshButton.setText("获取中...");
-                fetchRealtimeRates(base, rates -> {
-                    draft.baseCurrency = base;
-                    draft.ratesToBase.putAll(rates);
-                    draft.ensureBaseRate();
-                    for (CurrencyRateField field : rateFields) {
-                        field.input.setText(formatRate(draft.rateFor(field.currency)));
-                    }
-                    refreshButton.setEnabled(true);
-                    refreshButton.setText("获取实时汇率");
-                    toast("实时汇率已填入。");
-                }, message -> {
-                    refreshButton.setEnabled(true);
-                    refreshButton.setText("获取实时汇率");
-                    toast(message);
-                });
-            });
-
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                String base = PortfolioSettings.cleanCurrency(String.valueOf(baseCurrency.getSelectedItem()));
-                if (base.isEmpty()) {
-                    toast("基准币种不能为空。");
-                    return;
-                }
-
-                draft.baseCurrency = base;
-                for (CurrencyRateField field : rateFields) {
-                    double rate = parsePositiveDouble(field.input.getText().toString(), field.currency.equals(base) ? 1.0 : 0.0);
-                    if (field.currency.equals(base)) {
-                        rate = 1.0;
-                    }
-                    draft.setRate(field.currency, rate);
-                }
-                draft.ensureBaseRate();
-
-                settings = draft;
-                store.saveSettings(settings);
-                snapshots = store.recordSnapshot(assets, settings);
-                render();
-                toast("汇率已更新。");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
+        settingsDialogs.showCurrencySettingsDialog();
     }
 
     private void refreshExchangeRates(boolean showToast) {
-        fetchRealtimeRates(settings.baseCurrency, rates -> {
-            settings.ratesToBase.putAll(rates);
-            settings.ensureBaseRate();
-            store.saveSettings(settings);
-            render();
-            if (showToast) {
-                toast("实时汇率已更新。");
-            }
-        }, message -> {
-            if (showToast) {
-                toast(message);
-            }
-        });
-    }
-
-    private void fetchRealtimeRates(
-            String baseCurrency,
-            RateSuccessHandler successHandler,
-            RateFailureHandler failureHandler
-    ) {
-        String base = PortfolioSettings.cleanCurrency(baseCurrency);
-        if (!isCommonCurrency(base)) {
-            failureHandler.onFailure("实时汇率暂只支持 CNY / USD / HKD / EUR / JPY。");
-            return;
-        }
-
-        new Thread(() -> {
-            try {
-                Map<String, Double> rates = ExchangeRateClient.fetchRatesToBase(base);
-                runOnUiThread(() -> successHandler.onSuccess(rates));
-            } catch (Exception error) {
-                runOnUiThread(() -> failureHandler.onFailure("实时汇率获取失败，请稍后重试。"));
-            }
-        }).start();
-    }
-
-    private boolean isCommonCurrency(String currency) {
-        String cleanCurrency = PortfolioSettings.cleanCurrency(currency);
-        for (String option : PortfolioSettings.COMMON_CURRENCIES) {
-            if (option.equals(cleanCurrency)) {
-                return true;
-            }
-        }
-        return false;
+        settingsDialogs.refreshExchangeRates(showToast);
     }
 
     private void showAllocationTargetDialog() {
-        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("填写各类型目标占比，合计需要等于 100%。留空表示 0%。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        List<AllocationTargetField> targetFields = new ArrayList<>();
-        for (String category : categoryOptionList("", false)) {
-            double current = draft.targetForCategory(category);
-            EditText targetInput = input(
-                    category + " 目标占比（%）",
-                    current <= 0 ? "" : formatInputNumber(current),
-                    InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
-            );
-            targetFields.add(new AllocationTargetField(category, targetInput));
-            form.addView(targetInput);
-        }
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("编辑目标比例")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setNeutralButton("清空目标", null)
-                .setPositiveButton("保存", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button clear = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-            clear.setTextColor(DANGER);
-            clear.setOnClickListener(button -> {
-                settings.clearAllocationTargets();
-                store.saveSettings(settings);
-                render();
-                toast("已清空目标比例。");
-                dialog.dismiss();
-            });
-
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                draft.clearAllocationTargets();
-                double total = 0;
-                for (AllocationTargetField field : targetFields) {
-                    String raw = clean(field.input.getText().toString());
-                    if (raw.isEmpty()) {
-                        continue;
-                    }
-                    Double value = parseNumber(raw);
-                    if (value == null || value < 0 || value > 100) {
-                        toast(field.category + " 的目标占比需要在 0 到 100 之间。");
-                        return;
-                    }
-                    if (value > 0) {
-                        draft.setAllocationTarget(field.category, value);
-                        total += value;
-                    }
-                }
-
-                if (total > 0 && Math.abs(total - 100) > 0.5) {
-                    toast("目标比例合计需要等于 100%。当前为 " + formatPercentValue(total) + "。");
-                    return;
-                }
-
-                settings = draft;
-                store.saveSettings(settings);
-                render();
-                toast(total <= 0 ? "已清空目标比例。" : "目标比例已保存。");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
+        settingsDialogs.showAllocationTargetDialog();
     }
 
     private void showCategorySettingsDialog() {
-        PortfolioSettings draft = PortfolioSettings.copyOf(settings);
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, 0);
-
-        TextView description = text("资产类型会出现在新增资产、资产比例和目标比例里；勾选“投资页”的类型会单独汇总到投资 Tab。", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        List<CategorySettingField> categoryFields = new ArrayList<>();
-        for (String category : categoryOptionList("", false)) {
-            CheckBox investment = styledCheckBox("投资页", draft.isInvestmentCategory(category));
-            categoryFields.add(new CategorySettingField(category, investment));
-            form.addView(categorySettingRow(category, investment));
-        }
-
-        TextView addTitle = label("新增类型");
-        LinearLayout.LayoutParams addTitleParams = lp(-1, -2);
-        addTitleParams.topMargin = dp(10);
-        addTitleParams.bottomMargin = dp(8);
-        form.addView(addTitle, addTitleParams);
-
-        EditText newCategory = input("例如：美股、港股、期权、保险", "", InputType.TYPE_CLASS_TEXT);
-        form.addView(newCategory);
-        CheckBox newCategoryInvestment = styledCheckBox("添加后显示在投资页", false);
-        LinearLayout.LayoutParams newInvestmentParams = lp(-1, -2);
-        newInvestmentParams.bottomMargin = dp(8);
-        form.addView(newCategoryInvestment, newInvestmentParams);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("资产类型")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("保存", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                draft.clearInvestmentCategories();
-                for (CategorySettingField field : categoryFields) {
-                    draft.setInvestmentCategory(field.category, field.investment.isChecked());
-                }
-
-                String addedCategory = clean(newCategory.getText().toString());
-                if (!addedCategory.isEmpty()) {
-                    if (ADD_CATEGORY_OPTION.equals(addedCategory)) {
-                        toast("资产类型名称不能使用系统选项名称。");
-                        return;
-                    }
-                    draft.addCustomCategory(addedCategory);
-                    draft.setInvestmentCategory(addedCategory, newCategoryInvestment.isChecked());
-                }
-
-                settings = draft;
-                store.saveSettings(settings);
-                snapshots = store.recordSnapshot(assets, settings);
-                render();
-                toast("资产类型已保存。");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
-    }
-
-    private View categorySettingRow(String category, CheckBox investment) {
-        LinearLayout row = row();
-        row.setPadding(dp(12), dp(9), dp(8), dp(9));
-        row.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = lp(-1, -2);
-        rowParams.bottomMargin = dp(8);
-        row.setLayoutParams(rowParams);
-
-        TextView mark = text(categoryIcon(category), 15, AssetMath.colorForCategory(category), Typeface.BOLD);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        row.addView(mark, new LinearLayout.LayoutParams(dp(34), dp(34)));
-
-        LinearLayout copy = new LinearLayout(this);
-        copy.setOrientation(LinearLayout.VERTICAL);
-        copy.addView(text(category, 14, INK, Typeface.BOLD));
-        TextView origin = text(categoryOriginText(category), 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams originParams = lp(-1, -2);
-        originParams.topMargin = dp(3);
-        copy.addView(origin, originParams);
-        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, -2, 1);
-        copyParams.leftMargin = dp(10);
-        row.addView(copy, copyParams);
-
-        row.addView(investment, new LinearLayout.LayoutParams(dp(92), dp(40)));
-        return row;
-    }
-
-    private CheckBox styledCheckBox(String label, boolean checked) {
-        CheckBox checkbox = new CheckBox(this);
-        checkbox.setText(label);
-        checkbox.setTextSize(13);
-        checkbox.setTextColor(INK);
-        checkbox.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        checkbox.setButtonTintList(android.content.res.ColorStateList.valueOf(ACCENT));
-        checkbox.setChecked(checked);
-        checkbox.setGravity(Gravity.CENTER_VERTICAL);
-        checkbox.setPadding(0, 0, 0, 0);
-        return checkbox;
-    }
-
-    private String categoryOriginText(String category) {
-        if (isDefaultAssetCategory(category)) {
-            return "内置类型";
-        }
-        if (settings.customCategories.contains(category)) {
-            return "自定义类型";
-        }
-        return "已在资产中使用";
+        settingsDialogs.showCategorySettingsDialog();
     }
 
     private void renderAssetFilterButtons() {
@@ -3438,476 +3034,24 @@ public final class MainActivity extends MoneyManagerActivity {
         return item;
     }
 
-    private TextView categoryMark(AssetRecord asset) {
-        int color = AssetMath.colorForCategory(asset.category);
-        TextView mark = text(categoryIcon(asset.category), 18, color, Typeface.BOLD);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        return mark;
-    }
-
-    private String categoryIcon(String category) {
-        if (AssetCategories.BANK_ACCOUNT.equals(category)) return "¥";
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(category)) return "投";
-        if ("银行".equals(category) || AssetCategories.BANK_DEPOSIT.equals(category)) return "¥";
-        if (AssetCategories.BANK_WEALTH.equals(category)) return "%";
-        if ("券商".equals(category) || AssetCategories.BROKER_HOLDING.equals(category)) return "↗";
-        if (AssetCategories.STOCK_HOLDING.equals(category)) return "股";
-        if (AssetCategories.BROKER_CASH.equals(category)) return "$";
-        if (AssetCategories.FUND.equals(category)) return "%";
-        if (AssetCategories.CRYPTO.equals(category)) return "◇";
-        if (AssetCategories.REAL_ESTATE.equals(category)) return "⌂";
-        if (AssetCategories.DEBT.equals(category)) return "!";
-        String cleaned = clean(category);
-        return cleaned.isEmpty() ? "•" : cleaned.substring(0, 1);
-    }
-
-    private TextView statusChip(AssetRecord asset) {
-        TextView chip = text(statusText(asset), 12, Color.WHITE, Typeface.BOLD);
-        chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(statusColor(asset));
-        bg.setCornerRadius(dp(999));
-        chip.setBackground(bg);
-        return chip;
-    }
-
     private void showEditDialog(AssetRecord original) {
-        showEditDialog(original, null);
+        assetDialogs.showEditDialog(original);
     }
 
     private void showCreatePreset(AssetPresets.Preset preset) {
-        String currency = settings == null ? "CNY" : settings.baseCurrency;
-        showEditDialog(null, AssetPresets.createRecord(preset, currency));
-    }
-
-    private void showEditDialog(AssetRecord original, AssetRecord preset) {
-        boolean creating = original == null;
-        AssetRecord draft = creating ? (preset == null ? new AssetRecord() : preset) : copyOf(original);
-
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, dp(6));
-
-        form.addView(assetEditHeader(draft, creating));
-
-        EditText name = input("资产名称", draft.name, InputType.TYPE_CLASS_TEXT);
-        form.addView(name);
-
-        EditText institution = input("机构", draft.institution, InputType.TYPE_CLASS_TEXT);
-        String[] selectedPackageName = {draft.packageName};
-        String[] selectedAppName = {draft.appName};
-        String[] selectedLaunchUri = {draft.launchUri};
-        TextView selectedApp = text(appBindingText(selectedAppName[0], selectedPackageName[0], selectedLaunchUri[0]), 15, INK, Typeface.BOLD);
-        selectedApp.setGravity(Gravity.CENTER_VERTICAL);
-        selectedApp.setPadding(dp(14), 0, dp(14), 0);
-        selectedApp.setBackground(cardBackground(SURFACE, PANEL_BORDER));
-        form.addView(fieldBox("绑定 App", selectedApp));
-
-        Button chooseApp = secondaryButton(selectedPackageName[0].isEmpty() && selectedLaunchUri[0].isEmpty()
-                ? "选择 App"
-                : "更换 App");
-        chooseApp.setOnClickListener(view -> showAppPicker(selected -> {
-            selectedPackageName[0] = selected.packageName;
-            selectedAppName[0] = selected.label;
-            selectedLaunchUri[0] = "";
-            selectedApp.setText(selected.label);
-            chooseApp.setText("更换 App");
-            String institutionValue = clean(institution.getText().toString());
-            if (institutionValue.isEmpty() || institutionValue.contains("待绑定")) {
-                institution.setText(selected.label);
-            }
-            toast("已选择 " + selected.label);
-        }));
-        LinearLayout.LayoutParams chooseAppParams = lp(-1, dp(44));
-        chooseAppParams.bottomMargin = dp(10);
-        form.addView(chooseApp, chooseAppParams);
-
-        form.addView(fieldBox("机构", institution));
-        TextView institutionHelp = text("机构是主要管理粒度；一条资产属于某个机构，App 只是核对时打开的入口。", 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams institutionHelpParams = lp(-1, -2);
-        institutionHelpParams.bottomMargin = dp(10);
-        form.addView(institutionHelp, institutionHelpParams);
-
-        Spinner category = new Spinner(this);
-        String[] categoryOptions = categoryOptions(draft.category);
-        category.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, categoryOptions));
-        styleSpinner(category);
-        category.setSelection(indexOf(categoryOptions, draft.category));
-        form.addView(fieldBox("资产类型", category));
-
-        EditText customCategory = input("新增资产类型", "", InputType.TYPE_CLASS_TEXT);
-        form.addView(customCategory);
-        CheckBox customCategoryInvestment = styledCheckBox("在投资 Tab 显示这个类型", false);
-        LinearLayout.LayoutParams customInvestmentParams = lp(-1, -2);
-        customInvestmentParams.bottomMargin = dp(10);
-        form.addView(customCategoryInvestment, customInvestmentParams);
-        updateCustomCategoryFields(String.valueOf(category.getSelectedItem()), customCategory, customCategoryInvestment);
-        category.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                updateCustomCategoryFields(String.valueOf(category.getSelectedItem()), customCategory, customCategoryInvestment);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-
-        LinearLayout amountRow = row();
-        EditText amount = input("金额", draft.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        Spinner currency = currencySpinner(draft.currency);
-        View amountBox = fieldBox("金额", amount);
-        amountRow.addView(amountBox, new LinearLayout.LayoutParams(0, -2, 1));
-        amountRow.addView(new SpaceView(this, dp(8), 1));
-        amountRow.addView(fieldBox("币种", currency), new LinearLayout.LayoutParams(0, -2, 0.62f));
-        form.addView(amountRow);
-
-        EditText cadence = input("更新周期（天）", String.valueOf(draft.updateEveryDays), InputType.TYPE_CLASS_NUMBER);
-        form.addView(cadence);
-
-        EditText note = input("备注", draft.note, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        note.setMinLines(2);
-        form.addView(note);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle(creating ? "新增资产" : "编辑资产")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("保存", null);
-        if (!creating) {
-            builder.setNeutralButton("删除", null);
-        }
-        AlertDialog dialog = builder.create();
-
-        dialog.setOnShowListener(view -> {
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                String assetName = clean(name.getText().toString());
-                if (assetName.isEmpty()) {
-                    toast("资产名称不能为空");
-                    return;
-                }
-
-                String selectedCategory = String.valueOf(category.getSelectedItem());
-                if (ADD_CATEGORY_OPTION.equals(selectedCategory)) {
-                    selectedCategory = clean(customCategory.getText().toString());
-                    if (selectedCategory.isEmpty()) {
-                        toast("请输入新的资产类型。");
-                        return;
-                    }
-                    if (ADD_CATEGORY_OPTION.equals(selectedCategory)) {
-                        toast("资产类型名称不能使用系统选项名称。");
-                        return;
-                    }
-                    settings.addCustomCategory(selectedCategory);
-                    settings.setInvestmentCategory(selectedCategory, customCategoryInvestment.isChecked());
-                    store.saveSettings(settings);
-                }
-
-                int everyDays = parsePositiveInt(cadence.getText().toString(), 7);
-                draft.name = assetName;
-                draft.category = selectedCategory;
-                draft.institution = clean(institution.getText().toString());
-                draft.bankDepositAmount = "";
-                draft.bankWealthAmount = "";
-                draft.bankDebtAmount = "";
-                draft.investmentHoldingAmount = "";
-                draft.investmentCashAmount = "";
-                draft.investmentPositions = "";
-                draft.amount = clean(amount.getText().toString());
-                draft.currency = String.valueOf(currency.getSelectedItem());
-                draft.updateEveryDays = everyDays;
-                draft.appName = clean(selectedAppName[0]);
-                draft.packageName = clean(selectedPackageName[0]);
-                draft.launchUri = clean(selectedLaunchUri[0]);
-                draft.note = clean(note.getText().toString());
-                draft.lastUpdatedAt = System.currentTimeMillis();
-
-                if (creating) {
-                    assets.add(draft);
-                } else {
-                    replaceAsset(draft);
-                }
-                store.save(assets);
-                snapshots = store.recordSnapshot(assets, settings);
-                render();
-                toast(creating ? "资产已新增并标记更新。" : "资产已保存并标记更新。");
-                dialog.dismiss();
-            });
-
-            Button delete = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-            if (delete != null) {
-                delete.setTextColor(DANGER);
-                delete.setOnClickListener(button -> {
-                    AlertDialog confirmDialog = new AlertDialog.Builder(this)
-                            .setTitle("删除资产")
-                            .setMessage("确定删除「" + original.name + "」吗？")
-                            .setNegativeButton("取消", null)
-                            .setPositiveButton("删除", (confirm, which) -> {
-                                removeAssetById(original.id);
-                                store.save(assets);
-                                snapshots = store.recordSnapshot(assets, settings);
-                                render();
-                                dialog.dismiss();
-                            })
-                            .create();
-                    showStyledDialog(confirmDialog);
-                });
-            }
-        });
-
-        showStyledDialog(dialog);
-    }
-
-    private void updateCustomCategoryFields(String selectedCategory, View customCategory, View investmentToggle) {
-        boolean adding = ADD_CATEGORY_OPTION.equals(selectedCategory);
-        customCategory.setVisibility(adding ? View.VISIBLE : View.GONE);
-        investmentToggle.setVisibility(adding ? View.VISIBLE : View.GONE);
-    }
-
-    private View assetEditHeader(AssetRecord asset, boolean creating) {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.HORIZONTAL);
-        panel.setGravity(Gravity.CENTER_VERTICAL);
-        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
-        panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-        LinearLayout.LayoutParams panelParams = lp(-1, -2);
-        panelParams.bottomMargin = dp(12);
-        panel.setLayoutParams(panelParams);
-
-        TextView mark = creating ? text("+", 20, ACCENT, Typeface.BOLD) : categoryMark(asset);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        markParams.rightMargin = dp(12);
-        panel.addView(mark, markParams);
-
-        LinearLayout copy = new LinearLayout(this);
-        copy.setOrientation(LinearLayout.VERTICAL);
-        String title = creating ? (asset.name.isEmpty() ? "新增资产" : asset.name) : asset.name;
-        copy.addView(text(title, 15, INK, Typeface.BOLD));
-
-        String description = creating
-                ? (asset.category.isEmpty() ? "记录金额、周期和要打开的 App。" : asset.category + " · " + (asset.institution.isEmpty() ? "未填写机构" : asset.institution))
-                : asset.category + " · " + (asset.institution.isEmpty() ? "未填写机构" : asset.institution);
-        TextView detail = text(description, 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(4);
-        copy.addView(detail, detailParams);
-        panel.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-        return panel;
-    }
-
-    private void showAppPicker(AppPickerDialog.SelectionHandler handler) {
-        AppPickerDialog.show(this, "选择已安装 App", "搜索银行、券商、钱包或 App 名称。", handler);
+        assetDialogs.showCreatePreset(preset);
     }
 
     private void openLinkedApp(AssetRecord asset) {
-        if (asset.launchUri.isEmpty() && asset.packageName.isEmpty()) {
-            showAssetAppBindingDialog(asset);
-            return;
-        }
-
-        if (!asset.launchUri.isEmpty()) {
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(asset.launchUri));
-                if (!asset.packageName.isEmpty()) {
-                    intent.setPackage(asset.packageName);
-                }
-                pendingLaunchAssetId = asset.id;
-                startActivity(intent);
-                return;
-            } catch (ActivityNotFoundException error) {
-                pendingLaunchAssetId = null;
-            }
-        }
-
-        if (!asset.packageName.isEmpty()) {
-            Intent launchIntent = getPackageManager().getLaunchIntentForPackage(asset.packageName);
-            if (launchIntent != null) {
-                pendingLaunchAssetId = asset.id;
-                startActivity(launchIntent);
-                return;
-            }
-            openMarket(asset.packageName);
-            return;
-        }
-
-        toast("没有找到可打开的 App。");
-    }
-
-    private void showAssetAppBindingDialog(AssetRecord asset) {
-        AppPickerDialog.show(this, "绑定并打开 App", "「" + asset.name + "」还没有绑定 App。先选择一次，以后就能一键打开。", selected -> {
-            asset.appName = selected.label;
-            asset.packageName = selected.packageName;
-            asset.launchUri = "";
-            if (asset.institution.isEmpty() || asset.institution.contains("待绑定")) {
-                asset.institution = selected.label;
-            }
-            store.save(assets);
-            render();
-            toast("已绑定 " + selected.label + "。");
-            openLinkedApp(asset);
-        });
-    }
-
-    private void openMarket(String packageName) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + packageName)));
-        } catch (ActivityNotFoundException error) {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + packageName)));
-            } catch (ActivityNotFoundException ignored) {
-                toast("没有找到这个 App，请重新选择绑定 App。");
-            }
-        }
+        assetDialogs.openLinkedApp(asset);
     }
 
     private void showMarkUpdatedDialog(AssetRecord asset) {
-        showAssetUpdateDialog(asset);
+        assetDialogs.showAssetUpdateDialog(asset);
     }
 
     private void showAssetUpdateDialog(AssetRecord asset) {
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        form.setPadding(pad, dp(6), pad, dp(6));
-
-        form.addView(assetUpdateHeader(asset));
-
-        String updateDescription = "核对「" + asset.name + "」后，录入这个机构资产的最新总金额。保存后会更新时间并记录今日总资产快照。";
-        TextView description = text(updateDescription, 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams descriptionParams = lp(-1, -2);
-        descriptionParams.topMargin = dp(12);
-        descriptionParams.bottomMargin = dp(12);
-        form.addView(description, descriptionParams);
-
-        EditText amount = input("最新金额", asset.amount, InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        form.addView(amount);
-
-        Spinner reason = new Spinner(this);
-        reason.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, UPDATE_REASONS));
-        styleSpinner(reason);
-        reason.setSelection(indexOf(UPDATE_REASONS, "余额核对"));
-        form.addView(fieldBox("变化原因", reason));
-
-        EditText note = input("备注（可选）", asset.note, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        note.setMinLines(2);
-        form.addView(note);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("更新资产")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setNeutralButton("仅更新时间", null)
-                .setPositiveButton("保存更新", null)
-                .create();
-
-        dialog.setOnShowListener(view -> {
-            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            save.setTextColor(ACCENT);
-            save.setOnClickListener(button -> {
-                asset.bankDepositAmount = "";
-                asset.bankWealthAmount = "";
-                asset.bankDebtAmount = "";
-                asset.investmentHoldingAmount = "";
-                asset.investmentCashAmount = "";
-                asset.investmentPositions = "";
-                applyAssetUpdate(
-                        asset,
-                        clean(amount.getText().toString()),
-                        clean(note.getText().toString()),
-                        String.valueOf(reason.getSelectedItem())
-                );
-                dialog.dismiss();
-            });
-
-            Button onlyTime = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
-            onlyTime.setTextColor(MUTED);
-            onlyTime.setOnClickListener(button -> {
-                applyAssetUpdate(asset, asset.amount, asset.note, "仅更新时间");
-                dialog.dismiss();
-            });
-        });
-
-        showStyledDialog(dialog);
-    }
-
-    private View assetUpdateHeader(AssetRecord asset) {
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
-        panel.setBackground(cardBackground(ROW_SURFACE, PANEL_BORDER));
-
-        LinearLayout top = row();
-        TextView mark = categoryMark(asset);
-        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        markParams.rightMargin = dp(12);
-        top.addView(mark, markParams);
-
-        LinearLayout titleGroup = new LinearLayout(this);
-        titleGroup.setOrientation(LinearLayout.VERTICAL);
-        titleGroup.addView(text(asset.name, 15, INK, Typeface.BOLD));
-
-        String institution = asset.institution.isEmpty() ? "未填写机构" : asset.institution;
-        TextView meta = text(asset.category + " · " + institution, 12, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams metaParams = lp(-1, -2);
-        metaParams.topMargin = dp(4);
-        titleGroup.addView(meta, metaParams);
-        top.addView(titleGroup, new LinearLayout.LayoutParams(0, -2, 1));
-        top.addView(statusChip(asset));
-        panel.addView(top);
-
-        LinearLayout detail = row();
-        LinearLayout.LayoutParams detailParams = lp(-1, -2);
-        detailParams.topMargin = dp(12);
-        panel.addView(detail, detailParams);
-
-        TextView amount = text(formatAmount(asset), 18, INK, Typeface.BOLD);
-        detail.addView(amount, new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView updated = text(lastUpdatedText(asset), 12, MUTED, Typeface.BOLD);
-        updated.setGravity(Gravity.RIGHT);
-        detail.addView(updated, new LinearLayout.LayoutParams(0, -2, 1));
-        return panel;
-    }
-
-    private void applyAssetUpdate(AssetRecord asset, String amount, String note, String reason) {
-        String previousAmount = asset.amount;
-        long now = System.currentTimeMillis();
-        asset.amount = amount;
-        asset.note = note;
-        asset.lastUpdatedAt = now;
-        store.save(assets);
-        updateEvents = store.recordUpdateEvent(new AssetUpdateEvent(
-                asset.id,
-                asset.name,
-                now,
-                asset.currency,
-                previousAmount,
-                amount,
-                cleanReason(reason),
-                note
-        ));
-        snapshots = store.recordSnapshot(assets, settings);
-        render();
-        toast("已更新「" + asset.name + "」。");
+        assetDialogs.showAssetUpdateDialog(asset);
     }
 
     private void sharePortfolioPage() {
@@ -3952,44 +3096,6 @@ public final class MainActivity extends MoneyManagerActivity {
                 })
                 .create();
         showStyledDialog(dialog);
-    }
-
-    private interface RateSuccessHandler {
-        void onSuccess(Map<String, Double> rates);
-    }
-
-    private interface RateFailureHandler {
-        void onFailure(String message);
-    }
-
-    private static final class CurrencyRateField {
-        final String currency;
-        final EditText input;
-
-        CurrencyRateField(String currency, EditText input) {
-            this.currency = currency;
-            this.input = input;
-        }
-    }
-
-    private static final class AllocationTargetField {
-        final String category;
-        final EditText input;
-
-        AllocationTargetField(String category, EditText input) {
-            this.category = category;
-            this.input = input;
-        }
-    }
-
-    private static final class CategorySettingField {
-        final String category;
-        final CheckBox investment;
-
-        CategorySettingField(String category, CheckBox investment) {
-            this.category = category;
-            this.investment = investment;
-        }
     }
 
 }
