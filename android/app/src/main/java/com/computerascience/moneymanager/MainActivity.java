@@ -221,6 +221,7 @@ public final class MainActivity extends MoneyManagerActivity {
         investmentPage = page();
         View investmentSummary = investmentSummaryCard();
         View investmentDiagnostics = investmentDiagnosticsCard();
+        View investmentFlow = investmentFlowCard();
         View investmentStructure = investmentStructureCard();
         View investmentInstitutions = investmentInstitutionsCard();
         View investmentPlan = investmentPlanCard();
@@ -228,6 +229,7 @@ public final class MainActivity extends MoneyManagerActivity {
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
                 new SectionDrawer.Item("投资诊断", investmentDiagnostics),
+                new SectionDrawer.Item("投资变化", investmentFlow),
                 new SectionDrawer.Item("投资结构", investmentStructure),
                 new SectionDrawer.Item("投资机构", investmentInstitutions),
                 new SectionDrawer.Item("投资待核对", investmentPlan),
@@ -235,6 +237,7 @@ public final class MainActivity extends MoneyManagerActivity {
         };
         investmentPage.addView(investmentSummary);
         investmentPage.addView(investmentDiagnostics);
+        investmentPage.addView(investmentFlow);
         investmentPage.addView(investmentStructure);
         investmentPage.addView(investmentInstitutions);
         investmentPage.addView(investmentPlan);
@@ -1417,6 +1420,22 @@ public final class MainActivity extends MoneyManagerActivity {
         return card;
     }
 
+    private View investmentFlowCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("投资变化"));
+
+        investmentFlowSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(investmentFlowSummary, summaryParams);
+
+        investmentFlowList = new LinearLayout(this);
+        investmentFlowList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(investmentFlowList, lp(-1, -2));
+        return card;
+    }
+
     private View investmentInstitutionsCard() {
         LinearLayout card = card();
         card.addView(sectionTitle("投资机构"));
@@ -1463,7 +1482,8 @@ public final class MainActivity extends MoneyManagerActivity {
     private void renderInvestmentPage() {
         if (investmentSummaryText == null || investmentAccountList == null
                 || investmentStructureList == null || investmentInstitutionList == null
-                || investmentPlanList == null || investmentDiagnosticList == null) {
+                || investmentPlanList == null || investmentDiagnosticList == null
+                || investmentFlowList == null) {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
@@ -1475,6 +1495,7 @@ public final class MainActivity extends MoneyManagerActivity {
 
         renderInvestmentStructure(investments, stats);
         renderInvestmentDiagnostics(investments, groups, stats);
+        renderInvestmentFlow(investments);
         renderInvestmentInstitutions(groups, stats.total);
         renderInvestmentPlan(investments, stats);
 
@@ -1559,6 +1580,35 @@ public final class MainActivity extends MoneyManagerActivity {
             return "集中度中等，适合持续观察。";
         }
         return "集中度相对分散。";
+    }
+
+    private void renderInvestmentFlow(List<AssetRecord> investments) {
+        investmentFlowList.removeAllViews();
+        UpdateAnalytics.Summary summary = UpdateAnalytics.summarizeKnownAssets(updateEvents, investments, settings, 90);
+        if (investments.isEmpty()) {
+            investmentFlowSummary.setText("还没有投资资产。");
+            investmentFlowList.addView(emptyText("新增投资资产后，这里会按投资账户回看变化。"));
+            return;
+        }
+        if (summary.count == 0) {
+            investmentFlowSummary.setText("近 90 天还没有投资资产更新记录。");
+            investmentFlowList.addView(emptyText("更新几次投资资产金额后，这里会按原因、类型和机构拆解。"));
+            return;
+        }
+
+        if (settings.hideAmounts) {
+            investmentFlowSummary.setText("近 " + summary.days + " 天记录 "
+                    + summary.count + " 次投资更新，金额已隐藏。");
+        } else {
+            investmentFlowSummary.setText("近 " + summary.days + " 天投资净变化 "
+                    + formatSignedMoney(summary.delta, settings.baseCurrency)
+                    + "；流入 " + formatMoney(summary.increase, settings.baseCurrency)
+                    + "，流出 " + formatMoney(Math.abs(summary.decrease), settings.baseCurrency) + "。");
+        }
+
+        addFlowSection(investmentFlowList, "按原因", summary.reasons);
+        addFlowSection(investmentFlowList, "按类型", summary.categories);
+        addFlowSection(investmentFlowList, "按机构", summary.institutions);
     }
 
     private void renderInvestmentStructure(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
@@ -2339,23 +2389,23 @@ public final class MainActivity extends MoneyManagerActivity {
                     + "，流出 " + formatMoney(Math.abs(summary.decrease), settings.baseCurrency) + "。");
         }
 
-        addFlowSection("按原因", summary.reasons);
-        addFlowSection("按类型", summary.categories);
-        addFlowSection("按机构", summary.institutions);
+        addFlowSection(flowAttributionList, "按原因", summary.reasons);
+        addFlowSection(flowAttributionList, "按类型", summary.categories);
+        addFlowSection(flowAttributionList, "按机构", summary.institutions);
     }
 
-    private void addFlowSection(String title, List<UpdateAnalytics.Bucket> buckets) {
+    private void addFlowSection(LinearLayout target, String title, List<UpdateAnalytics.Bucket> buckets) {
         TextView heading = text(title, 13, MUTED, Typeface.BOLD);
         LinearLayout.LayoutParams headingParams = lp(-1, -2);
-        headingParams.topMargin = dp(flowAttributionList.getChildCount() == 0 ? 2 : 12);
-        flowAttributionList.addView(heading, headingParams);
+        headingParams.topMargin = dp(target.getChildCount() == 0 ? 2 : 12);
+        target.addView(heading, headingParams);
 
         int limit = Math.min(3, buckets.size());
         for (int index = 0; index < limit; index += 1) {
-            flowAttributionList.addView(flowBucketRow(buckets.get(index)));
+            target.addView(flowBucketRow(buckets.get(index)));
         }
         if (limit == 0) {
-            flowAttributionList.addView(emptyText("暂无数据。"));
+            target.addView(emptyText("暂无数据。"));
         }
     }
 

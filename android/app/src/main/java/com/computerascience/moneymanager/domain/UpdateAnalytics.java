@@ -20,6 +20,25 @@ public final class UpdateAnalytics {
             PortfolioSettings settings,
             int days
     ) {
+        return summarize(events, assets, settings, days, true);
+    }
+
+    public static Summary summarizeKnownAssets(
+            List<AssetUpdateEvent> events,
+            List<AssetRecord> assets,
+            PortfolioSettings settings,
+            int days
+    ) {
+        return summarize(events, assets, settings, days, false);
+    }
+
+    private static Summary summarize(
+            List<AssetUpdateEvent> events,
+            List<AssetRecord> assets,
+            PortfolioSettings settings,
+            int days,
+            boolean includeUnknownAssets
+    ) {
         Summary summary = new Summary(days);
         long cutoff = System.currentTimeMillis() - days * AssetMath.DAY_MS;
         Map<String, AssetRecord> assetById = new HashMap<>();
@@ -36,6 +55,9 @@ public final class UpdateAnalytics {
             }
 
             AssetRecord asset = assetById.get(event.assetId);
+            if (asset == null && !includeUnknownAssets) {
+                continue;
+            }
             double delta = deltaInBase(event, settings);
             summary.count += 1;
             summary.delta += delta;
