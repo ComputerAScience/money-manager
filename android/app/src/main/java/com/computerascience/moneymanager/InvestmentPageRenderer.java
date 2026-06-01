@@ -75,6 +75,22 @@ final class InvestmentPageRenderer {
         return card;
     }
 
+    View reviewCard() {
+        LinearLayout card = activity.card();
+        card.addView(activity.sectionTitle("投资复盘"));
+
+        activity.investmentReviewSummary = activity.text("", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = activity.lp(-1, -2);
+        summaryParams.topMargin = activity.dp(8);
+        summaryParams.bottomMargin = activity.dp(8);
+        card.addView(activity.investmentReviewSummary, summaryParams);
+
+        activity.investmentReviewList = new LinearLayout(activity);
+        activity.investmentReviewList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(activity.investmentReviewList, activity.lp(-1, -2));
+        return card;
+    }
+
     View diagnosticsCard() {
         LinearLayout card = activity.card();
         card.addView(activity.sectionTitle("投资诊断"));
@@ -154,6 +170,7 @@ final class InvestmentPageRenderer {
         if (activity.investmentSummaryText == null || activity.investmentAccountList == null
                 || activity.investmentStructureList == null || activity.investmentInstitutionList == null
                 || activity.investmentPlanList == null || activity.investmentDiagnosticList == null
+                || activity.investmentReviewList == null
                 || activity.investmentFlowList == null) {
             return;
         }
@@ -165,6 +182,7 @@ final class InvestmentPageRenderer {
                 + " · " + groups.size() + " 个机构 · " + investments.size() + " 项资产");
 
         renderStructure(investments, stats);
+        renderReview(investments, groups, stats);
         renderDiagnostics(investments, groups, stats);
         renderFlow(investments);
         renderInstitutions(groups, stats.total);
@@ -183,6 +201,124 @@ final class InvestmentPageRenderer {
                 }
             }
         }
+    }
+
+    private void renderReview(
+            List<AssetRecord> investments,
+            List<AssetInstitutionGroups.Group> groups,
+            InvestmentAnalytics.Summary stats
+    ) {
+        activity.investmentReviewList.removeAllViews();
+        if (investments.isEmpty()) {
+            activity.investmentReviewSummary.setText("还没有投资资产。新增后这里会给出投资账户复盘。");
+            activity.investmentReviewList.addView(activity.emptyText("先新增或标记一个投资类型资产。"));
+            return;
+        }
+
+        UpdateAnalytics.Summary month = UpdateAnalytics.summarizeKnownAssets(activity.updateEvents, investments, activity.settings, 30);
+        UpdateAnalytics.Summary quarter = UpdateAnalytics.summarizeKnownAssets(activity.updateEvents, investments, activity.settings, 90);
+        activity.investmentReviewSummary.setText(investmentReviewSummaryText(stats, month));
+
+        activity.investmentReviewList.addView(infoRow(
+                "30 天投资变化",
+                month.count == 0 ? "无记录" : month.count + " 次",
+                flowSummaryText(month),
+                month.delta >= 0 ? MoneyManagerActivity.ACCENT : MoneyManagerActivity.DANGER
+        ));
+        activity.investmentReviewList.addView(infoRow(
+                "90 天投资变化",
+                quarter.count == 0 ? "无记录" : quarter.count + " 次",
+                flowSummaryText(quarter),
+                quarter.delta >= 0 ? MoneyManagerActivity.BLUE : MoneyManagerActivity.DANGER
+        ));
+
+        AssetRecord focus = nextFocusAsset(investments);
+        activity.investmentReviewList.addView(infoRow(
+                "下一步处理",
+                focus == null ? "保持" : focus.name,
+                focus == null ? "暂无需要优先处理的投资资产。"
+                        : nextFocusDetail(focus),
+                focus == null ? MoneyManagerActivity.ACCENT : focusColor(focus)
+        ));
+
+        AssetRecord largest = investments.get(0);
+        activity.investmentReviewList.addView(infoRow(
+                "最大投资项",
+                activity.settings.hideAmounts ? "金额已隐藏" : activity.formatAmount(largest),
+                largest.institution.isEmpty()
+                        ? largest.category + " · 未填写机构。"
+                        : largest.category + " · " + largest.institution + "。",
+                MoneyManagerActivity.BLUE
+        ));
+
+        UpdateAnalytics.Bucket topReason = topBucket(month.reasons);
+        UpdateAnalytics.Bucket topInstitution = topBucket(month.institutions);
+        if (topReason != null || topInstitution != null) {
+            activity.investmentReviewList.addView(infoRow(
+                    "主要来源",
+                    topReason == null ? "--" : topReason.label,
+                    "近 30 天主要机构："
+                            + (topInstitution == null ? "暂无" : topInstitution.label)
+                            + "。",
+                    MoneyManagerActivity.AMBER
+            ));
+        }
+    }
+
+    private String investmentReviewSummaryText(InvestmentAnalytics.Summary stats, UpdateAnalytics.Summary month) {
+        if (activity.settings.hideAmounts) {
+            return "近 30 天记录 " + month.count + " 次投资更新；金额已隐藏。";
+        }
+        return "投资总额 " + activity.formatMoney(stats.total, activity.settings.baseCurrency)
+                + "；近 30 天投资净变化 "
+                + activity.formatSignedMoney(month.delta, activity.settings.baseCurrency)
+                + "。";
+    }
+
+    private String flowSummaryText(UpdateAnalytics.Summary summary) {
+        if (summary.count == 0) {
+            return "没有投资更新记录，先完成一次金额核对。";
+        }
+        if (activity.settings.hideAmounts) {
+            return "金额已隐藏；其中仅更新时间 " + summary.flatCount + " 次。";
+        }
+        return "净变化 " + activity.formatSignedMoney(summary.delta, activity.settings.baseCurrency)
+                + "，流入 " + activity.formatMoney(summary.increase, activity.settings.baseCurrency)
+                + "，流出 " + activity.formatMoney(Math.abs(summary.decrease), activity.settings.baseCurrency)
+                + "。";
+    }
+
+    private AssetRecord nextFocusAsset(List<AssetRecord> investments) {
+        List<AssetRecord> planned = activity.sortedPlannedAssets(investments);
+        if (planned.isEmpty()) {
+            return null;
+        }
+        AssetRecord first = planned.get(0);
+        return activity.daysUntilDue(first) <= 3 ? first : null;
+    }
+
+    private String nextFocusDetail(AssetRecord asset) {
+        int days = activity.daysUntilDue(asset);
+        String dueText;
+        if (days < 0) {
+            dueText = "已逾期 " + Math.abs(days) + " 天";
+        } else if (days == 0) {
+            dueText = "今天到期";
+        } else {
+            dueText = days + " 天后到期";
+        }
+        String appText = asset.packageName.isEmpty() && asset.launchUri.isEmpty()
+                ? "还未绑定 App。"
+                : "可直接打开绑定 App 核对。";
+        return dueText + "，" + appText;
+    }
+
+    private int focusColor(AssetRecord asset) {
+        return activity.daysUntilDue(asset) <= 0 ? MoneyManagerActivity.DANGER : MoneyManagerActivity.AMBER;
+    }
+
+    private UpdateAnalytics.Bucket topBucket(List<UpdateAnalytics.Bucket> buckets) {
+        return buckets.isEmpty() ? null : buckets.get(0);
     }
 
     private void renderDiagnostics(

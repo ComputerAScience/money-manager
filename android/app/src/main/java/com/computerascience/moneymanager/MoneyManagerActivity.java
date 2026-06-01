@@ -118,6 +118,8 @@ public abstract class MoneyManagerActivity extends Activity {
     protected TextView updatePlanSummary;
     protected TextView recentUpdateSummary;
     protected TextView investmentSummaryText;
+    protected TextView investmentReviewSummary;
+    protected LinearLayout investmentReviewList;
     protected TextView investmentDiagnosticSummary;
     protected LinearLayout investmentDiagnosticList;
     protected TextView investmentFlowSummary;
