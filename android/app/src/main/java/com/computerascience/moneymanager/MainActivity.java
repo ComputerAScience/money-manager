@@ -238,6 +238,7 @@ public final class MainActivity extends MoneyManagerActivity {
 
         trendPage = page();
         View totalTrend = trendRenderer.trendCard();
+        View monthlyReview = trendRenderer.monthlyReviewCard();
         View distributionTrend = trendRenderer.distributionTrendCard();
         View flowAttribution = trendRenderer.flowAttributionCard();
         View assetTrend = trendRenderer.assetTrendCard();
@@ -245,6 +246,7 @@ public final class MainActivity extends MoneyManagerActivity {
         View recentUpdates = trendRenderer.recentUpdatesCard();
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
+                new SectionDrawer.Item("月度复盘", monthlyReview),
                 new SectionDrawer.Item("分布变化", distributionTrend),
                 new SectionDrawer.Item("变化归因", flowAttribution),
                 new SectionDrawer.Item("单项资产", assetTrend),
@@ -252,6 +254,7 @@ public final class MainActivity extends MoneyManagerActivity {
                 new SectionDrawer.Item("更新流水", recentUpdates)
         };
         trendPage.addView(totalTrend);
+        trendPage.addView(monthlyReview);
         trendPage.addView(distributionTrend);
         trendPage.addView(flowAttribution);
         trendPage.addView(assetTrend);

@@ -20,7 +20,46 @@ public final class TrendAnalytics {
                 filtered.add(snapshot);
             }
         }
+        Collections.sort(filtered, (left, right) -> Long.compare(left.timestamp, right.timestamp));
         return filtered;
+    }
+
+    public static MonthlyReview monthlyReview(
+            PortfolioSummary portfolio,
+            List<AssetSnapshot> snapshots,
+            long now,
+            int days
+    ) {
+        long cutoff = now - days * AssetMath.DAY_MS;
+        List<AssetSnapshot> window = new ArrayList<>();
+        for (AssetSnapshot snapshot : snapshots) {
+            if (snapshot.timestamp >= cutoff) {
+                window.add(snapshot);
+            }
+        }
+        Collections.sort(window, (left, right) -> Long.compare(left.timestamp, right.timestamp));
+        if (window.size() < 2) {
+            return new MonthlyReview(days, portfolio.baseCurrency, window.size());
+        }
+
+        AssetSnapshot first = window.get(0);
+        AssetSnapshot last = window.get(window.size() - 1);
+        double netWorthDelta = last.netWorth - first.netWorth;
+        double netWorthRatio = Math.abs(first.netWorth) < 0.0001
+                ? 0
+                : netWorthDelta / Math.abs(first.netWorth) * 100;
+        return new MonthlyReview(
+                days,
+                portfolio.baseCurrency,
+                window.size(),
+                true,
+                first,
+                last,
+                netWorthDelta,
+                last.grossAssets - first.grossAssets,
+                last.liabilities - first.liabilities,
+                netWorthRatio
+        );
     }
 
     public static List<Metric> metrics(PortfolioSummary portfolio, List<AssetSnapshot> snapshots, long now) {
@@ -192,6 +231,47 @@ public final class TrendAnalytics {
             this.firstPercent = firstPercent;
             this.lastPercent = lastPercent;
             this.percentDelta = percentDelta;
+        }
+    }
+
+    public static final class MonthlyReview {
+        public final int days;
+        public final String currency;
+        public final int snapshotCount;
+        public final boolean complete;
+        public final AssetSnapshot first;
+        public final AssetSnapshot last;
+        public final double netWorthDelta;
+        public final double grossAssetsDelta;
+        public final double liabilitiesDelta;
+        public final double netWorthRatio;
+
+        MonthlyReview(int days, String currency, int snapshotCount) {
+            this(days, currency, snapshotCount, false, null, null, 0, 0, 0, 0);
+        }
+
+        MonthlyReview(
+                int days,
+                String currency,
+                int snapshotCount,
+                boolean complete,
+                AssetSnapshot first,
+                AssetSnapshot last,
+                double netWorthDelta,
+                double grossAssetsDelta,
+                double liabilitiesDelta,
+                double netWorthRatio
+        ) {
+            this.days = days;
+            this.currency = currency;
+            this.snapshotCount = snapshotCount;
+            this.complete = complete;
+            this.first = first;
+            this.last = last;
+            this.netWorthDelta = netWorthDelta;
+            this.grossAssetsDelta = grossAssetsDelta;
+            this.liabilitiesDelta = liabilitiesDelta;
+            this.netWorthRatio = netWorthRatio;
         }
     }
 }
