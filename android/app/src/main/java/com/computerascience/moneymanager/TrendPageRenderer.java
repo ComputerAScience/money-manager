@@ -10,6 +10,7 @@ import java.util.List;
 final class TrendPageRenderer {
     private final TrendSnapshotRenderer snapshotRenderer;
     private final TrendReviewRenderer reviewRenderer;
+    private final TrendHealthRenderer healthRenderer;
     private final TargetProgressRenderer targetRenderer;
     private final DistributionTrendRenderer distributionRenderer;
     private final FlowAttributionRenderer flowRenderer;
@@ -19,6 +20,7 @@ final class TrendPageRenderer {
     TrendPageRenderer(MainActivity activity) {
         this.snapshotRenderer = new TrendSnapshotRenderer(activity);
         this.reviewRenderer = new TrendReviewRenderer(activity);
+        this.healthRenderer = new TrendHealthRenderer(activity);
         this.targetRenderer = new TargetProgressRenderer(activity);
         this.distributionRenderer = new DistributionTrendRenderer(activity);
         this.flowRenderer = new FlowAttributionRenderer(activity);
@@ -32,6 +34,10 @@ final class TrendPageRenderer {
 
     View monthlyReviewCard() {
         return reviewRenderer.monthlyReviewCard();
+    }
+
+    View healthCard() {
+        return healthRenderer.card();
     }
 
     View targetProgressCard() {
@@ -53,6 +59,7 @@ final class TrendPageRenderer {
     void render(PortfolioSummary portfolio, List<AssetSnapshot> trendSnapshots) {
         snapshotRenderer.render(portfolio, trendSnapshots);
         reviewRenderer.renderMonthlyReview(portfolio, trendSnapshots);
+        healthRenderer.render(portfolio, trendSnapshots);
         targetRenderer.render(portfolio, trendSnapshots);
         distributionRenderer.render(trendSnapshots);
         flowRenderer.render();

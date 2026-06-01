@@ -224,6 +224,7 @@ public final class MainActivity extends MoneyManagerActivity {
         trendPage = page();
         View totalTrend = trendRenderer.trendCard();
         View monthlyReview = trendRenderer.monthlyReviewCard();
+        View trendHealth = trendRenderer.healthCard();
         View targetProgress = trendRenderer.targetProgressCard();
         View distributionTrend = trendRenderer.distributionTrendCard();
         View flowAttribution = trendRenderer.flowAttributionCard();
@@ -231,6 +232,7 @@ public final class MainActivity extends MoneyManagerActivity {
         trendSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("一年趋势", totalTrend),
                 new SectionDrawer.Item("月度复盘", monthlyReview),
+                new SectionDrawer.Item("趋势健康", trendHealth),
                 new SectionDrawer.Item("目标追踪", targetProgress),
                 new SectionDrawer.Item("分布变化", distributionTrend),
                 new SectionDrawer.Item("变化归因", flowAttribution),
@@ -238,6 +240,7 @@ public final class MainActivity extends MoneyManagerActivity {
         };
         trendPage.addView(totalTrend);
         trendPage.addView(monthlyReview);
+        trendPage.addView(trendHealth);
         trendPage.addView(targetProgress);
         trendPage.addView(distributionTrend);
         trendPage.addView(flowAttribution);
