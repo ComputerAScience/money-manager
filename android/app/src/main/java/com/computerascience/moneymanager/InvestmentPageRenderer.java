@@ -24,11 +24,13 @@ final class InvestmentPageRenderer {
     private final MainActivity activity;
     private final InvestmentInstitutionRenderer institutionRenderer;
     private final InvestmentFlowRenderer flowRenderer;
+    private final InvestmentTrendRenderer trendRenderer;
 
     InvestmentPageRenderer(MainActivity activity) {
         this.activity = activity;
         this.institutionRenderer = new InvestmentInstitutionRenderer(activity);
         this.flowRenderer = new InvestmentFlowRenderer(activity);
+        this.trendRenderer = new InvestmentTrendRenderer(activity);
     }
 
     View summaryCard() {
@@ -95,6 +97,10 @@ final class InvestmentPageRenderer {
         return card;
     }
 
+    View trendCard() {
+        return trendRenderer.card();
+    }
+
     View diagnosticsCard() {
         LinearLayout card = activity.card();
         card.addView(activity.sectionTitle("投资诊断"));
@@ -158,7 +164,7 @@ final class InvestmentPageRenderer {
         if (activity.investmentSummaryText == null || activity.investmentAccountList == null
                 || activity.investmentStructureList == null || activity.investmentInstitutionList == null
                 || activity.investmentDiagnosticList == null || activity.investmentReviewList == null
-                || activity.investmentFlowList == null) {
+                || activity.investmentFlowList == null || activity.investmentTrendList == null) {
             return;
         }
         List<AssetRecord> investments = investmentAssets();
@@ -170,6 +176,7 @@ final class InvestmentPageRenderer {
 
         renderStructure(investments, stats);
         renderReview(investments, groups, stats);
+        trendRenderer.render();
         renderDiagnostics(investments, groups, stats);
         flowRenderer.render(investments);
         institutionRenderer.render(groups, stats.total);

@@ -162,6 +162,7 @@ final class MainScreenBuilder {
         activity.investmentPage = page();
         View investmentSummary = investmentRenderer.summaryCard();
         View investmentReview = investmentRenderer.reviewCard();
+        View investmentTrend = investmentRenderer.trendCard();
         View investmentDiagnostics = investmentRenderer.diagnosticsCard();
         View investmentFlow = investmentRenderer.flowCard();
         View investmentStructure = investmentRenderer.structureCard();
@@ -170,13 +171,14 @@ final class MainScreenBuilder {
         activity.investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
                 new SectionDrawer.Item("投资复盘", investmentReview),
+                new SectionDrawer.Item("投资趋势", investmentTrend),
                 new SectionDrawer.Item("投资诊断", investmentDiagnostics),
                 new SectionDrawer.Item("投资变化", investmentFlow),
                 new SectionDrawer.Item("投资结构", investmentStructure),
                 new SectionDrawer.Item("投资机构", investmentInstitutions),
                 new SectionDrawer.Item("投资资产", investmentAccounts)
         };
-        addAll(activity.investmentPage, investmentSummary, investmentReview, investmentDiagnostics,
+        addAll(activity.investmentPage, investmentSummary, investmentReview, investmentTrend, investmentDiagnostics,
                 investmentFlow, investmentStructure, investmentInstitutions, investmentAccounts);
         return activity.investmentPage;
     }
