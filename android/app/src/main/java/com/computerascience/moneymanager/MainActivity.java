@@ -199,7 +199,6 @@ public final class MainActivity extends MoneyManagerActivity {
         View investmentFlow = investmentRenderer.flowCard();
         View investmentStructure = investmentRenderer.structureCard();
         View investmentInstitutions = investmentRenderer.institutionsCard();
-        View investmentPlan = investmentRenderer.planCard();
         View investmentAccounts = investmentRenderer.accountsCard();
         investmentSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("投资总览", investmentSummary),
@@ -208,7 +207,6 @@ public final class MainActivity extends MoneyManagerActivity {
                 new SectionDrawer.Item("投资变化", investmentFlow),
                 new SectionDrawer.Item("投资结构", investmentStructure),
                 new SectionDrawer.Item("投资机构", investmentInstitutions),
-                new SectionDrawer.Item("投资待核对", investmentPlan),
                 new SectionDrawer.Item("投资资产", investmentAccounts)
         };
         investmentPage.addView(investmentSummary);
@@ -217,7 +215,6 @@ public final class MainActivity extends MoneyManagerActivity {
         investmentPage.addView(investmentFlow);
         investmentPage.addView(investmentStructure);
         investmentPage.addView(investmentInstitutions);
-        investmentPage.addView(investmentPlan);
         investmentPage.addView(investmentAccounts);
         root.addView(investmentPage);
 

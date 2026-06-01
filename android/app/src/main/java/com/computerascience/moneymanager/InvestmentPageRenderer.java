@@ -141,22 +141,6 @@ final class InvestmentPageRenderer {
         return card;
     }
 
-    View planCard() {
-        LinearLayout card = activity.card();
-        card.addView(activity.sectionTitle("投资待核对"));
-
-        activity.investmentPlanSummary = activity.text("", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams summaryParams = activity.lp(-1, -2);
-        summaryParams.topMargin = activity.dp(8);
-        summaryParams.bottomMargin = activity.dp(8);
-        card.addView(activity.investmentPlanSummary, summaryParams);
-
-        activity.investmentPlanList = new LinearLayout(activity);
-        activity.investmentPlanList.setOrientation(LinearLayout.VERTICAL);
-        card.addView(activity.investmentPlanList, activity.lp(-1, -2));
-        return card;
-    }
-
     View accountsCard() {
         LinearLayout card = activity.card();
         card.addView(activity.sectionTitle("投资资产"));
@@ -171,8 +155,7 @@ final class InvestmentPageRenderer {
     void render() {
         if (activity.investmentSummaryText == null || activity.investmentAccountList == null
                 || activity.investmentStructureList == null || activity.investmentInstitutionList == null
-                || activity.investmentPlanList == null || activity.investmentDiagnosticList == null
-                || activity.investmentReviewList == null
+                || activity.investmentDiagnosticList == null || activity.investmentReviewList == null
                 || activity.investmentFlowList == null) {
             return;
         }
@@ -188,7 +171,6 @@ final class InvestmentPageRenderer {
         renderDiagnostics(investments, groups, stats);
         renderFlow(investments);
         institutionRenderer.render(groups, stats.total);
-        renderPlan(investments, stats);
 
         activity.investmentAccountList.removeAllViews();
         if (investments.isEmpty()) {
@@ -502,30 +484,6 @@ final class InvestmentPageRenderer {
                             : activity.formatMoney(category.value, activity.settings.baseCurrency),
                     category.color
             ));
-        }
-    }
-
-    private void renderPlan(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
-        activity.investmentPlanList.removeAllViews();
-        if (investments.isEmpty()) {
-            activity.investmentPlanSummary.setText("还没有投资资产。");
-            activity.investmentPlanList.addView(activity.emptyText("新增投资资产后，这里会按更新时间排序。"));
-            return;
-        }
-
-        activity.investmentPlanSummary.setText(stats.dueNow + " 项投资资产需要现在核对，"
-                + stats.dueSoon + " 项将在 3 天内到期。");
-
-        List<AssetRecord> planned = activity.sortedPlannedAssets(investments);
-        int limit = Math.min(5, planned.size());
-        List<AssetRecord> topPlanned = new ArrayList<>(planned.subList(0, limit));
-        for (AssetInstitutionGroups.Group group : AssetInstitutionGroups.groupByInstitution(topPlanned, activity.settings)) {
-            activity.investmentPlanList.addView(activity.assetInstitutionGroupHeader(group, activity.settings.baseCurrency));
-            if (!activity.collapsedAssetGroups.contains(group.key)) {
-                for (AssetRecord asset : group.assets) {
-                    activity.investmentPlanList.addView(activity.updatePlanRow(asset));
-                }
-            }
         }
     }
 
