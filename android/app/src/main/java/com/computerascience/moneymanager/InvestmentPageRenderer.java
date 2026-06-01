@@ -22,9 +22,11 @@ import java.util.List;
 
 final class InvestmentPageRenderer {
     private final MainActivity activity;
+    private final InvestmentInstitutionRenderer institutionRenderer;
 
     InvestmentPageRenderer(MainActivity activity) {
         this.activity = activity;
+        this.institutionRenderer = new InvestmentInstitutionRenderer(activity);
     }
 
     View summaryCard() {
@@ -185,7 +187,7 @@ final class InvestmentPageRenderer {
         renderReview(investments, groups, stats);
         renderDiagnostics(investments, groups, stats);
         renderFlow(investments);
-        renderInstitutions(groups, stats.total);
+        institutionRenderer.render(groups, stats.total);
         renderPlan(investments, stats);
 
         activity.investmentAccountList.removeAllViews();
@@ -503,25 +505,6 @@ final class InvestmentPageRenderer {
         }
     }
 
-    private void renderInstitutions(List<AssetInstitutionGroups.Group> groups, double total) {
-        activity.investmentInstitutionList.removeAllViews();
-        if (groups.isEmpty()) {
-            activity.investmentInstitutionSummary.setText("暂无投资机构。新增投资资产后会按机构汇总。");
-            activity.investmentInstitutionList.addView(activity.emptyText("还没有可展示的投资机构。"));
-            return;
-        }
-
-        AssetInstitutionGroups.Group top = groups.get(0);
-        activity.investmentInstitutionSummary.setText("最大机构是 " + top.title
-                + "，占投资资产 " + activity.formatPercent(top.total, total)
-                + "；共 " + groups.size() + " 个投资机构。");
-
-        int limit = Math.min(5, groups.size());
-        for (int index = 0; index < limit; index += 1) {
-            activity.investmentInstitutionList.addView(institutionRow(groups.get(index), total));
-        }
-    }
-
     private void renderPlan(List<AssetRecord> investments, InvestmentAnalytics.Summary stats) {
         activity.investmentPlanList.removeAllViews();
         if (investments.isEmpty()) {
@@ -544,37 +527,6 @@ final class InvestmentPageRenderer {
                 }
             }
         }
-    }
-
-    private View institutionRow(AssetInstitutionGroups.Group group, double total) {
-        LinearLayout row = new LinearLayout(activity);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(10));
-        row.setBackground(activity.cardBackground(MoneyManagerActivity.ROW_SURFACE, MoneyManagerActivity.PANEL_BORDER));
-        LinearLayout.LayoutParams rowParams = activity.lp(-1, -2);
-        rowParams.topMargin = activity.dp(8);
-        row.setLayoutParams(rowParams);
-
-        row.addView(activity.institutionGroupIcon(group), new LinearLayout.LayoutParams(activity.dp(34), activity.dp(34)));
-
-        LinearLayout titleGroup = new LinearLayout(activity);
-        titleGroup.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
-        titleParams.leftMargin = activity.dp(10);
-        titleGroup.addView(activity.text(group.title, 14, MoneyManagerActivity.INK, Typeface.BOLD));
-        LinearLayout.LayoutParams metaParams = activity.lp(-1, -2);
-        metaParams.topMargin = activity.dp(3);
-        titleGroup.addView(activity.text(group.assets.size() + " 项 · " + group.displayApps(), 12, MoneyManagerActivity.MUTED, Typeface.NORMAL), metaParams);
-        row.addView(titleGroup, titleParams);
-
-        String value = activity.settings.hideAmounts
-                ? activity.formatPercent(group.total, total)
-                : activity.formatMoney(group.total, activity.settings.baseCurrency) + "\n" + activity.formatPercent(group.total, total);
-        TextView amount = activity.text(value, 12, MoneyManagerActivity.MUTED, Typeface.BOLD);
-        amount.setGravity(Gravity.RIGHT);
-        row.addView(amount);
-        return row;
     }
 
     private View infoRow(String title, String value, String detail, int color) {
