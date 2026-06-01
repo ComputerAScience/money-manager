@@ -108,6 +108,8 @@ public abstract class MoneyManagerActivity extends Activity {
     protected LinearLayout trendHistoryList;
     protected TextView monthlyReviewSummary;
     protected LinearLayout monthlyReviewList;
+    protected TextView targetProgressSummary;
+    protected LinearLayout targetProgressList;
     protected TextView distributionTrendSummary;
     protected LinearLayout distributionTrendList;
     protected TextView flowAttributionSummary;

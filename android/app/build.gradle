@@ -15,8 +15,8 @@ android {
         applicationId "com.computerascience.moneymanager"
         minSdk 23
         targetSdk 35
-        versionCode 56
-        versionName "0.6.18"
+        versionCode 57
+        versionName "0.6.19"
     }
 
     buildFeatures {

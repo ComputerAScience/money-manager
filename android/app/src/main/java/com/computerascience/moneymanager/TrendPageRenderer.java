@@ -37,10 +37,12 @@ import java.util.Map;
 final class TrendPageRenderer {
     private final MainActivity activity;
     private final TrendReviewRenderer reviewRenderer;
+    private final TargetProgressRenderer targetRenderer;
 
     TrendPageRenderer(MainActivity activity) {
         this.activity = activity;
         this.reviewRenderer = new TrendReviewRenderer(activity);
+        this.targetRenderer = new TargetProgressRenderer(activity);
     }
 
     View trendCard() {
@@ -106,6 +108,10 @@ final class TrendPageRenderer {
 
     View monthlyReviewCard() {
         return reviewRenderer.monthlyReviewCard();
+    }
+
+    View targetProgressCard() {
+        return targetRenderer.targetProgressCard();
     }
 
     View flowAttributionCard() {
@@ -214,6 +220,7 @@ final class TrendPageRenderer {
         renderTrendMetrics(portfolio, trendSnapshots);
         renderTrendHistory(trendSnapshots);
         reviewRenderer.renderMonthlyReview(portfolio, trendSnapshots);
+        targetRenderer.render(portfolio, trendSnapshots);
         renderDistributionTrend(trendSnapshots);
         renderFlowAttribution();
         renderAssetTrend();
