@@ -208,17 +208,15 @@ final class MainScreenBuilder {
         activity.assetsPage = page();
         View actionCenter = assetsRenderer.actionCenterCard();
         View assetManagement = assetsRenderer.assetManagementSection();
-        View updatePlan = assetsRenderer.updatePlanCard();
         View dataHealth = dataHealthRenderer.card();
         View recentUpdates = updatesRenderer.card();
         activity.assetSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("行动中心", actionCenter),
                 new SectionDrawer.Item("资产管理", assetManagement),
-                new SectionDrawer.Item("核对计划", updatePlan),
                 new SectionDrawer.Item("数据健康", dataHealth),
                 new SectionDrawer.Item("更新流水", recentUpdates)
         };
-        addAll(activity.assetsPage, actionCenter, assetManagement, updatePlan, dataHealth, recentUpdates);
+        addAll(activity.assetsPage, actionCenter, assetManagement, dataHealth, recentUpdates);
         return activity.assetsPage;
     }
 

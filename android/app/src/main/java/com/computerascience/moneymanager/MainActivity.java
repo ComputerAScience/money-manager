@@ -288,10 +288,6 @@ public final class MainActivity extends MoneyManagerActivity {
         return assetsRenderer.updatePlanSummaryText(urgentCount, soonCount);
     }
 
-    View updatePlanRow(AssetRecord asset) {
-        return assetsRenderer.updatePlanRow(asset);
-    }
-
     View assetCompactRow(AssetRecord asset) {
         return assetsRenderer.assetCompactRow(asset);
     }

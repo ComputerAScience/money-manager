@@ -109,10 +109,6 @@ final class AssetsPageRenderer {
         return card;
     }
 
-    View updatePlanCard() {
-        return actionRenderer.updatePlanCard();
-    }
-
     void render(PortfolioSummary portfolio) {
         actionRenderer.render(portfolio);
 
@@ -211,10 +207,6 @@ final class AssetsPageRenderer {
 
     String updatePlanSummaryText(int urgentCount, int soonCount) {
         return actionRenderer.updatePlanSummaryText(urgentCount, soonCount);
-    }
-
-    View updatePlanRow(AssetRecord asset) {
-        return actionRenderer.updatePlanRow(asset);
     }
 
     View assetCompactRow(AssetRecord asset) {

@@ -40,21 +40,14 @@ final class AssetActionRenderer {
         activity.actionCenterList.setOrientation(LinearLayout.VERTICAL);
         card.addView(activity.actionCenterList, activity.lp(-1, -2));
 
-        Button reviewButton = activity.secondaryButton("处理待办资产");
-        reviewButton.setOnClickListener(view -> activity.showAssetManagement("issues"));
-        LinearLayout.LayoutParams reviewParams = activity.lp(-1, activity.dp(42));
-        reviewParams.topMargin = activity.dp(10);
-        card.addView(reviewButton, reviewParams);
-        return card;
-    }
-
-    View updatePlanCard() {
-        LinearLayout card = activity.card();
-        card.addView(activity.sectionTitle("核对计划"));
+        TextView queueTitle = activity.text("核对队列", 13, MoneyManagerActivity.INK, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = activity.lp(-1, -2);
+        titleParams.topMargin = activity.dp(14);
+        titleParams.bottomMargin = activity.dp(4);
+        card.addView(queueTitle, titleParams);
 
         activity.updatePlanSummary = activity.text("", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams updateSummaryParams = activity.lp(-1, -2);
-        updateSummaryParams.topMargin = activity.dp(8);
         updateSummaryParams.bottomMargin = activity.dp(8);
         card.addView(activity.updatePlanSummary, updateSummaryParams);
 
@@ -62,11 +55,11 @@ final class AssetActionRenderer {
         activity.updatePlanList.setOrientation(LinearLayout.VERTICAL);
         card.addView(activity.updatePlanList, activity.lp(-1, -2));
 
-        Button reviewButton = activity.secondaryButton("查看待处理资产");
+        Button reviewButton = activity.secondaryButton("处理待办资产");
         reviewButton.setOnClickListener(view -> activity.showAssetManagement("issues"));
-        LinearLayout.LayoutParams buttonParams = activity.lp(-1, activity.dp(42));
-        buttonParams.topMargin = activity.dp(10);
-        card.addView(reviewButton, buttonParams);
+        LinearLayout.LayoutParams reviewParams = activity.lp(-1, activity.dp(42));
+        reviewParams.topMargin = activity.dp(10);
+        card.addView(reviewButton, reviewParams);
         return card;
     }
 
