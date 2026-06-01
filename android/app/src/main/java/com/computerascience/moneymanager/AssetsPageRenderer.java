@@ -205,6 +205,18 @@ final class AssetsPageRenderer {
         return fallback;
     }
 
+    List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
+        return actionRenderer.sortedPlannedAssets(source);
+    }
+
+    String updatePlanSummaryText(int urgentCount, int soonCount) {
+        return actionRenderer.updatePlanSummaryText(urgentCount, soonCount);
+    }
+
+    View updatePlanRow(AssetRecord asset) {
+        return actionRenderer.updatePlanRow(asset);
+    }
+
     View assetCompactRow(AssetRecord asset) {
         LinearLayout item = new LinearLayout(activity);
         item.setOrientation(LinearLayout.VERTICAL);

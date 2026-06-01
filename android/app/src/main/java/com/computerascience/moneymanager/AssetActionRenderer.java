@@ -238,8 +238,7 @@ final class AssetActionRenderer {
             }
         }
 
-        activity.updatePlanSummary.setText(urgentCount + " 项需要现在核对，"
-                + soonCount + " 项将在 3 天内到期。");
+        activity.updatePlanSummary.setText(updatePlanSummaryText(urgentCount, soonCount));
 
         int limit = Math.min(8, planned.size());
         List<AssetRecord> topPlanned = new ArrayList<>(planned.subList(0, limit));
@@ -260,7 +259,7 @@ final class AssetActionRenderer {
         }
     }
 
-    private List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
+    List<AssetRecord> sortedPlannedAssets(List<AssetRecord> source) {
         List<AssetRecord> planned = new ArrayList<>(source);
         Collections.sort(planned, (left, right) -> {
             int daysCompare = Integer.compare(activity.daysUntilDue(left), activity.daysUntilDue(right));
@@ -276,7 +275,12 @@ final class AssetActionRenderer {
         return planned;
     }
 
-    private View updatePlanRow(AssetRecord asset) {
+    String updatePlanSummaryText(int urgentCount, int soonCount) {
+        return urgentCount + " 项需要现在核对，"
+                + soonCount + " 项将在 3 天内到期。";
+    }
+
+    View updatePlanRow(AssetRecord asset) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(12));
