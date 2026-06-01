@@ -111,7 +111,7 @@ final class OverviewPageRenderer {
 
     View allocationCard() {
         LinearLayout card = activity.card();
-        card.addView(activity.sectionTitle("资产比例"));
+        card.addView(activity.sectionTitle("资产比例与目标"));
 
         LinearLayout body = activity.row();
         LinearLayout.LayoutParams bodyParams = activity.lp(-1, -2);
@@ -127,16 +127,10 @@ final class OverviewPageRenderer {
         legendParams.leftMargin = activity.dp(14);
         body.addView(activity.allocationLegend, legendParams);
         card.addView(body);
-        return card;
-    }
-
-    View allocationTargetCard() {
-        LinearLayout card = activity.card();
-        card.addView(activity.sectionTitle("目标比例"));
 
         activity.allocationTargetSummary = activity.text("", 14, MoneyManagerActivity.MUTED, Typeface.NORMAL);
         LinearLayout.LayoutParams summaryParams = activity.lp(-1, -2);
-        summaryParams.topMargin = activity.dp(8);
+        summaryParams.topMargin = activity.dp(12);
         summaryParams.bottomMargin = activity.dp(8);
         card.addView(activity.allocationTargetSummary, summaryParams);
 

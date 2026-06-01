@@ -144,17 +144,15 @@ final class MainScreenBuilder {
         activity.overviewPage = page();
         View overviewSummary = overviewRenderer.overviewCard();
         View allocation = overviewRenderer.allocationCard();
-        View allocationTarget = overviewRenderer.allocationTargetCard();
         View institution = overviewRenderer.institutionCard();
         View netWorthGoal = overviewRenderer.netWorthGoalCard();
         activity.overviewSections = new SectionDrawer.Item[]{
                 new SectionDrawer.Item("总资产概览", overviewSummary),
-                new SectionDrawer.Item("资产比例", allocation),
-                new SectionDrawer.Item("目标比例", allocationTarget),
+                new SectionDrawer.Item("资产比例与目标", allocation),
                 new SectionDrawer.Item("机构分布", institution),
                 new SectionDrawer.Item("年度目标", netWorthGoal)
         };
-        addAll(activity.overviewPage, overviewSummary, allocation, allocationTarget, institution, netWorthGoal);
+        addAll(activity.overviewPage, overviewSummary, allocation, institution, netWorthGoal);
         return activity.overviewPage;
     }
 
