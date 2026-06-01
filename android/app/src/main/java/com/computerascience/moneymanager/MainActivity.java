@@ -4,19 +4,10 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetInstitutionGroups;
@@ -28,8 +19,6 @@ import com.computerascience.moneymanager.model.AssetRecord;
 import com.computerascience.moneymanager.model.AssetSnapshot;
 import com.computerascience.moneymanager.model.PortfolioSummary;
 import com.computerascience.moneymanager.ui.BottomNavBar;
-import com.computerascience.moneymanager.ui.SectionDrawer;
-import com.computerascience.moneymanager.ui.SectionProgressHandle;
 import com.computerascience.moneymanager.ui.UpdateDialog;
 
 import java.util.List;
@@ -108,227 +97,16 @@ public final class MainActivity extends MoneyManagerActivity {
     }
 
     private void buildUi() {
-        LinearLayout screen = new LinearLayout(this);
-        screen.setOrientation(LinearLayout.VERTICAL);
-        screen.setBackgroundColor(BG);
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(18), statusBarHeight() + dp(14), dp(18), dp(12));
-        header.setBackground(headerBackground());
-
-        LinearLayout brand = row();
-        brand.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView mark = new ImageView(this);
-        mark.setImageResource(R.drawable.ic_launcher_foreground);
-        mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        mark.setPadding(dp(3), dp(3), dp(3), dp(3));
-        mark.setBackground(roundedBackground(ACCENT_DARK, ACCENT, 8));
-        brand.addView(mark, new LinearLayout.LayoutParams(dp(34), dp(34)));
-
-        TextView eyebrow = label("Money Manager · " + BuildConfig.CHANNEL_LABEL);
-        LinearLayout.LayoutParams eyebrowParams = lp(-2, -2);
-        eyebrowParams.leftMargin = dp(10);
-        brand.addView(eyebrow, eyebrowParams);
-
-        View brandSpacer = new View(this);
-        brand.addView(brandSpacer, new LinearLayout.LayoutParams(0, 1, 1));
-
-        Button settingsButton = iconButton("⚙");
-        settingsButton.setTextSize(19);
-        settingsButton.setContentDescription("设置");
-        settingsButton.setOnClickListener(view -> showSettingsMenu());
-        brand.addView(settingsButton, new LinearLayout.LayoutParams(dp(42), dp(38)));
-        header.addView(brand);
-
-        pageTitle = text("", 26, INK, Typeface.BOLD);
-        LinearLayout.LayoutParams titleParams = lp(-1, -2);
-        titleParams.topMargin = dp(4);
-        header.addView(pageTitle, titleParams);
-
-        pageSubtitle = text("", 14, MUTED, Typeface.NORMAL);
-        LinearLayout.LayoutParams subtitleParams = lp(-1, -2);
-        subtitleParams.topMargin = dp(4);
-        subtitleParams.bottomMargin = dp(12);
-        header.addView(pageSubtitle, subtitleParams);
-
-        screen.addView(header, lp(-1, -2));
-
-        contentFrame = new FrameLayout(this);
-        contentFrame.setClipChildren(false);
-        contentFrame.setClipToPadding(false);
-
-        ScrollView scrollView = new ScrollView(this);
-        mainScrollView = scrollView;
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(BG);
-        scrollView.setOnScrollChangeListener((view, scrollX, scrollY, oldScrollX, oldScrollY) -> navigation.updateProgress());
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(48), dp(28));
-        scrollView.addView(root, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        overviewPage = page();
-        View overviewSummary = overviewRenderer.overviewCard();
-        View allocation = overviewRenderer.allocationCard();
-        View allocationTarget = overviewRenderer.allocationTargetCard();
-        View institution = overviewRenderer.institutionCard();
-        View netWorthGoal = overviewRenderer.netWorthGoalCard();
-        overviewSections = new SectionDrawer.Item[]{
-                new SectionDrawer.Item("总资产概览", overviewSummary),
-                new SectionDrawer.Item("资产比例", allocation),
-                new SectionDrawer.Item("目标比例", allocationTarget),
-                new SectionDrawer.Item("机构分布", institution),
-                new SectionDrawer.Item("年度目标", netWorthGoal)
-        };
-        overviewPage.addView(overviewSummary);
-        overviewPage.addView(allocation);
-        overviewPage.addView(allocationTarget);
-        overviewPage.addView(institution);
-        overviewPage.addView(netWorthGoal);
-        root.addView(overviewPage);
-
-        investmentPage = page();
-        View investmentSummary = investmentRenderer.summaryCard();
-        View investmentReview = investmentRenderer.reviewCard();
-        View investmentDiagnostics = investmentRenderer.diagnosticsCard();
-        View investmentFlow = investmentRenderer.flowCard();
-        View investmentStructure = investmentRenderer.structureCard();
-        View investmentInstitutions = investmentRenderer.institutionsCard();
-        View investmentAccounts = investmentRenderer.accountsCard();
-        investmentSections = new SectionDrawer.Item[]{
-                new SectionDrawer.Item("投资总览", investmentSummary),
-                new SectionDrawer.Item("投资复盘", investmentReview),
-                new SectionDrawer.Item("投资诊断", investmentDiagnostics),
-                new SectionDrawer.Item("投资变化", investmentFlow),
-                new SectionDrawer.Item("投资结构", investmentStructure),
-                new SectionDrawer.Item("投资机构", investmentInstitutions),
-                new SectionDrawer.Item("投资资产", investmentAccounts)
-        };
-        investmentPage.addView(investmentSummary);
-        investmentPage.addView(investmentReview);
-        investmentPage.addView(investmentDiagnostics);
-        investmentPage.addView(investmentFlow);
-        investmentPage.addView(investmentStructure);
-        investmentPage.addView(investmentInstitutions);
-        investmentPage.addView(investmentAccounts);
-        root.addView(investmentPage);
-
-        trendPage = page();
-        View totalTrend = trendRenderer.trendCard();
-        View monthlyReview = trendRenderer.monthlyReviewCard();
-        View trendHealth = trendRenderer.healthCard();
-        View targetProgress = trendRenderer.targetProgressCard();
-        View distributionTrend = trendRenderer.distributionTrendCard();
-        View flowAttribution = trendRenderer.flowAttributionCard();
-        View assetTrend = trendRenderer.assetTrendCard();
-        trendSections = new SectionDrawer.Item[]{
-                new SectionDrawer.Item("一年趋势", totalTrend),
-                new SectionDrawer.Item("月度复盘", monthlyReview),
-                new SectionDrawer.Item("趋势健康", trendHealth),
-                new SectionDrawer.Item("目标追踪", targetProgress),
-                new SectionDrawer.Item("分布变化", distributionTrend),
-                new SectionDrawer.Item("变化归因", flowAttribution),
-                new SectionDrawer.Item("单项资产", assetTrend)
-        };
-        trendPage.addView(totalTrend);
-        trendPage.addView(monthlyReview);
-        trendPage.addView(trendHealth);
-        trendPage.addView(targetProgress);
-        trendPage.addView(distributionTrend);
-        trendPage.addView(flowAttribution);
-        trendPage.addView(assetTrend);
-        root.addView(trendPage);
-
-        assetsPage = page();
-        View actionCenter = assetsRenderer.actionCenterCard();
-        View assetManagement = assetsRenderer.assetManagementSection();
-        View updatePlan = assetsRenderer.updatePlanCard();
-        View dataHealth = dataHealthRenderer.card();
-        View recentUpdates = updatesRenderer.card();
-        assetSections = new SectionDrawer.Item[]{
-                new SectionDrawer.Item("行动中心", actionCenter),
-                new SectionDrawer.Item("资产管理", assetManagement),
-                new SectionDrawer.Item("核对计划", updatePlan),
-                new SectionDrawer.Item("数据健康", dataHealth),
-                new SectionDrawer.Item("更新流水", recentUpdates)
-        };
-        assetsPage.addView(actionCenter);
-        assetsPage.addView(assetManagement);
-        assetsPage.addView(updatePlan);
-        assetsPage.addView(dataHealth);
-        assetsPage.addView(recentUpdates);
-        root.addView(assetsPage);
-
-        contentFrame.addView(scrollView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        sectionProgressHandle = new SectionProgressHandle(this, view -> navigation.showMenu(), new SectionProgressHandle.ProgressDragListener() {
-            @Override
-            public void onDragStart() {
-                navigation.beginDrag();
-            }
-
-            @Override
-            public void onProgress(float progress) {
-                navigation.updateDrag(progress);
-            }
-
-            @Override
-            public void onDragEnd(float progress) {
-                navigation.finishDrag(progress);
-            }
-
-            @Override
-            public void onDragCancel() {
-                navigation.cancelDrag();
-            }
-        });
-        FrameLayout.LayoutParams progressParams = new FrameLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.RIGHT);
-        contentFrame.addView(sectionProgressHandle, progressParams);
-
-        sectionDrawer = new SectionDrawer(this, navigation::scrollToSection);
-        sectionDrawer.setVisibility(View.GONE);
-        FrameLayout.LayoutParams drawerParams = new FrameLayout.LayoutParams(dp(216), -2, Gravity.RIGHT | Gravity.TOP);
-        drawerParams.topMargin = dp(12);
-        drawerParams.rightMargin = dp(10);
-        contentFrame.addView(sectionDrawer, drawerParams);
-
-        screen.addView(contentFrame, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1
-        ));
-
-        bottomNavBar = new BottomNavBar(this, navigation::selectPage);
-        bottomNavBar.setBottomInset(navigationBarHeight());
-        screen.addView(bottomNavBar, lp(-1, -2));
-        setContentView(screen);
-        applySystemBarInsets(screen, header, bottomNavBar);
-        navigation.updatePageVisibility();
-    }
-
-    private void applySystemBarInsets(View screen, View header, BottomNavBar bottomNav) {
-        screen.setOnApplyWindowInsetsListener((view, insets) -> {
-            int topInset = Math.max(insets.getSystemWindowInsetTop(), statusBarHeight());
-            int bottomInset = Math.max(insets.getSystemWindowInsetBottom(), navigationBarHeight());
-            header.setPadding(dp(18), topInset + dp(14), dp(18), dp(12));
-            bottomNav.setBottomInset(bottomInset);
-            return insets;
-        });
-        screen.requestApplyInsets();
-    }
-
-    private LinearLayout page() {
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setLayoutParams(lp(-1, -2));
-        return page;
+        new MainScreenBuilder(
+                this,
+                navigation,
+                overviewRenderer,
+                investmentRenderer,
+                trendRenderer,
+                assetsRenderer,
+                dataHealthRenderer,
+                updatesRenderer
+        ).build();
     }
 
     @Override
@@ -405,7 +183,7 @@ public final class MainActivity extends MoneyManagerActivity {
         navigation.updatePageVisibility();
     }
 
-    private void showSettingsMenu() {
+    void showSettingsMenu() {
         new SettingsMenuController(this).show(
                 currencySettingsText(),
                 appVersionLabel(),

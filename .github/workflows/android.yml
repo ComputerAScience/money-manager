@@ -54,7 +54,7 @@ jobs:
 
       - name: Check Java file size
         working-directory: .
-        run: node tools/check-java-file-size.js --max=650
+        run: node tools/check-java-file-size.js --max=500
 
       - name: Restore stable debug signing key from cache
         id: signing-key-cache

@@ -2,10 +2,7 @@ package com.computerascience.moneymanager;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.content.pm.PackageManager;
 import android.text.InputType;
@@ -21,7 +18,6 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ArrayAdapter;
 
 import com.computerascience.moneymanager.data.AssetStore;
 import com.computerascience.moneymanager.domain.AssetCategories;
@@ -49,6 +45,7 @@ import java.util.Set;
 public abstract class MoneyManagerActivity extends MoneyManagerUiActivity {
     protected static final String ADD_CATEGORY_OPTION = "新增资产类型...";
 
+    private final AssetDisplaySupport displaySupport = new AssetDisplaySupport(this);
     protected final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
     protected AssetStore store;
     protected List<AssetRecord> assets = new ArrayList<>();
@@ -263,22 +260,7 @@ public abstract class MoneyManagerActivity extends MoneyManagerUiActivity {
     }
 
     protected String formatAmount(AssetRecord asset) {
-        if (settings.hideAmounts) {
-            return "•••• " + asset.currency;
-        }
-        if (asset.amount.isEmpty()) {
-            return "-- " + asset.currency;
-        }
-        try {
-            Double value = parseNumber(asset.amount);
-            if (value == null) {
-                return asset.amount + " " + asset.currency;
-            }
-            DecimalFormat format = new DecimalFormat("#,##0.##");
-            return format.format(value) + " " + asset.currency;
-        } catch (NumberFormatException error) {
-            return asset.amount + " " + asset.currency;
-        }
+        return displaySupport.formatAmount(asset);
     }
 
     protected List<String> assetBreakdownLines(AssetRecord asset) {
@@ -445,105 +427,35 @@ public abstract class MoneyManagerActivity extends MoneyManagerUiActivity {
     }
 
     protected Spinner currencySpinner(String selectedCurrency) {
-        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
-        if (selected.isEmpty()) {
-            selected = "CNY";
-        }
-        List<String> options = currencyOptions(selected);
-        Spinner spinner = new Spinner(this);
-        spinner.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, options));
-        styleSpinner(spinner);
-        int selectedIndex = options.indexOf(selected);
-        spinner.setSelection(Math.max(0, selectedIndex));
-        return spinner;
+        return displaySupport.currencySpinner(selectedCurrency);
     }
 
     protected List<String> currencyOptions(String selectedCurrency) {
-        List<String> options = new ArrayList<>();
-        for (String currency : PortfolioSettings.COMMON_CURRENCIES) {
-            options.add(currency);
-        }
-        String selected = PortfolioSettings.cleanCurrency(selectedCurrency);
-        if (!selected.isEmpty() && !options.contains(selected)) {
-            options.add(selected);
-        }
-        return options;
+        return displaySupport.currencyOptions(selectedCurrency);
     }
 
     protected String[] categoryOptions(String selectedCategory) {
-        List<String> options = categoryOptionList(selectedCategory, true);
-        return options.toArray(new String[0]);
+        return displaySupport.categoryOptions(selectedCategory);
     }
 
     protected List<String> categoryOptionList(String selectedCategory, boolean includeAddOption) {
-        List<String> options = new ArrayList<>();
-        for (String category : AssetCategories.ALL) {
-            addCategoryOption(options, category);
-        }
-        if (settings != null) {
-            for (String category : settings.customCategories) {
-                addCategoryOption(options, category);
-            }
-        }
-        for (AssetRecord asset : assets) {
-            addCategoryOption(options, asset.category);
-        }
-        addCategoryOption(options, selectedCategory);
-        if (includeAddOption) {
-            options.add(ADD_CATEGORY_OPTION);
-        }
-        return options;
-    }
-
-    protected void addCategoryOption(List<String> options, String category) {
-        String cleaned = clean(category);
-        if (!cleaned.isEmpty() && !ADD_CATEGORY_OPTION.equals(cleaned) && !options.contains(cleaned)) {
-            options.add(cleaned);
-        }
+        return displaySupport.categoryOptionList(selectedCategory, includeAddOption);
     }
 
     protected boolean isDefaultAssetCategory(String category) {
-        for (String option : AssetCategories.ALL) {
-            if (option.equals(category)) {
-                return true;
-            }
-        }
-        return false;
+        return displaySupport.isDefaultAssetCategory(category);
     }
 
     protected TextView categoryMark(AssetRecord asset) {
-        int color = AssetMath.colorForCategory(asset.category);
-        TextView mark = text(categoryIcon(asset.category), 18, color, Typeface.BOLD);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(roundedBackground(SURFACE_ALT, Color.TRANSPARENT, 8));
-        return mark;
+        return displaySupport.categoryMark(asset);
     }
 
     protected String categoryIcon(String category) {
-        if (AssetCategories.BANK_ACCOUNT.equals(category)) return "¥";
-        if (AssetCategories.INVESTMENT_ACCOUNT.equals(category)) return "投";
-        if ("银行".equals(category) || AssetCategories.BANK_DEPOSIT.equals(category)) return "¥";
-        if (AssetCategories.BANK_WEALTH.equals(category)) return "%";
-        if ("券商".equals(category) || AssetCategories.BROKER_HOLDING.equals(category)) return "↗";
-        if (AssetCategories.STOCK_HOLDING.equals(category)) return "股";
-        if (AssetCategories.BROKER_CASH.equals(category)) return "$";
-        if (AssetCategories.FUND.equals(category)) return "%";
-        if (AssetCategories.CRYPTO.equals(category)) return "◇";
-        if (AssetCategories.REAL_ESTATE.equals(category)) return "⌂";
-        if (AssetCategories.DEBT.equals(category)) return "!";
-        String cleaned = clean(category);
-        return cleaned.isEmpty() ? "•" : cleaned.substring(0, 1);
+        return AssetDisplaySupport.categoryIcon(category);
     }
 
     protected TextView statusChip(AssetRecord asset) {
-        TextView chip = text(statusText(asset), 12, Color.WHITE, Typeface.BOLD);
-        chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(6), dp(10), dp(6));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(statusColor(asset));
-        bg.setCornerRadius(dp(999));
-        chip.setBackground(bg);
-        return chip;
+        return displaySupport.statusChip(asset);
     }
 
 }
