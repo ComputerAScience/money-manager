@@ -53,6 +53,7 @@ final class FlowAttributionRenderer {
 
         addBreakdownRows(UpdateAnalytics.breakdown(activity.updateEvents, activity.assets, activity.settings, 90));
         FlowSectionRenderer.add(activity, activity.flowAttributionList, "按原因", summary.reasons);
+        FlowSectionRenderer.add(activity, activity.flowAttributionList, "按资产", summary.assets);
         FlowSectionRenderer.add(activity, activity.flowAttributionList, "按类型", summary.categories);
         FlowSectionRenderer.add(activity, activity.flowAttributionList, "按机构", summary.institutions);
     }

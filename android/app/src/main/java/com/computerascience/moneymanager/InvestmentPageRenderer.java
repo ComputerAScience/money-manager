@@ -400,6 +400,7 @@ final class InvestmentPageRenderer {
 
         addPerformanceRows(breakdown);
         FlowSectionRenderer.add(activity, activity.investmentFlowList, "按原因", summary.reasons);
+        FlowSectionRenderer.add(activity, activity.investmentFlowList, "按资产", summary.assets);
         FlowSectionRenderer.add(activity, activity.investmentFlowList, "按类型", summary.categories);
         FlowSectionRenderer.add(activity, activity.investmentFlowList, "按机构", summary.institutions);
     }

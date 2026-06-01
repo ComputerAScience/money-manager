@@ -49,6 +49,7 @@ public final class UpdateAnalytics {
         Map<String, Bucket> reasons = new HashMap<>();
         Map<String, Bucket> categories = new HashMap<>();
         Map<String, Bucket> institutions = new HashMap<>();
+        Map<String, Bucket> assetsByName = new HashMap<>();
         for (AssetUpdateEvent event : events) {
             if (event.timestamp < cutoff) {
                 continue;
@@ -72,11 +73,13 @@ public final class UpdateAnalytics {
             addBucket(reasons, cleanReason(event.reason), delta);
             addBucket(categories, asset == null || asset.category.isEmpty() ? "未知类型" : asset.category, delta);
             addBucket(institutions, asset == null || asset.institution.isEmpty() ? "未填写机构" : asset.institution, delta);
+            addBucket(assetsByName, assetLabel(event, asset), delta);
         }
 
         summary.reasons.addAll(sortedBuckets(reasons));
         summary.categories.addAll(sortedBuckets(categories));
         summary.institutions.addAll(sortedBuckets(institutions));
+        summary.assets.addAll(sortedBuckets(assetsByName));
         return summary;
     }
 
@@ -189,6 +192,15 @@ public final class UpdateAnalytics {
         return value == null || value.trim().isEmpty() ? "余额核对" : value.trim();
     }
 
+    private static String assetLabel(AssetUpdateEvent event, AssetRecord asset) {
+        if (asset != null && !asset.name.isEmpty()) {
+            return asset.name;
+        }
+        return event.assetName == null || event.assetName.trim().isEmpty()
+                ? "未知资产"
+                : event.assetName.trim();
+    }
+
     private static boolean isDebtChange(AssetRecord asset, String reason) {
         return AssetMath.isLiability(asset) || reason.contains("负债变化");
     }
@@ -212,6 +224,7 @@ public final class UpdateAnalytics {
         public final List<Bucket> reasons = new ArrayList<>();
         public final List<Bucket> categories = new ArrayList<>();
         public final List<Bucket> institutions = new ArrayList<>();
+        public final List<Bucket> assets = new ArrayList<>();
         public int count;
         public int flatCount;
         public double delta;
