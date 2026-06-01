@@ -15,8 +15,8 @@ android {
         applicationId "com.computerascience.moneymanager"
         minSdk 23
         targetSdk 35
-        versionCode 49
-        versionName "0.6.11"
+        versionCode 50
+        versionName "0.6.12"
     }
 
     buildFeatures {
@@ -41,7 +41,7 @@ android {
             buildConfigField "String", "CHANNEL", "\"dev\""
             buildConfigField "String", "CHANNEL_LABEL", "\"Dev\""
             buildConfigField "String", "APK_DOWNLOAD_URL", "\"https://github.com/${repo}/releases/download/${devReleaseTag}/money-manager-dev.apk\""
-            buildConfigField "String", "UPDATE_INFO_URL", "\"https://github.com/${repo}/releases/download/${devReleaseTag}/version.json\""
+            buildConfigField "String", "UPDATE_INFO_URL", "\"https://github.com/${repo}/releases/download/${devReleaseTag}/dev-version.json\""
         }
     }
 
