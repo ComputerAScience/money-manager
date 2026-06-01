@@ -518,6 +518,10 @@ public abstract class MoneyManagerActivity extends Activity {
         return lines;
     }
 
+    protected double assetMagnitude(AssetRecord asset) {
+        return AssetMath.assetGrossAmount(asset) + AssetMath.assetLiabilityAmount(asset);
+    }
+
     protected String formatMoney(double value, String currency) {
         if (settings.hideAmounts) {
             return "•••• " + currency;
