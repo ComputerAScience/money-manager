@@ -265,12 +265,15 @@ public final class MainActivity extends MoneyManagerActivity {
         root.addView(trendPage);
 
         assetsPage = page();
+        View actionCenter = actionCenterCard();
         View assetManagement = assetManagementSection();
         View updatePlan = updatePlanCard();
         assetSections = new SectionDrawer.Item[]{
+                new SectionDrawer.Item("行动中心", actionCenter),
                 new SectionDrawer.Item("资产管理", assetManagement),
                 new SectionDrawer.Item("核对计划", updatePlan)
         };
+        assetsPage.addView(actionCenter);
         assetsPage.addView(assetManagement);
         assetsPage.addView(updatePlan);
         root.addView(assetsPage);
@@ -639,6 +642,7 @@ public final class MainActivity extends MoneyManagerActivity {
 
         insightSummary.setText(buildInsightText(portfolio));
         renderDataHealth(portfolio);
+        renderActionCenter(portfolio);
         renderUpdatePlan();
         renderRecentUpdates();
 
@@ -1119,6 +1123,28 @@ public final class MainActivity extends MoneyManagerActivity {
         recentUpdateList = new LinearLayout(this);
         recentUpdateList.setOrientation(LinearLayout.VERTICAL);
         card.addView(recentUpdateList, lp(-1, -2));
+        return card;
+    }
+
+    private View actionCenterCard() {
+        LinearLayout card = card();
+        card.addView(sectionTitle("行动中心"));
+
+        actionCenterSummary = text("", 14, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams summaryParams = lp(-1, -2);
+        summaryParams.topMargin = dp(8);
+        summaryParams.bottomMargin = dp(8);
+        card.addView(actionCenterSummary, summaryParams);
+
+        actionCenterList = new LinearLayout(this);
+        actionCenterList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(actionCenterList, lp(-1, -2));
+
+        Button reviewButton = secondaryButton("处理待办资产");
+        reviewButton.setOnClickListener(view -> showAssetManagement("issues"));
+        LinearLayout.LayoutParams reviewParams = lp(-1, dp(42));
+        reviewParams.topMargin = dp(10);
+        card.addView(reviewButton, reviewParams);
         return card;
     }
 
@@ -2641,9 +2667,16 @@ public final class MainActivity extends MoneyManagerActivity {
 
         List<AssetInstitutionGroups.Group> groups = DataHealth.issueGroups(assets, settings);
         dataHealthSummary.setText("发现 " + issues.size() + " 类数据维护问题，分布在 "
-                + groups.size() + " 个机构，建议优先处理。");
-        for (AssetInstitutionGroups.Group group : groups) {
-            dataHealthList.addView(healthInstitutionRow(group));
+                + groups.size() + " 个机构；具体处理已放到资产页行动中心。");
+        int limit = Math.min(5, issues.size());
+        for (int index = 0; index < limit; index += 1) {
+            dataHealthList.addView(healthIssueRow(issues.get(index)));
+        }
+        if (issues.size() > limit) {
+            TextView more = text("还有 " + (issues.size() - limit) + " 类问题可在行动中心继续处理。", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams moreParams = lp(-1, -2);
+            moreParams.topMargin = dp(8);
+            dataHealthList.addView(more, moreParams);
         }
     }
 
@@ -2657,7 +2690,77 @@ public final class MainActivity extends MoneyManagerActivity {
         return row;
     }
 
-    private View healthInstitutionRow(AssetInstitutionGroups.Group group) {
+    private void renderActionCenter(PortfolioSummary portfolio) {
+        actionCenterList.removeAllViews();
+        if (assets.isEmpty()) {
+            actionCenterSummary.setText("还没有资产。新增资产后，这里会按机构汇总需要处理的事项。");
+            actionCenterList.addView(emptyText("暂无待办。"));
+            return;
+        }
+
+        List<AssetRecord> actionAssets = actionAssets();
+        int urgentCount = 0;
+        int soonCount = 0;
+        int dataIssueCount = 0;
+        for (AssetRecord asset : actionAssets) {
+            int days = daysUntilDue(asset);
+            if (days <= 0) {
+                urgentCount += 1;
+            } else if (days <= 3) {
+                soonCount += 1;
+            }
+            if (DataHealth.hasIssue(asset, settings)) {
+                dataIssueCount += 1;
+            }
+        }
+
+        if (actionAssets.isEmpty()) {
+            actionCenterSummary.setText("当前没有到期或数据待完善事项。共 "
+                    + portfolio.assetCount + " 项资产，继续按周期维护即可。");
+            actionCenterList.addView(emptyText("暂无待办。"));
+            return;
+        }
+
+        List<AssetInstitutionGroups.Group> groups = AssetInstitutionGroups.groupByInstitution(actionAssets, settings);
+        actionCenterSummary.setText(urgentCount + " 项需要现在处理，"
+                + soonCount + " 项将在 3 天内到期，"
+                + dataIssueCount + " 项存在数据维护问题；按 "
+                + groups.size() + " 个机构分组。");
+
+        int limit = Math.min(5, groups.size());
+        for (int index = 0; index < limit; index += 1) {
+            actionCenterList.addView(actionInstitutionRow(groups.get(index)));
+        }
+        if (groups.size() > limit) {
+            TextView more = text("还有 " + (groups.size() - limit) + " 个机构可在资产管理里继续处理。", 12, MUTED, Typeface.NORMAL);
+            LinearLayout.LayoutParams moreParams = lp(-1, -2);
+            moreParams.topMargin = dp(8);
+            actionCenterList.addView(more, moreParams);
+        }
+    }
+
+    private List<AssetRecord> actionAssets() {
+        List<AssetRecord> actionAssets = new ArrayList<>();
+        for (AssetRecord asset : assets) {
+            if (DataHealth.hasIssue(asset, settings) || daysUntilDue(asset) <= 3) {
+                actionAssets.add(asset);
+            }
+        }
+        Collections.sort(actionAssets, (left, right) -> {
+            int dueCompare = Integer.compare(daysUntilDue(left), daysUntilDue(right));
+            if (dueCompare != 0) {
+                return dueCompare;
+            }
+            int issueCompare = Boolean.compare(DataHealth.hasIssue(right, settings), DataHealth.hasIssue(left, settings));
+            if (issueCompare != 0) {
+                return issueCompare;
+            }
+            return left.name.compareToIgnoreCase(right.name);
+        });
+        return actionAssets;
+    }
+
+    private View actionInstitutionRow(AssetInstitutionGroups.Group group) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(12), dp(10), dp(12), dp(12));
@@ -2675,23 +2778,55 @@ public final class MainActivity extends MoneyManagerActivity {
         titleGroup.addView(text(group.title, 14, INK, Typeface.BOLD));
         LinearLayout.LayoutParams metaParams = lp(-1, -2);
         metaParams.topMargin = dp(3);
-        titleGroup.addView(text(group.assets.size() + " 项需要完善 · " + group.displayApps(), 12, MUTED, Typeface.NORMAL), metaParams);
+        titleGroup.addView(text(group.assets.size() + " 项待处理 · " + group.displayApps(), 12, MUTED, Typeface.NORMAL), metaParams);
         header.addView(titleGroup, titleParams);
         card.addView(header);
 
         int limit = Math.min(3, group.assets.size());
         for (int index = 0; index < limit; index += 1) {
-            AssetRecord asset = group.assets.get(index);
-            String detail = asset.name + " · " + joinInline(DataHealth.assetIssues(asset, settings));
-            card.addView(healthIssueRow(detail));
+            card.addView(actionAssetLine(group.assets.get(index)));
         }
         if (group.assets.size() > limit) {
-            TextView more = text("还有 " + (group.assets.size() - limit) + " 项可在资产页继续处理。", 12, MUTED, Typeface.NORMAL);
+            TextView more = text("还有 " + (group.assets.size() - limit) + " 项可在资产管理继续处理。", 12, MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams moreParams = lp(-1, -2);
             moreParams.topMargin = dp(6);
             card.addView(more, moreParams);
         }
         return card;
+    }
+
+    private View actionAssetLine(AssetRecord asset) {
+        LinearLayout row = row();
+        row.setPadding(dp(10), dp(8), dp(10), dp(8));
+        row.setBackground(cardBackground(PANEL, PANEL_BORDER));
+        LinearLayout.LayoutParams rowParams = lp(-1, -2);
+        rowParams.topMargin = dp(8);
+        row.setLayoutParams(rowParams);
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.addView(text(asset.name, 13, INK, Typeface.BOLD));
+        TextView detail = text(joinInline(actionReasons(asset)), 12, MUTED, Typeface.NORMAL);
+        LinearLayout.LayoutParams detailParams = lp(-1, -2);
+        detailParams.topMargin = dp(3);
+        copy.addView(detail, detailParams);
+        row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView due = updateDueChip(asset);
+        row.addView(due);
+        return row;
+    }
+
+    private List<String> actionReasons(AssetRecord asset) {
+        List<String> reasons = new ArrayList<>(DataHealth.assetIssues(asset, settings));
+        int days = daysUntilDue(asset);
+        if (days > 0 && days <= 3 && !reasons.contains("待更新")) {
+            reasons.add(days + " 天后到期");
+        }
+        if (reasons.isEmpty()) {
+            reasons.add("按计划核对");
+        }
+        return reasons;
     }
 
     private void renderUpdatePlan() {

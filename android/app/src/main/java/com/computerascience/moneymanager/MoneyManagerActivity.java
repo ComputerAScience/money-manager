@@ -84,6 +84,8 @@ public abstract class MoneyManagerActivity extends Activity {
     protected SectionDrawer.Item[] trendSections;
     protected SectionDrawer.Item[] assetSections;
     protected LinearLayout assetList;
+    protected TextView actionCenterSummary;
+    protected LinearLayout actionCenterList;
     protected LinearLayout allocationLegend;
     protected LinearLayout allocationTargetList;
     protected LinearLayout institutionList;
