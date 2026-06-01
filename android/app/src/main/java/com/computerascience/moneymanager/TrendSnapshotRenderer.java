@@ -151,7 +151,8 @@ final class TrendSnapshotRenderer {
             return "快照不足，继续记录后再计算阶段变化。";
         }
         if (activity.settings.hideAmounts) {
-            return "金额变化已隐藏，区间为 " + metric.first.dayKey + " 到 " + metric.last.dayKey + "。";
+            return "金额变化已隐藏，区间为 " + metric.first.dayKey + " 到 " + metric.last.dayKey
+                    + "，共 " + Math.max(0, metric.count - 1) + " 个变化间隔。";
         }
 
         double ratio = Math.abs(metric.first.netWorth) < 0.0001
@@ -163,7 +164,15 @@ final class TrendSnapshotRenderer {
                 + "；高点 " + metric.high.dayKey + " "
                 + activity.formatMoney(metric.high.netWorth, metric.currency)
                 + "，低点 " + metric.low.dayKey + " "
-                + activity.formatMoney(metric.low.netWorth, metric.currency) + "。";
+                + activity.formatMoney(metric.low.netWorth, metric.currency)
+                + "；最大回撤 " + activity.formatMoney(metric.maxDrawdown, metric.currency)
+                + "（" + String.format(Locale.getDefault(), "%.1f", metric.maxDrawdownPercent) + "%）"
+                + "，" + metric.drawdownPeak.dayKey + " 到 " + metric.drawdownLow.dayKey
+                + "；平均单次波动 " + activity.formatMoney(metric.averageAbsDelta, metric.currency)
+                + "，最佳/最差单次 "
+                + metric.bestSnapshot.dayKey + " " + activity.formatSignedMoney(metric.bestDelta, metric.currency)
+                + " / " + metric.worstSnapshot.dayKey + " "
+                + activity.formatSignedMoney(metric.worstDelta, metric.currency) + "。";
     }
 
     private void renderTrendHistory(List<AssetSnapshot> trendSnapshots) {

@@ -93,12 +93,45 @@ public final class TrendAnalytics {
         AssetSnapshot last = window.get(window.size() - 1);
         AssetSnapshot high = first;
         AssetSnapshot low = first;
+        AssetSnapshot bestSnapshot = window.get(1);
+        AssetSnapshot worstSnapshot = window.get(1);
+        AssetSnapshot peak = first;
+        AssetSnapshot drawdownPeak = first;
+        AssetSnapshot drawdownLow = first;
+        double bestDelta = window.get(1).netWorth - first.netWorth;
+        double worstDelta = bestDelta;
+        double totalAbsDelta = 0;
+        double maxDrawdown = 0;
         for (AssetSnapshot snapshot : window) {
             if (snapshot.netWorth > high.netWorth) {
                 high = snapshot;
             }
             if (snapshot.netWorth < low.netWorth) {
                 low = snapshot;
+            }
+            if (snapshot.netWorth > peak.netWorth) {
+                peak = snapshot;
+            }
+            double drawdown = peak.netWorth - snapshot.netWorth;
+            if (drawdown > maxDrawdown) {
+                maxDrawdown = drawdown;
+                drawdownPeak = peak;
+                drawdownLow = snapshot;
+            }
+        }
+
+        for (int index = 1; index < window.size(); index += 1) {
+            AssetSnapshot previous = window.get(index - 1);
+            AssetSnapshot current = window.get(index);
+            double delta = current.netWorth - previous.netWorth;
+            totalAbsDelta += Math.abs(delta);
+            if (delta > bestDelta) {
+                bestDelta = delta;
+                bestSnapshot = current;
+            }
+            if (delta < worstDelta) {
+                worstDelta = delta;
+                worstSnapshot = current;
             }
         }
 
@@ -111,7 +144,16 @@ public final class TrendAnalytics {
                 last,
                 high,
                 low,
-                last.netWorth - first.netWorth
+                last.netWorth - first.netWorth,
+                bestSnapshot,
+                worstSnapshot,
+                drawdownPeak,
+                drawdownLow,
+                bestDelta,
+                worstDelta,
+                window.size() <= 1 ? 0 : totalAbsDelta / (window.size() - 1),
+                maxDrawdown,
+                Math.abs(drawdownPeak.netWorth) < 0.0001 ? 0 : maxDrawdown / Math.abs(drawdownPeak.netWorth) * 100
         );
     }
 
@@ -178,9 +220,19 @@ public final class TrendAnalytics {
         public final AssetSnapshot high;
         public final AssetSnapshot low;
         public final double change;
+        public final AssetSnapshot bestSnapshot;
+        public final AssetSnapshot worstSnapshot;
+        public final AssetSnapshot drawdownPeak;
+        public final AssetSnapshot drawdownLow;
+        public final double bestDelta;
+        public final double worstDelta;
+        public final double averageAbsDelta;
+        public final double maxDrawdown;
+        public final double maxDrawdownPercent;
 
         Metric(String label, int count, String currency) {
-            this(label, count, currency, false, null, null, null, null, 0);
+            this(label, count, currency, false, null, null, null, null, 0,
+                    null, null, null, null, 0, 0, 0, 0, 0);
         }
 
         Metric(
@@ -192,7 +244,16 @@ public final class TrendAnalytics {
                 AssetSnapshot last,
                 AssetSnapshot high,
                 AssetSnapshot low,
-                double change
+                double change,
+                AssetSnapshot bestSnapshot,
+                AssetSnapshot worstSnapshot,
+                AssetSnapshot drawdownPeak,
+                AssetSnapshot drawdownLow,
+                double bestDelta,
+                double worstDelta,
+                double averageAbsDelta,
+                double maxDrawdown,
+                double maxDrawdownPercent
         ) {
             this.label = label;
             this.count = count;
@@ -203,6 +264,15 @@ public final class TrendAnalytics {
             this.high = high;
             this.low = low;
             this.change = change;
+            this.bestSnapshot = bestSnapshot;
+            this.worstSnapshot = worstSnapshot;
+            this.drawdownPeak = drawdownPeak;
+            this.drawdownLow = drawdownLow;
+            this.bestDelta = bestDelta;
+            this.worstDelta = worstDelta;
+            this.averageAbsDelta = averageAbsDelta;
+            this.maxDrawdown = maxDrawdown;
+            this.maxDrawdownPercent = maxDrawdownPercent;
         }
     }
 
