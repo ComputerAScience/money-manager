@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const maxArg = process.argv.find((arg) => arg.startsWith("--max="));
-const maxLines = maxArg ? Number(maxArg.slice("--max=".length)) : 750;
+const maxLines = maxArg ? Number(maxArg.slice("--max=".length)) : 650;
 const root = path.join(__dirname, "..", "android", "app", "src", "main", "java");
 
 function javaFiles(dir) {
